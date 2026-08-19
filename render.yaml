@@ -21,17 +21,18 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
+      - key: MODE
+        value: live
+      - key: LIVE_MONGODB_URI
         sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
-      # Public hostnames, not secrets — and they must match the `live` row in
-      # crm/src/lib/config.ts and student/src/lib/config.ts exactly.
-      - key: CLIENT_CRM_URL
+      # Must match the LIVE_ values in crm/.env and student/.env.
+      - key: LIVE_CLIENT_CRM_URL
         value: https://crm.vernyr.com
-      - key: CLIENT_STUDENT_URL
+      - key: LIVE_CLIENT_STUDENT_URL
         value: https://portal.vernyr.com
       - key: CLOUDINARY_CLOUD_NAME
         sync: false

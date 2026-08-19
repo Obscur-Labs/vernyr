@@ -80,7 +80,7 @@ app.use((_req, res) => res.status(404).json({ message: "Not found" }));
 app.use(uploadErrorHandler);
 
 server.listen(env.port, () => {
-  console.log(`StudyCRM backend running on port ${env.port}`);
+  console.log(`StudyCRM backend running on port ${env.port} (mode: ${env.mode})`);
   console.log(`Allowed browser origins: ${env.allowedOrigins.join(", ") || "(none)"}`);
   if (!isCloudinaryConfigured()) {
     console.warn("⚠  Cloudinary is not configured — file uploads will return 503. Set CLOUDINARY_* in .env");
