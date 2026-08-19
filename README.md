@@ -49,11 +49,11 @@ npm install                 # installs backend, crm and student together
 ### 2. Configure environment
 
 ```bash
-cp backend/.env.example backend/.env              # fill in JWT_SECRET and MONGODB_URI
 ```
 
-`crm/.env` and `student/.env` are already committed — flip `NEXT_PUBLIC_MODE`
-in either to switch between `local` and `live`.
+Create `backend/.env`, `crm/.env` and `student/.env` by hand — none are committed.
+The tables under **Environment Variables** list what each one needs. Flip
+`NEXT_PUBLIC_MODE` in either frontend `.env` to switch between `local` and `live`.
 
 ### 3. Run
 
@@ -92,21 +92,22 @@ npm run clean               # remove node_modules and build outputs
 | Variable | Description |
 |----------|-------------|
 | `PORT` | Server port (default: 5000) |
-| `MONGODB_URI` | MongoDB connection string |
+| `MODE` | `local` or `live` — picks the `LOCAL_`/`LIVE_` variant below |
+| `LOCAL_MONGODB_URI` / `LIVE_MONGODB_URI` | MongoDB connection string per mode |
 | `JWT_SECRET` | JWT signing secret |
 | `JWT_EXPIRES_IN` | Token expiry (default: 7d) |
-| `CLIENT_CRM_URL` | CRM origin for CORS (default: http://localhost:3000) |
-| `CLIENT_STUDENT_URL` | Student portal origin for CORS (default: http://localhost:3001) |
+| `LOCAL_CLIENT_CRM_URL` / `LIVE_CLIENT_CRM_URL` | CRM origin for CORS |
+| `LOCAL_CLIENT_STUDENT_URL` / `LIVE_CLIENT_STUDENT_URL` | Student portal origin for CORS |
 
 ### crm/.env and student/.env
 
-Committed, public hostnames only.
+Gitignored. Public hostnames only — on Vercel these go in project settings.
 
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_MODE` | `local` or `live` — picks which pair below is used |
 | `NEXT_PUBLIC_LOCAL_API_ORIGIN` | Backend origin for local (http://localhost:5000) |
-| `NEXT_PUBLIC_LIVE_API_ORIGIN` | Backend origin for live (https://api.vernyr.com) |
+| `NEXT_PUBLIC_LIVE_API_ORIGIN` | Backend origin for live |
 | `NEXT_PUBLIC_LOCAL_STUDENT_URL` | CRM only — student portal, local |
 | `NEXT_PUBLIC_LIVE_STUDENT_URL` | CRM only — student portal, live |
 

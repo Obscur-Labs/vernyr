@@ -48,32 +48,52 @@ because dependencies are hoisted above each app directory.
 
 ## Environment Setup
 
-Copy `.env.example` → `.env` in `backend/`. The frontends have no env files — see
-**Frontend environments** below.
+No env file is committed anywhere. `backend/.env`, `crm/.env` and `student/.env`
+are all gitignored and created by hand.
 
-**backend/.env** required vars:
+**backend/.env** — `MODE=local|live` picks the `LOCAL_`/`LIVE_` variant of each
+mode-scoped var; the bare name (`MONGODB_URI`) still works as a fallback.
+
 ```
+MODE=local
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/studycrm
+
+LOCAL_MONGODB_URI=...
+LOCAL_CLIENT_CRM_URL=http://localhost:3000
+LOCAL_CLIENT_STUDENT_URL=http://localhost:3001
+
+LIVE_MONGODB_URI=...
+LIVE_CLIENT_CRM_URL=...
+LIVE_CLIENT_STUDENT_URL=...
+
 JWT_SECRET=...
 JWT_EXPIRES_IN=7d
-CLIENT_CRM_URL=http://localhost:3000
-CLIENT_STUDENT_URL=http://localhost:3001
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
-CLOUDINARY_FOLDER=la-europa-docs
+CLOUDINARY_FOLDER=vernyr-docs
 ```
+
+`backend/src/config/env.ts` is the only place env is read. It throws at boot when
+`MODE=live` (or `NODE_ENV=production`) and a required value is missing.
 
 Uploads return `503` until the `CLOUDINARY_*` values are filled in; `GET /api/health`
 reports `storage: "cloudinary" | "unconfigured"`.
 
 ### Frontend environments
 
-`crm/.env` and `student/.env` are committed — public hostnames only, no secrets.
-Each holds both URL sets plus `NEXT_PUBLIC_MODE=local|live`; flip that one line
-to switch. On Vercel, set `NEXT_PUBLIC_MODE=live` in project settings (a real
-env var overrides the file).
+`crm/.env` and `student/.env` are gitignored. Each holds both URL sets plus
+`NEXT_PUBLIC_MODE=local|live`; flip that one line to switch locally. On Vercel
+the values are entered in project settings instead — `NEXT_PUBLIC_MODE=live`
+plus the `LIVE_` pair.
+
+```
+NEXT_PUBLIC_MODE=local
+NEXT_PUBLIC_LOCAL_API_ORIGIN=http://localhost:5000
+NEXT_PUBLIC_LOCAL_STUDENT_URL=http://localhost:3001
+NEXT_PUBLIC_LIVE_API_ORIGIN=...
+NEXT_PUBLIC_LIVE_STUDENT_URL=...
+```
 
 `src/lib/config.ts` reads them and exports `mode`, `apiOrigin`, `apiUrl`
 (= `apiOrigin + '/api'`) and, in the CRM, `studentUrl`. Import from

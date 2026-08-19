@@ -11,9 +11,6 @@ student/.next/
 backend/.env
 **/.env
 **/.env.local
-# ...except the frontend ones — public hostnames only, committed for Vercel.
-!crm/ .env
-!student/ .env
 
 
 # Logs

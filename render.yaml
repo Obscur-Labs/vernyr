@@ -31,9 +31,9 @@ services:
         value: 7d
       # Must match the LIVE_ values in crm/.env and student/.env.
       - key: LIVE_CLIENT_CRM_URL
-        value: https://crm.vernyr.com
+        sync: false
       - key: LIVE_CLIENT_STUDENT_URL
-        value: https://portal.vernyr.com
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
