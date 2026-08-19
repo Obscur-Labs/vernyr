@@ -1,0 +1,43 @@
+# Render blueprint for the StudyCRM API.
+#
+# The repo is an npm-workspaces monorepo, so the service builds from the repo
+# root: `npm ci` resolves the single root lockfile, and only the backend
+# workspace is compiled and started.
+#
+# Every secret below is marked `sync: false` — Render prompts for it on first
+# deploy and never stores it in git.
+services:
+  - type: web
+    name: studycrm-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    # --include=dev is required: Render sets NODE_ENV=production, which would
+    # otherwise skip devDependencies and leave the build without typescript.
+    buildCommand: npm ci --include=dev && npm run build:backend
+    startCommand: npm run start:backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # Public hostnames, not secrets — and they must match the `live` row in
+      # crm/src/lib/config.ts and student/src/lib/config.ts exactly.
+      - key: CLIENT_CRM_URL
+        value: https://crm.vernyr.com
+      - key: CLIENT_STUDENT_URL
+        value: https://portal.vernyr.com
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: la-europa-docs

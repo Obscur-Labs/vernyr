@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import jwt, { type SignOptions } from 'jsonwebtoken';
+import { env } from '../config/env';
 import mongoose from 'mongoose';
 import User, { UserRole } from '../models/User';
 import { isCloudinaryConfigured } from '../config/cloudinary';
@@ -301,8 +302,8 @@ router.post('/users/:id/impersonate', async (req: Request, res: Response): Promi
 
     const token = jwt.sign(
       { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'] },
+      env.jwtSecret,
+      { expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'] },
     );
     res.json({ token, user, studentId: user.studentId?.toString() ?? null });
   } catch (err) {

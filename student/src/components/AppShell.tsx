@@ -9,8 +9,8 @@ import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
 import { io, Socket } from 'socket.io-client';
 import type { Notification } from '@/types';
+import { apiOrigin } from '@/lib/config';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
 
 interface NavItem {
   href: string;
@@ -107,7 +107,7 @@ export function AppShell({ children, title }: Props) {
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem('student_token');
-    const socket = io(SOCKET_URL, { auth: { token } });
+    const socket = io(apiOrigin, { auth: { token } });
     socketRef.current = socket;
     socket.on('notification', (n: { title?: string }) => {
       setUnreadCount(c => c + 1);

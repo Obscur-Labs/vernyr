@@ -11,8 +11,7 @@ import { io, Socket } from 'socket.io-client';
 import type { Message, Student, DocRequestItem, FormAnswer } from '@/types';
 import { DocRequestCard, FormRequestCard, FormResponseCard, ReplyQuote, Ticks } from '@/components/chat/MessageCards';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
-const API_BASE   = process.env.NEXT_PUBLIC_API_URL    || 'http://localhost:5000/api';
+import { apiOrigin, apiUrl } from '@/lib/config';
 
 interface Participant { _id: string; name: string; email?: string; role?: string; avatar?: string; }
 
@@ -152,7 +151,7 @@ export default function ChatPage() {
   /* ── Socket (one connection; join/leave rooms on switch) ───────────────── */
   useEffect(() => {
     if (!user) return;
-    const socket = io(SOCKET_URL, { auth: { token: localStorage.getItem('student_token') } });
+    const socket = io(apiOrigin, { auth: { token: localStorage.getItem('student_token') } });
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -292,7 +291,7 @@ export default function ChatPage() {
       if (studentId) form.append('studentId', studentId);
 
       const token = localStorage.getItem('student_token');
-      const res   = await fetch(`${API_BASE}/messages/send-file`, {
+      const res   = await fetch(`${apiUrl}/messages/send-file`, {
         method:  'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body:    form,
@@ -321,7 +320,7 @@ export default function ChatPage() {
       form.append('conversationId', activeRoom._id);
 
       const token = localStorage.getItem('student_token');
-      const res   = await fetch(`${API_BASE}/documents/upload`, {
+      const res   = await fetch(`${apiUrl}/documents/upload`, {
         method:  'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body:    form,

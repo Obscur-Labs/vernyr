@@ -9,12 +9,11 @@ student/.next/
 
 # Environment files
 backend/.env
-crm/.env.local
-student/.env.local
-student/.env.live
 **/.env
 **/.env.local
-**/.env.live
+# ...except the frontend ones — public hostnames only, committed for Vercel.
+!crm/ .env
+!student/ .env
 
 
 # Logs

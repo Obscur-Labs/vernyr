@@ -26,12 +26,13 @@ export interface UploadedFile {
   bytes: number;
 }
 
-const ROOT = (process.env.CLOUDINARY_FOLDER || 'la-europa-docs').replace(/^\/+|\/+$/g, '');
+// Read per call rather than at module load — see the note on `client()` below.
+const root = () => (process.env.CLOUDINARY_FOLDER || 'la-europa-docs').replace(/^\/+|\/+$/g, '');
 
 export const mediaFolders = {
-  studentDocuments: (studentId: string) => `${ROOT}/students/${studentId}/documents`,
-  chatFiles:        (conversationId: string) => `${ROOT}/chat/${conversationId}/files`,
-  chatVoice:        (conversationId: string) => `${ROOT}/chat/${conversationId}/voice`,
+  studentDocuments: (studentId: string) => `${root()}/students/${studentId}/documents`,
+  chatFiles:        (conversationId: string) => `${root()}/chat/${conversationId}/files`,
+  chatVoice:        (conversationId: string) => `${root()}/chat/${conversationId}/voice`,
 };
 
 // Configured lazily: `dotenv.config()` runs after this module is imported,

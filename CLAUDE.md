@@ -48,7 +48,8 @@ because dependencies are hoisted above each app directory.
 
 ## Environment Setup
 
-Copy `.env.example` → `.env` in `backend/`, and `.env.local.example` → `.env.local` in both `crm/` and `student/`.
+Copy `.env.example` → `.env` in `backend/`. The frontends have no env files — see
+**Frontend environments** below.
 
 **backend/.env** required vars:
 ```
@@ -67,11 +68,17 @@ CLOUDINARY_FOLDER=la-europa-docs
 Uploads return `503` until the `CLOUDINARY_*` values are filled in; `GET /api/health`
 reports `storage: "cloudinary" | "unconfigured"`.
 
-**crm/.env.local** / **student/.env.local**:
-```
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
-```
+### Frontend environments
+
+`crm/.env` and `student/.env` are committed — public hostnames only, no secrets.
+Each holds both URL sets plus `NEXT_PUBLIC_MODE=local|live`; flip that one line
+to switch. On Vercel, set `NEXT_PUBLIC_MODE=live` in project settings (a real
+env var overrides the file).
+
+`src/lib/config.ts` reads them and exports `mode`, `apiOrigin`, `apiUrl`
+(= `apiOrigin + '/api'`) and, in the CRM, `studentUrl`. Import from
+`@/lib/config` — never read `process.env` in a component. `next.config.ts`
+throws if the selected mode's values are missing.
 
 ## Architecture
 
@@ -104,7 +111,7 @@ The `StudentStage` enum drives the entire pipeline:
 `Visa.stage`: `not_started → documents_complete → visa_filed → biometrics → interview → decision → approved | rejected | reapplied`
 
 ### Real-time (Socket.io)
-The backend creates an `http.Server` wrapping Express and attaches `socket.io`. CORS is configured to allow both frontend origins. The socket setup lives in `backend/src/socket.ts`. Both frontends connect via `NEXT_PUBLIC_SOCKET_URL`. The exported `io` instance from `backend/src/index.ts` is used inside routes to emit events.
+The backend creates an `http.Server` wrapping Express and attaches `socket.io`. CORS is configured to allow both frontend origins. The socket setup lives in `backend/src/socket.ts`. Both frontends connect via `apiOrigin` from `@/lib/config`. The exported `io` instance from `backend/src/index.ts` is used inside routes to emit events.
 
 ### File Storage (Cloudinary)
 Every user-uploaded file goes to Cloudinary — nothing is written to the local disk.

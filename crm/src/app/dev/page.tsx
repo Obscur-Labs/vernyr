@@ -6,6 +6,7 @@ import { useToast } from '@/context/ToastContext';
 import { devApi } from '@/lib/devApi';
 import type { DevUser, DevOverview, DevRbac, ImpersonateResult } from '@/lib/devApi';
 import type { UserRole } from '@/types';
+import { studentUrl } from '@/lib/config';
 
 const ROLES: UserRole[] = [
   'super_admin', 'admin', 'counsellor_manager', 'counsellor', 'finance', 'accountant',
@@ -478,7 +479,7 @@ function MiniButton({ onClick, danger, children }: { onClick: () => void; danger
  */
 function StudentHandoffModal({ result, onClose }: { result: ImpersonateResult; onClose: () => void }) {
   const { toast } = useToast();
-  const portal = process.env.NEXT_PUBLIC_STUDENT_URL || 'http://localhost:3001';
+  const portal = studentUrl;
 
   const snippet = [
     `localStorage.setItem('student_token', ${JSON.stringify(result.token)});`,

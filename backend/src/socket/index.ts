@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 import { setIo, getIo } from './emitter';
 import User from '../models/User';
 
@@ -34,7 +35,7 @@ export function setupSocket(io: Server) {
     const token = socket.handshake.auth?.token as string | undefined;
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string };
+        const decoded = jwt.verify(token, env.jwtSecret) as { id: string };
         userId = decoded.id;
         socket.data.userId = userId;
         socket.join(`user:${userId}`);

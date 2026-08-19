@@ -50,9 +50,10 @@ npm install                 # installs backend, crm and student together
 
 ```bash
 cp backend/.env.example backend/.env              # fill in JWT_SECRET and MONGODB_URI
-cp crm/.env.local.example crm/.env.local
-cp student/.env.local.example student/.env.local
 ```
+
+`crm/.env` and `student/.env` are already committed — flip `NEXT_PUBLIC_MODE`
+in either to switch between `local` and `live`.
 
 ### 3. Run
 
@@ -97,12 +98,20 @@ npm run clean               # remove node_modules and build outputs
 | `CLIENT_CRM_URL` | CRM origin for CORS (default: http://localhost:3000) |
 | `CLIENT_STUDENT_URL` | Student portal origin for CORS (default: http://localhost:3001) |
 
-### crm/.env.local and student/.env.local
+### crm/.env and student/.env
+
+Committed, public hostnames only.
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Backend API base URL (default: http://localhost:5000/api) |
-| `NEXT_PUBLIC_SOCKET_URL` | Socket.IO server URL (default: http://localhost:5000) |
+| `NEXT_PUBLIC_MODE` | `local` or `live` — picks which pair below is used |
+| `NEXT_PUBLIC_LOCAL_API_ORIGIN` | Backend origin for local (http://localhost:5000) |
+| `NEXT_PUBLIC_LIVE_API_ORIGIN` | Backend origin for live (https://api.vernyr.com) |
+| `NEXT_PUBLIC_LOCAL_STUDENT_URL` | CRM only — student portal, local |
+| `NEXT_PUBLIC_LIVE_STUDENT_URL` | CRM only — student portal, live |
+
+The REST base is derived as `API_ORIGIN + /api`, so there is no separate
+API/socket URL to keep in sync.
 
 ---
 

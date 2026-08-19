@@ -1,6 +1,5 @@
 import type { UserRole } from '@/types';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { apiUrl } from './config';
 
 /**
  * Client for the unauthenticated `/api/dev` router. Deliberately not the shared
@@ -8,7 +7,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
  * both of which defeat the point of a console you use while logged out.
  */
 export async function devApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}/dev${path}`, {
+  const res = await fetch(`${apiUrl}/dev${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });

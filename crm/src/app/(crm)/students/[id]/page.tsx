@@ -3,6 +3,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { fileHref } from '@/lib/media';
+import { apiUrl } from '@/lib/config';
 import { StageTracker } from '@/components/StageTracker';
 import { useToast } from '@/context/ToastContext';
 import { useAuthStore } from '@/stores/authStore';
@@ -73,9 +74,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
     if (!student) return;
     setZipBusy(true);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const token   = localStorage.getItem('crm_token');
-      const res = await fetch(`${apiBase}/documents/download-all/${student._id}`, {
+      const token = localStorage.getItem('crm_token');
+      const res = await fetch(`${apiUrl}/documents/download-all/${student._id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.status === 404) { toast('No documents uploaded yet', 'error'); return; }

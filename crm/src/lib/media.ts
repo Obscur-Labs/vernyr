@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { apiOrigin } from './config';
 
 /**
  * Uploads live on Cloudinary and are stored as absolute https URLs. Records
@@ -8,5 +8,5 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export function fileHref(fileUrl?: string): string {
   if (!fileUrl) return '';
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
-  return `${API_BASE.replace('/api', '')}${fileUrl}`;
+  return `${apiOrigin}${fileUrl}`;
 }

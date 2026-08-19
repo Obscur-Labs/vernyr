@@ -11,8 +11,7 @@ import type { Conversation, Message, Student, DocType, FormField } from '@/types
 import { DocRequestCard, FormRequestCard, FormResponseCard, ReplyQuote, Ticks } from '@/components/chat/MessageCards';
 import { RequestDocsModal, RequestFormModal } from '@/components/chat/RequestModals';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
-const API_BASE   = process.env.NEXT_PUBLIC_API_URL    || 'http://localhost:5000/api';
+import { apiOrigin, apiUrl } from '@/lib/config';
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
 function getOther(conv: Conversation, myId: string) {
@@ -194,7 +193,7 @@ function ChatInner() {
   useEffect(() => {
     if (!user || chatBlocked) return;
     const token  = localStorage.getItem('crm_token');
-    const socket = io(SOCKET_URL, { auth: { token } });
+    const socket = io(apiOrigin, { auth: { token } });
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -357,7 +356,7 @@ function ChatInner() {
       form.append('file', file);
       form.append('conversationId', activeConv._id);
       const token = localStorage.getItem('crm_token');
-      const res   = await fetch(`${API_BASE}/messages/send-file`, {
+      const res   = await fetch(`${apiUrl}/messages/send-file`, {
         method:  'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body:    form,
@@ -427,7 +426,7 @@ function ChatInner() {
     setZipBusy(true);
     try {
       const token = localStorage.getItem('crm_token');
-      const res = await fetch(`${API_BASE}/documents/download-all/${studentRec._id}`, {
+      const res = await fetch(`${apiUrl}/documents/download-all/${studentRec._id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.status === 404) { toast('No documents uploaded yet', 'info'); return; }

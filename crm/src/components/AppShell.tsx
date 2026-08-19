@@ -7,8 +7,8 @@ import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
 import { io, Socket } from 'socket.io-client';
 import type { UserRole, Notification } from '@/types';
+import { apiOrigin } from '@/lib/config';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
 
 const ROLE_COLORS: Record<UserRole, string> = {
   super_admin:       'bg-indigo-500/15 text-indigo-400',
@@ -186,7 +186,7 @@ export function AppShell({ children }: Props) {
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem('crm_token');
-    const socket = io(SOCKET_URL, { auth: { token } });
+    const socket = io(apiOrigin, { auth: { token } });
     socketRef.current = socket;
     socket.on('notification', (n: Notification) => {
       setNotifications(prev => [n, ...prev].slice(0, 20));

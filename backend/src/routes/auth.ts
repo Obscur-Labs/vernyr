@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import jwt, { type SignOptions } from 'jsonwebtoken';
+import { env } from '../config/env';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User';
 import Student from '../models/Student';
@@ -24,8 +25,8 @@ router.post('/login', [
     }
     const token = jwt.sign(
       { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'] }
+      env.jwtSecret,
+      { expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'] }
     );
     res.json({ token, user, studentId: user.studentId?.toString() ?? null });
   } catch (err) {
@@ -61,7 +62,7 @@ router.post('/register', [
     const user = await User.create({ name, email, password, role: role || 'support' });
     const token = jwt.sign(
       { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET || 'secret',
+      env.jwtSecret,
       { expiresIn: '7d' }
     );
     res.status(201).json({ token, user });
@@ -118,8 +119,8 @@ router.post('/register-student', [
     // 4. Generate JWT token
     const token = jwt.sign(
       { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'] }
+      env.jwtSecret,
+      { expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'] }
     );
 
     // 5. Respond
