@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'counsellor_manager' | 'finance' | 'visa_team' | 'doc_verification' | 'university_team' | 'counsellor' | 'accountant' | 'support' | 'student' | 'university';
+export type UserRole = 'admin' | 'counsellor' | 'student' | 'university';
 
 export type StudentStage = 'inquiry' | 'counselling' | 'university_selection' | 'application_submitted' | 'offer_letter' | 'fee_payment' | 'cas_i20' | 'visa_filing' | 'visa_approved' | 'departure';
 
@@ -14,7 +14,8 @@ export type PaymentType = 'application_fee' | 'university_fee' | 'visa_fee' | 's
 export interface User {
   _id: string;
   name: string;
-  email: string;
+  username?: string;
+  email?: string;
   role: UserRole;
   avatar?: string;
   phone?: string;
@@ -124,7 +125,7 @@ export interface Student {
   assignedCounsellor?: User | null;
   stage: StudentStage;
   personal: {
-    name: string; email: string; phone: string;
+    name: string; email?: string; phone: string;
     dob?: string; gender?: string; nationality?: string; address?: string;
   };
   education: {

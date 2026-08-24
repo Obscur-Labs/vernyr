@@ -149,7 +149,7 @@ export default function ProfilePage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-t1">{user?.name}</h1>
-            <p className="text-t3 text-sm">{user?.email}</p>
+            <p className="text-t3 text-sm">{user?.username ?? user?.email}</p>
           </div>
         </div>
 

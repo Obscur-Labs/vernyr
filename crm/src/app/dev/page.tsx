@@ -3,36 +3,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
+import { usesEmailLogin, loginHandle } from '@/lib/credentials';
 import { devApi } from '@/lib/devApi';
-import type { DevUser, DevOverview, DevRbac, ImpersonateResult } from '@/lib/devApi';
+import type {
+  DevUser, DevOverview, DevRbac, ImpersonateResult,
+  ActivityPage, ActivityAction,
+} from '@/lib/devApi';
 import type { UserRole } from '@/types';
 import { studentUrl } from '@/lib/config';
 
-const ROLES: UserRole[] = [
-  'super_admin', 'admin', 'counsellor_manager', 'counsellor', 'finance', 'accountant',
-  'visa_team', 'doc_verification', 'university_team', 'support', 'student', 'university',
-];
+const ROLES: UserRole[] = ['admin', 'counsellor', 'student', 'university'];
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  super_admin:       'bg-indigo-500/15 text-indigo-400',
-  admin:             'bg-violet-500/15 text-violet-400',
-  counsellor_manager:'bg-emerald-500/15 text-emerald-400',
-  counsellor:        'bg-emerald-500/15 text-emerald-400',
-  finance:           'bg-amber-500/15 text-amber-400',
-  accountant:        'bg-amber-500/15 text-amber-400',
-  visa_team:         'bg-blue-500/15 text-blue-400',
-  doc_verification:  'bg-orange-500/15 text-orange-400',
-  university_team:   'bg-cyan-500/15 text-cyan-400',
-  support:           'bg-slate-500/15 text-slate-400',
-  student:           'bg-sky-500/15 text-sky-400',
-  university:        'bg-teal-500/15 text-teal-400',
+  admin:      'bg-indigo-500/15 text-indigo-400',
+  counsellor: 'bg-emerald-500/15 text-emerald-400',
+  student:    'bg-sky-500/15 text-sky-400',
+  university: 'bg-teal-500/15 text-teal-400',
 };
 
-type Tab = 'overview' | 'users' | 'rbac' | 'data';
+type Tab = 'overview' | 'users' | 'activity' | 'rbac' | 'data';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'users',    label: 'Users & RBAC' },
+  { id: 'activity', label: 'Activity' },
   { id: 'rbac',     label: 'Access Matrix' },
   { id: 'data',     label: 'Collections' },
 ];
@@ -55,7 +49,7 @@ export default function DevConsolePage() {
 
   // Set client-side rather than exporting metadata: a `metadata` export would
   // also title the 404 this route renders in a production build.
-  useEffect(() => { document.title = 'Dev Console — StudyCRM'; }, []);
+  useEffect(() => { document.title = 'Dev Console — Vernyr'; }, []);
 
   return (
     <div className="min-h-screen bg-base text-t1">
@@ -67,7 +61,7 @@ export default function DevConsolePage() {
                 <span className="font-mono text-accent">/dev</span> Console
               </h1>
               <p className="text-xs text-t2 mt-1">
-                Direct database access with no authentication. Local development only.
+                Direct database access with no authentication. Local development only, dark theme only.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs">
@@ -79,7 +73,8 @@ export default function DevConsolePage() {
           </div>
 
           <div className="mt-4 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            These endpoints bypass every permission check in the app. They are mounted only when
+            These endpoints bypass every permission check in the app — every account is editable
+            from here, super admins included. They are mounted only when
             <code className="mx-1 px-1 rounded bg-black/25 font-mono">ENABLE_DEV_ROUTES=true</code>
             and <code className="mx-1 px-1 rounded bg-black/25 font-mono">NODE_ENV≠production</code>,
             and only answer requests from localhost.
@@ -116,6 +111,7 @@ export default function DevConsolePage() {
 
         {reachable && tab === 'overview' && <OverviewTab data={overview} onRefresh={loadOverview} />}
         {reachable && tab === 'users'    && <UsersTab />}
+        {reachable && tab === 'activity' && <ActivityTab />}
         {reachable && tab === 'rbac'     && <RbacTab />}
         {reachable && tab === 'data'     && <CollectionsTab collections={overview?.database.collections ?? []} />}
       </main>
@@ -135,6 +131,55 @@ function RoleBadge({ role }: { role: UserRole }) {
     <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${ROLE_COLORS[role] ?? 'bg-muted text-t2'}`}>
       {role}
     </span>
+  );
+}
+
+function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="px-4 py-14 text-center">
+      <p className="text-sm font-medium text-t1">{title}</p>
+      {hint && <p className="mt-1.5 text-xs text-t2 max-w-sm mx-auto leading-relaxed">{hint}</p>}
+    </div>
+  );
+}
+
+function SkeletonRows({ rows, cols }: { rows: number; cols: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, r) => (
+        <tr key={r} className="border-b border-line/50 last:border-0">
+          {Array.from({ length: cols }).map((_, c) => (
+            <td key={c} className="px-4 py-3">
+              <span className="block h-3 rounded bg-muted motion-safe:animate-pulse" style={{ width: `${40 + ((r + c) % 4) * 15}%` }} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/** Shared shell for the console's dialogs — click-outside and Esc both close. */
+function Modal({ title, subtitle, onClose, children, wide }: {
+  title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; wide?: boolean;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className={`w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} rounded-2xl border border-line bg-surface p-5 max-h-[90vh] overflow-y-auto`}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-t1">{title}</h3>
+        {subtitle && <p className="mt-1 text-sm text-t2">{subtitle}</p>}
+        <div className="mt-4">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -224,7 +269,7 @@ function OverviewTab({ data, onRefresh }: { data: DevOverview | null; onRefresh:
 
 /* ── Users & RBAC CRUD ────────────────────────────────────────────────────── */
 
-const BLANK_USER = { name: '', email: '', password: '', role: 'counsellor' as UserRole, phone: '', universityName: '' };
+const BLANK_USER = { name: '', username: '', email: '', password: '', role: 'counsellor' as UserRole, phone: '', universityName: '' };
 
 function UsersTab() {
   const router = useRouter();
@@ -239,6 +284,7 @@ function UsersTab() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft]       = useState(BLANK_USER);
   const [handoff, setHandoff]   = useState<ImpersonateResult | null>(null);
+  const [editing, setEditing]   = useState<DevUser | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -271,12 +317,13 @@ function UsersTab() {
   }
 
   async function createUser() {
-    if (!draft.name || !draft.email || !draft.password) {
-      toast('Name, email and password are required', 'error'); return;
+    const wantsEmail = usesEmailLogin(draft.role);
+    if (!draft.name || !draft.password || (wantsEmail ? !draft.email : !draft.username)) {
+      toast(`Name, password and a ${wantsEmail ? 'email' : 'username'} are required`, 'error'); return;
     }
     try {
       await devApi<DevUser>('/users', { method: 'POST', body: JSON.stringify(draft) });
-      toast(`Created ${draft.email}`, 'success');
+      toast(`Created ${draft.username || draft.email}`, 'success');
       setDraft(BLANK_USER);
       setCreating(false);
       load();
@@ -286,7 +333,7 @@ function UsersTab() {
   }
 
   async function resetPassword(u: DevUser) {
-    const password = window.prompt(`New password for ${u.email} (min 6 chars)`);
+    const password = window.prompt(`New password for ${loginHandle(u)} (min 6 chars)`);
     if (!password) return;
     try {
       await devApi(`/users/${u._id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) });
@@ -297,11 +344,11 @@ function UsersTab() {
   }
 
   async function removeUser(u: DevUser) {
-    if (!window.confirm(`Permanently delete ${u.email}? This cannot be undone.`)) return;
+    if (!window.confirm(`Permanently delete ${loginHandle(u)}? This cannot be undone.`)) return;
     try {
       await devApi(`/users/${u._id}`, { method: 'DELETE' });
       setUsers(prev => prev.filter(x => x._id !== u._id));
-      toast(`Deleted ${u.email}`, 'success');
+      toast(`Deleted ${loginHandle(u)}`, 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
     }
@@ -334,7 +381,7 @@ function UsersTab() {
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder="Search name or email…"
+          placeholder="Search name, username or email…"
           className="flex-1 min-w-[200px] px-3 py-2 rounded-lg bg-card border border-line text-sm text-t1 placeholder:text-t3 focus:outline-none focus:border-accent"
         />
         <select
@@ -360,6 +407,7 @@ function UsersTab() {
       {creating && (
         <div className="rounded-xl border border-line bg-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name"     value={draft.name}     onChange={v => setDraft({ ...draft, name: v })} />
+          <Field label="Username" value={draft.username} onChange={v => setDraft({ ...draft, username: v.toLowerCase() })} />
           <Field label="Email"    value={draft.email}    onChange={v => setDraft({ ...draft, email: v })} />
           <Field label="Password" value={draft.password} onChange={v => setDraft({ ...draft, password: v })} />
           <div>
@@ -394,17 +442,15 @@ function UsersTab() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-t2">Loading…</td></tr>
-            )}
+            {loading && <SkeletonRows rows={5} cols={5} />}
             {!loading && users.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-t2">No users match.</td></tr>
+              <tr><td colSpan={5}><EmptyState title="No users match" hint="Clear the search or role filter, or create the first account." /></td></tr>
             )}
             {!loading && users.map(u => (
               <tr key={u._id} className="border-b border-line/50 last:border-0 hover:bg-muted/40">
                 <td className="px-4 py-3">
                   <p className="font-medium text-t1">{u.name}</p>
-                  <p className="text-xs text-t3">{u.email}</p>
+                  <p className="text-xs text-t3">{loginHandle(u)}</p>
                   {u.universityName && <p className="text-xs text-t3">{u.universityName}</p>}
                 </td>
                 <td className="px-4 py-3">
@@ -431,6 +477,7 @@ function UsersTab() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1.5">
+                    <MiniButton onClick={() => setEditing(u)}>Edit</MiniButton>
                     <MiniButton onClick={() => loginAs(u)}>Login as</MiniButton>
                     <MiniButton onClick={() => resetPassword(u)}>Password</MiniButton>
                     <MiniButton onClick={() => removeUser(u)} danger>Delete</MiniButton>
@@ -441,6 +488,17 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <EditUserModal
+          user={editing}
+          onClose={() => setEditing(null)}
+          onSaved={updated => {
+            setUsers(prev => prev.map(u => (u._id === updated._id ? updated : u)));
+            setEditing(null);
+          }}
+        />
+      )}
 
       {handoff && <StudentHandoffModal result={handoff} onClose={() => setHandoff(null)} />}
     </div>
@@ -512,6 +570,294 @@ function StudentHandoffModal({ result, onClose }: { result: ImpersonateResult; o
             Close
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full record editor. Every field the API will accept is here and no role is
+ * off-limits — editing a super admin is the point of the console.
+ */
+function EditUserModal({ user, onClose, onSaved }: {
+  user: DevUser; onClose: () => void; onSaved: (u: DevUser) => void;
+}) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    name: user.name ?? '',
+    username: user.username ?? '',
+    email: user.email ?? '',
+    role: user.role,
+    phone: user.phone ?? '',
+    universityName: user.universityName ?? '',
+    isActive: user.isActive,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const needsEmail = usesEmailLogin(form.role);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const updated = await devApi<DevUser>(`/users/${user._id}`, {
+        method: 'PUT',
+        body: JSON.stringify(form),
+      });
+      toast('User updated', 'success');
+      onSaved(updated);
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={`Edit ${user.name}`}
+      subtitle={`${user._id} · created ${new Date(user.createdAt).toLocaleDateString()}`}
+      onClose={onClose}
+      wide
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Name" value={form.name} onChange={v => setForm({ ...form, name: v })} />
+        <div>
+          <label className="block text-xs text-t2 mb-1">Role</label>
+          <select
+            value={form.role}
+            onChange={e => setForm({ ...form, role: e.target.value as UserRole })}
+            className="w-full px-3 py-2 rounded-lg bg-muted border border-line text-sm text-t1 focus:outline-none focus:border-accent"
+          >
+            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <Field
+          label={needsEmail ? 'Username (optional for admins)' : 'Username *'}
+          value={form.username}
+          onChange={v => setForm({ ...form, username: v.toLowerCase() })}
+        />
+        <Field
+          label={needsEmail ? 'Email *' : 'Email (optional)'}
+          value={form.email}
+          onChange={v => setForm({ ...form, email: v })}
+        />
+        <Field label="Phone" value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
+        {form.role === 'university' && (
+          <Field label="University name" value={form.universityName} onChange={v => setForm({ ...form, universityName: v })} />
+        )}
+      </div>
+
+      <label className="mt-3 flex items-center gap-2 text-sm text-t2 cursor-pointer">
+        <input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} />
+        Account is active
+      </label>
+
+      <p className="mt-3 text-xs text-t2 leading-relaxed">
+        {needsEmail
+          ? 'Admin roles sign in with their email address, so it cannot be blank.'
+          : 'This role signs in with its username, so it cannot be blank.'}
+      </p>
+
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onClose} className="px-4 py-2 rounded-lg bg-muted text-t1 text-sm font-medium hover:bg-line transition">
+          Cancel
+        </button>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold hover:opacity-90 disabled:opacity-60 transition"
+        >
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Activity log ─────────────────────────────────────────────────────────── */
+
+const ACTION_COLORS: Record<ActivityAction, string> = {
+  create:         'bg-emerald-500/15 text-emerald-400',
+  update:         'bg-sky-500/15 text-sky-400',
+  delete:         'bg-red-500/15 text-red-400',
+  login:          'bg-indigo-500/15 text-indigo-400',
+  login_failed:   'bg-amber-500/15 text-amber-400',
+  register:       'bg-teal-500/15 text-teal-400',
+  password_reset: 'bg-violet-500/15 text-violet-400',
+  impersonate:    'bg-fuchsia-500/15 text-fuchsia-400',
+  purge:          'bg-slate-500/15 text-slate-400',
+};
+
+const ACTIONS = Object.keys(ACTION_COLORS) as ActivityAction[];
+
+/** "just now" · "4m ago" · "3h ago" · then a plain date. */
+function relativeTime(iso: string) {
+  const secs = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 45) return 'just now';
+  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
+  if (secs < 604800) return `${Math.round(secs / 86400)}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+const ACTIVITY_COLUMNS = ['When', 'Actor', 'Action', 'Entity', 'Details', 'From'];
+
+function ActivityTab() {
+  const { toast } = useToast();
+
+  const [page, setPage]       = useState<ActivityPage | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ]             = useState('');
+  const [action, setAction]   = useState<ActivityAction | ''>('');
+  const [source, setSource]   = useState<'' | 'app' | 'dev'>('');
+  const [limit, setLimit]     = useState(100);
+  const [clearing, setClearing] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (q) params.set('q', q);
+      if (action) params.set('action', action);
+      if (source) params.set('source', source);
+      setPage(await devApi<ActivityPage>(`/activity?${params}`));
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [q, action, source, limit, toast]);
+
+  useEffect(() => {
+    const t = setTimeout(load, 250);   // debounce the search box
+    return () => clearTimeout(t);
+  }, [load]);
+
+  async function clearAll() {
+    if (!window.confirm('Delete every activity entry? This cannot be undone.')) return;
+    setClearing(true);
+    try {
+      const res = await devApi<{ deleted: number }>('/activity', { method: 'DELETE' });
+      toast(`Cleared ${res.deleted} entries`, 'success');
+      load();
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  const entries = page?.entries ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Search actor, entity or description…"
+          className="flex-1 min-w-[200px] px-3 py-2 rounded-lg bg-card border border-line text-sm text-t1 placeholder:text-t3 focus:outline-none focus:border-accent"
+        />
+        <select
+          value={action}
+          onChange={e => setAction(e.target.value as ActivityAction | '')}
+          className="px-3 py-2 rounded-lg bg-card border border-line text-sm text-t1 focus:outline-none focus:border-accent"
+        >
+          <option value="">All actions</option>
+          {ACTIONS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+        </select>
+        <select
+          value={source}
+          onChange={e => setSource(e.target.value as '' | 'app' | 'dev')}
+          className="px-3 py-2 rounded-lg bg-card border border-line text-sm text-t1 focus:outline-none focus:border-accent"
+        >
+          <option value="">Anywhere</option>
+          <option value="app">From the app</option>
+          <option value="dev">From this console</option>
+        </select>
+        <select
+          value={limit}
+          onChange={e => setLimit(Number(e.target.value))}
+          className="px-3 py-2 rounded-lg bg-card border border-line text-sm text-t1 focus:outline-none focus:border-accent"
+        >
+          {[50, 100, 250, 500].map(n => <option key={n} value={n}>latest {n}</option>)}
+        </select>
+        <button onClick={load} className="px-3 py-2 rounded-lg bg-muted text-t1 text-sm font-medium hover:bg-line transition">
+          Refresh
+        </button>
+        <button
+          onClick={clearAll}
+          disabled={clearing || entries.length === 0}
+          className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 disabled:opacity-40 transition"
+        >
+          {clearing ? 'Clearing…' : 'Clear all'}
+        </button>
+      </div>
+
+      {page && (
+        <p className="text-xs text-t2">
+          Showing {entries.length} of {page.total} recorded {page.total === 1 ? 'action' : 'actions'}.
+        </p>
+      )}
+
+      <div className="rounded-xl border border-line bg-card overflow-x-auto">
+        <table className="w-full text-sm min-w-[900px]">
+          <thead>
+            <tr className="border-b border-line text-left">
+              {ACTIVITY_COLUMNS.map(h => (
+                <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-t3">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <SkeletonRows rows={8} cols={ACTIVITY_COLUMNS.length} />}
+            {!loading && entries.length === 0 && (
+              <tr>
+                <td colSpan={ACTIVITY_COLUMNS.length}>
+                  <EmptyState
+                    title="Nothing recorded yet"
+                    hint="Sign-ins, registrations and any account change — from the app or from this console — land here as they happen."
+                  />
+                </td>
+              </tr>
+            )}
+            {!loading && entries.map(e => (
+              <tr key={e._id} className="border-b border-line/50 last:border-0 hover:bg-muted/40 align-top">
+                <td className="px-4 py-3 whitespace-nowrap text-xs text-t2" title={new Date(e.createdAt).toLocaleString()}>
+                  {relativeTime(e.createdAt)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <p className="font-medium text-t1">{e.actorName}</p>
+                  {e.actorRole && <p className="text-xs text-t3">{e.actorRole}</p>}
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap ${ACTION_COLORS[e.action] ?? 'bg-muted text-t2'}`}>
+                    {e.action.replace(/_/g, ' ')}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-xs font-mono text-t2 whitespace-nowrap">{e.entity}</td>
+                <td className="px-4 py-3 text-t1">
+                  {e.label}
+                  {e.changes?.length ? (
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {e.changes.map(c => (
+                        <span key={c} className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-t2">{c}</span>
+                      ))}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+                    e.source === 'dev' ? 'bg-amber-500/15 text-amber-400' : 'bg-muted text-t2'
+                  }`}>
+                    {e.source}
+                  </span>
+                  {e.ip && <span className="ml-2 text-xs text-t3 font-mono">{e.ip}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

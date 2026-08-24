@@ -19,7 +19,8 @@ export async function devApi<T>(path: string, init?: RequestInit): Promise<T> {
 export interface DevUser {
   _id: string;
   name: string;
-  email: string;
+  username?: string;
+  email?: string;
   role: UserRole;
   phone?: string;
   universityName?: string;
@@ -64,4 +65,30 @@ export interface ImpersonateResult {
   token: string;
   user: DevUser;
   studentId: string | null;
+}
+
+export type ActivityAction =
+  | 'create' | 'update' | 'delete'
+  | 'login' | 'login_failed' | 'register'
+  | 'password_reset' | 'impersonate' | 'purge';
+
+export interface ActivityEntry {
+  _id: string;
+  actorId: string | null;
+  actorName: string;
+  actorRole?: UserRole;
+  action: ActivityAction;
+  entity: string;
+  entityId?: string;
+  label: string;
+  changes?: string[];
+  source: 'app' | 'dev';
+  ip?: string;
+  createdAt: string;
+}
+
+export interface ActivityPage {
+  entries: ActivityEntry[];
+  total: number;
+  limit: number;
 }

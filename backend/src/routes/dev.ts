@@ -2,7 +2,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
 import mongoose from 'mongoose';
-import User, { UserRole } from '../models/User';
+import User, { UserRole, usesEmailLogin, USERNAME_RE } from '../models/User';
+import ActivityLog from '../models/ActivityLog';
+import { logDevActivity, diffFields } from '../utils/activityLog';
 import { isCloudinaryConfigured } from '../config/cloudinary';
 
 /**
@@ -45,10 +47,7 @@ router.use(localhostOnly);
 
 // ── Roles ────────────────────────────────────────────────────────────────────
 
-export const ROLES: UserRole[] = [
-  'super_admin', 'admin', 'counsellor_manager', 'counsellor', 'finance', 'accountant',
-  'visa_team', 'doc_verification', 'university_team', 'support', 'student', 'university',
-];
+export const ROLES: UserRole[] = ['admin', 'counsellor', 'student', 'university'];
 
 /**
  * A hand-maintained mirror of the access rules enforced across the API. Most of
@@ -67,11 +66,11 @@ interface RbacRule {
 
 const RBAC_MATRIX: RbacRule[] = [
   { area: 'Users', surface: 'GET /api/users', rule: 'List staff accounts',
-    allow: ['super_admin', 'admin', 'counsellor_manager'], source: 'routes/users.ts — authorize()' },
+    allow: ['admin'], source: 'routes/users.ts — authorize()' },
   { area: 'Users', surface: 'POST /api/users', rule: 'Create a user',
-    allow: ['super_admin', 'admin'], source: 'routes/users.ts — authorize()' },
+    allow: ['admin'], source: 'routes/users.ts — authorize()' },
   { area: 'Users', surface: 'POST /api/users/student-account', rule: 'Create a portal login for a student',
-    allow: ['super_admin', 'admin', 'counsellor_manager'], source: 'routes/users.ts — authorize()' },
+    allow: ['admin'], source: 'routes/users.ts — authorize()' },
   { area: 'Users', surface: 'PUT /api/users/:id', rule: 'Update a user — any authenticated caller',
     source: 'routes/users.ts' },
 
@@ -80,7 +79,7 @@ const RBAC_MATRIX: RbacRule[] = [
   { area: 'Students', surface: 'POST/PUT/DELETE /api/students', rule: 'University accounts are read-only',
     deny: ['university'], source: 'routes/students.ts:121,150,169,192,265' },
   { area: 'Students', surface: 'PUT /api/students/:id/counsellor', rule: 'Assign a counsellor',
-    allow: ['super_admin', 'admin', 'counsellor_manager'], source: 'routes/students.ts:215' },
+    allow: ['admin'], source: 'routes/students.ts:215' },
 
   { area: 'Leads', surface: 'GET /api/leads', rule: 'Counsellors only see leads assigned to them',
     source: 'routes/leads.ts:15' },
@@ -95,27 +94,29 @@ const RBAC_MATRIX: RbacRule[] = [
   { area: 'Documents', surface: 'GET /api/documents/download-all/:studentId', rule: 'Bulk ZIP export — staff only',
     deny: ['university', 'student'], source: 'routes/documents.ts — isStaff()' },
 
-  { area: 'Chat', surface: 'all /api/messages', rule: 'Admin accounts have no chat access; chat is between case staff and the student',
-    deny: ['admin', 'super_admin'], source: 'routes/messages.ts — NO_CHAT_ROLES' },
-  { area: 'Chat', surface: 'POST /api/messages/send-file, GET /api/messages/:conversationId', rule: 'Caller must be a participant of the conversation',
-    source: 'routes/messages.ts — isParticipant()' },
+  { area: 'Chat', surface: 'non-GET /api/messages', rule: 'The admin observes chat but cannot take part — no sending, editing, deleting, reacting or read receipts',
+    deny: ['admin'], source: 'routes/messages.ts — OBSERVER_ROLES' },
+  { area: 'Chat', surface: 'GET /api/messages/conversations', rule: 'The admin sees every conversation; everyone else sees their own',
+    source: 'routes/messages.ts — isChatObserver()' },
+  { area: 'Chat', surface: 'GET /api/messages/:conversationId', rule: 'Caller must be a participant, or the admin observing',
+    source: 'routes/messages.ts — canRead()' },
 
-  { area: 'CRM nav', surface: '/leads', rule: 'Hidden from visa_team and doc_verification',
-    deny: ['visa_team', 'doc_verification', 'student'], source: 'crm AppShell.tsx — NAV_ITEMS' },
-  { area: 'CRM nav', surface: '/applications', rule: 'Visible to counselling + university side',
-    allow: ['super_admin', 'admin', 'counsellor_manager', 'counsellor', 'university_team', 'university'], source: 'crm AppShell.tsx' },
+  { area: 'CRM nav', surface: '/leads', rule: 'Hidden from students',
+    allow: ['admin', 'counsellor', 'university'], source: 'crm AppShell.tsx — NAV_ITEMS' },
+  { area: 'CRM nav', surface: '/applications', rule: 'Counselling plus the university side',
+    allow: ['admin', 'counsellor', 'university'], source: 'crm AppShell.tsx' },
   { area: 'CRM nav', surface: '/visa', rule: 'Visa tracker',
-    allow: ['super_admin', 'admin', 'counsellor_manager', 'counsellor', 'visa_team'], source: 'crm AppShell.tsx' },
+    allow: ['admin', 'counsellor'], source: 'crm AppShell.tsx' },
   { area: 'CRM nav', surface: '/documents', rule: 'Document review',
-    allow: ['super_admin', 'admin', 'counsellor_manager', 'counsellor', 'doc_verification'], source: 'crm AppShell.tsx' },
+    allow: ['admin', 'counsellor'], source: 'crm AppShell.tsx' },
   { area: 'CRM nav', surface: '/finance', rule: 'Payments and invoices',
-    allow: ['super_admin', 'admin', 'finance', 'accountant'], source: 'crm AppShell.tsx' },
+    allow: ['admin'], source: 'crm AppShell.tsx' },
   { area: 'CRM nav', surface: '/reports', rule: 'Reporting',
-    allow: ['super_admin', 'admin', 'counsellor_manager'], source: 'crm AppShell.tsx' },
+    allow: ['admin'], source: 'crm AppShell.tsx' },
   { area: 'CRM nav', surface: '/settings', rule: 'User administration',
-    allow: ['super_admin', 'admin'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/chat', rule: 'Case staff only',
-    deny: ['super_admin', 'admin'], source: 'crm AppShell.tsx' },
+    allow: ['admin'], source: 'crm AppShell.tsx' },
+  { area: 'CRM nav', surface: '/chat', rule: 'Counsellors take part; the admin gets a read-only view',
+    allow: ['admin', 'counsellor'], source: 'crm AppShell.tsx' },
 ];
 
 /** GET /api/dev/rbac — roles, live headcount per role, and the access matrix */
@@ -211,8 +212,9 @@ router.get('/users', async (req: Request, res: Response) => {
     if (q) {
       const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
-        { name:  { $regex: escaped, $options: 'i' } },
-        { email: { $regex: escaped, $options: 'i' } },
+        { name:     { $regex: escaped, $options: 'i' } },
+        { username: { $regex: escaped, $options: 'i' } },
+        { email:    { $regex: escaped, $options: 'i' } },
       ];
     }
 
@@ -225,40 +227,101 @@ router.get('/users', async (req: Request, res: Response) => {
 
 /** POST /api/dev/users — create a user with any role */
 router.post('/users', async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, role } = req.body as Record<string, string>;
-  if (!name || !email || !password) {
-    res.status(400).json({ message: 'name, email and password are required' }); return;
+  const { name, username, email, password, role } = req.body as Record<string, string>;
+  if (!name || !password) {
+    res.status(400).json({ message: 'name and password are required' }); return;
   }
   if (role && !ROLES.includes(role as UserRole)) {
     res.status(400).json({ message: `Unknown role '${role}'` }); return;
   }
+  // Admins are keyed by email, every other role by username.
+  const wantsEmail = usesEmailLogin((role || 'counsellor') as UserRole);
+  if (wantsEmail && !email) {
+    res.status(400).json({ message: 'Admin accounts require an email address' }); return;
+  }
+  if (!wantsEmail && !username) {
+    res.status(400).json({ message: 'This role requires a username' }); return;
+  }
   try {
-    if (await User.findOne({ email: email.toLowerCase() })) {
+    if (username && await User.findOne({ username: username.toLowerCase() })) {
+      res.status(409).json({ message: 'Username already taken' }); return;
+    }
+    if (email && await User.findOne({ email: email.toLowerCase() })) {
       res.status(409).json({ message: 'Email already in use' }); return;
     }
     // create() (not insertOne) so the password-hashing pre-save hook runs
     const user = await User.create(req.body);
+    logDevActivity(req, {
+      action: 'create', entity: 'User', entityId: user._id,
+      label: `Created ${user.username ?? user.email} (${user.role})`,
+    });
     res.status(201).json(user);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
 });
 
-/** PUT /api/dev/users/:id — update any field except the password */
-router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
-  const { password, _id, ...updates } = req.body as Record<string, unknown>;
-  void password; void _id;   // password has its own endpoint; _id is immutable
+/** Editable through the console — everything except the password and _id. */
+const EDITABLE = ['name', 'username', 'email', 'role', 'phone', 'universityName', 'isActive'] as const;
 
-  if (updates.role && !ROLES.includes(updates.role as UserRole)) {
-    res.status(400).json({ message: `Unknown role '${updates.role}'` }); return;
+/** PUT /api/dev/users/:id — update any field except the password, on any user */
+router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
+  const body = req.body as Record<string, unknown>;
+
+  if (body.role && !ROLES.includes(body.role as UserRole)) {
+    res.status(400).json({ message: `Unknown role '${body.role}'` }); return;
   }
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
-      .select('-password');
+    // Loaded and saved rather than findByIdAndUpdate: the credential rule lives
+    // in a pre('validate') hook, which update queries skip entirely.
+    const user = await User.findById(req.params.id);
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
-    res.json(user);
+
+    const before = user.toObject() as unknown as Record<string, unknown>;
+
+    for (const field of EDITABLE) {
+      if (!(field in body)) continue;
+      const value = body[field];
+      // Clearing a credential must store undefined, not '' — the sparse unique
+      // index treats every empty string as the same value.
+      if ((field === 'username' || field === 'email') && !value) {
+        user.set(field, undefined);
+      } else if (field === 'username' && typeof value === 'string') {
+        user.username = value.trim().toLowerCase();
+      } else {
+        user.set(field, value);
+      }
+    }
+
+    if (user.username && !USERNAME_RE.test(user.username)) {
+      res.status(400).json({ message: 'Username must be 3–32 characters: letters, numbers, dot, underscore or hyphen' });
+      return;
+    }
+
+    const clash = await User.findOne({
+      _id: { $ne: user._id },
+      $or: [
+        ...(user.username ? [{ username: user.username }] : []),
+        ...(user.email ? [{ email: user.email }] : []),
+      ],
+    });
+    if (clash) {
+      res.status(409).json({ message: clash.username === user.username ? 'Username already taken' : 'Email already in use' });
+      return;
+    }
+
+    await user.save();
+    const changes = diffFields(before, user.toObject() as unknown as Record<string, unknown>, [...EDITABLE]);
+    if (changes.length) {
+      logDevActivity(req, {
+        action: 'update', entity: 'User', entityId: user._id,
+        label: `Updated ${user.username ?? user.email}`, changes,
+      });
+    }
+    res.json(await User.findById(user._id).select('-password'));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    const message = err instanceof Error ? err.message : 'Server error';
+    res.status(400).json({ message });
   }
 });
 
@@ -274,7 +337,11 @@ router.patch('/users/:id/password', async (req: Request, res: Response): Promise
     // save() so the pre-save hook hashes it — findByIdAndUpdate would store plaintext
     user.password = password;
     await user.save();
-    res.json({ ok: true, email: user.email });
+    logDevActivity(req, {
+      action: 'password_reset', entity: 'User', entityId: user._id,
+      label: `Reset the password for ${user.username ?? user.email}`,
+    });
+    res.json({ ok: true, login: user.username ?? user.email });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
@@ -285,6 +352,10 @@ router.delete('/users/:id', async (req: Request, res: Response): Promise<void> =
   try {
     const user = await User.findByIdAndDelete(req.params.id).select('-password');
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
+    logDevActivity(req, {
+      action: 'delete', entity: 'User', entityId: user._id,
+      label: `Deleted ${user.username ?? user.email} (${user.role})`,
+    });
     res.json({ ok: true, deleted: user });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
@@ -305,7 +376,55 @@ router.post('/users/:id/impersonate', async (req: Request, res: Response): Promi
       env.jwtSecret,
       { expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'] },
     );
+    logDevActivity(req, {
+      action: 'impersonate', entity: 'User', entityId: user._id,
+      label: `Signed in as ${user.username ?? user.email} (${user.role})`,
+    });
     res.json({ token, user, studentId: user.studentId?.toString() ?? null });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err });
+  }
+});
+
+// ── Activity log ─────────────────────────────────────────────────────────────
+
+/** GET /api/dev/activity?limit=&action=&source=&q= — newest first */
+router.get('/activity', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filter: Record<string, unknown> = {};
+    if (req.query.action) filter.action = req.query.action;
+    if (req.query.source) filter.source = req.query.source;
+
+    const q = (req.query.q as string | undefined)?.trim();
+    if (q) {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { label:     { $regex: escaped, $options: 'i' } },
+        { actorName: { $regex: escaped, $options: 'i' } },
+        { entity:    { $regex: escaped, $options: 'i' } },
+      ];
+    }
+
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const [entries, total] = await Promise.all([
+      ActivityLog.find(filter).sort({ createdAt: -1 }).limit(limit).lean(),
+      ActivityLog.countDocuments(filter),
+    ]);
+    res.json({ entries, total, limit });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err });
+  }
+});
+
+/** DELETE /api/dev/activity — clear the trail */
+router.delete('/activity', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { deletedCount } = await ActivityLog.deleteMany({});
+    logDevActivity(req, {
+      action: 'purge', entity: 'ActivityLog',
+      label: `Cleared ${deletedCount} activity ${deletedCount === 1 ? 'entry' : 'entries'}`,
+    });
+    res.json({ ok: true, deleted: deletedCount });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }

@@ -69,7 +69,7 @@ npm run dev:crm             # port 3000
 npm run dev:student         # port 3001
 ```
 
-Seed an initial super_admin:
+Seed an initial admin:
 ```bash
 npm run seed
 ```
@@ -130,19 +130,18 @@ Application status runs on a separate track: `drafting → submitted → offer r
 
 ## Role-Based Access Control
 
-11 staff roles with route-level enforcement:
+Four roles with route-level enforcement:
 
-`super_admin` · `admin` · `counsellor_manager` · `counsellor` · `finance` · `accountant` · `visa_team` · `doc_verification` · `university_team` · `support` · `student`
+`admin` · `counsellor` · `student` · `university`
 
 | Capability | Roles |
 |-----------|-------|
-| Full system access | super_admin, admin |
-| Lead & student management | counsellor_manager, counsellor |
-| Document approval | doc_verification |
-| Visa tracking | visa_team |
-| Finance & payments | finance, accountant |
-| Reports | super_admin, admin, counsellor_manager |
-| Student (own data only) | student |
+| Full system access — users, finance, reports, settings | admin |
+| Leads, students, applications, documents, visa | admin, counsellor |
+| Chat — takes part | counsellor, student |
+| Chat — read-only oversight | admin |
+| Own data only | student |
+| Own applicants, read-only | university |
 
 ---
 

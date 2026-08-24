@@ -31,7 +31,8 @@ export type PaymentType =
 export interface StudentUser {
   _id: string;
   name: string;
-  email: string;
+  username?: string;
+  email?: string;
   role: 'student';
   phone?: string;
   isActive: boolean;
@@ -41,7 +42,8 @@ export interface StudentUser {
 export interface Counsellor {
   _id: string;
   name: string;
-  email: string;
+  username?: string;
+  email?: string;
   phone?: string;
 }
 
@@ -51,7 +53,7 @@ export interface Student {
   assignedCounsellor?: Counsellor | null;
   stage: StudentStage;
   personal: {
-    name: string; email: string; phone: string;
+    name: string; email?: string; phone: string;
     dob?: string; gender?: string; nationality?: string; address?: string;
   };
   /* These sub-objects can be absent on records created via self-registration

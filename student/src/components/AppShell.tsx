@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { VernyrMark, Wordmark } from '@/components/auth/Insignia';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/context/ThemeContext';
@@ -131,15 +132,9 @@ export function AppShell({ children, title }: Props) {
       {/* Brand */}
       <div className="px-5 py-5 border-b border-[var(--glass-border)]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-accent/40 to-accent/10 border border-accent/30 flex items-center justify-center flex-shrink-0 glow-accent-sm">
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-accent" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5"/>
-              <path d="M2 12l10 5 10-5"/>
-            </svg>
-          </div>
+          <VernyrMark className="w-9 h-9 flex-shrink-0" />
           <div>
-            <p className="font-bold text-base text-t1 leading-tight tracking-tight">StudyPortal</p>
+            <Wordmark className="text-[17px] text-t1" />
             <p className="text-[11px] text-t3 font-medium tracking-wide uppercase">Student Dashboard</p>
           </div>
         </div>
@@ -316,12 +311,10 @@ export function AppShell({ children, title }: Props) {
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-accent/25 border border-accent/30 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-accent" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-              </svg>
-            </div>
-            <span className="font-bold text-t1 text-sm">{title ?? 'StudyPortal'}</span>
+            <VernyrMark className="w-6 h-6 flex-shrink-0" />
+            {title
+              ? <span className="font-bold text-t1 text-sm">{title}</span>
+              : <Wordmark className="text-[14px] text-t1" />}
           </div>
 
           <div className="flex-1" />

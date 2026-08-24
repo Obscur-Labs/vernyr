@@ -222,7 +222,7 @@ export default function StudentsPage() {
                       <span className="text-sm font-medium text-t1">{s.personal?.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-t2">{s.personal?.email}</td>
+                  <td className="px-4 py-3 text-sm text-t2">{s.personal?.email || '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${STAGE_COLORS[s.stage]}`}>
                       {s.stage.replace(/_/g,' ')}

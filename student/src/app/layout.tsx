@@ -4,10 +4,10 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/context/ToastContext';
 
 export const metadata: Metadata = {
-  title: 'StudyPortal — My Journey',
+  title: 'Vernyr — My Journey',
   description: 'Track your study abroad journey from inquiry to departure.',
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'StudyPortal' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Vernyr' },
 };
 
 export const viewport: Viewport = {

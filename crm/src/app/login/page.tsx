@@ -1,15 +1,55 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
+import { VernyrSeal, VernyrMark, Wordmark } from '@/components/auth/Insignia';
+import { Field, SubmitButton } from '@/components/auth/Field';
+
+const CAPABILITIES = [
+  {
+    title: 'Pipeline',
+    body: 'Every enquiry from first contact to departure, on one board.',
+    glyph: (
+      <>
+        <circle cx="4" cy="6" r="2" />
+        <circle cx="12" cy="6" r="2" />
+        <circle cx="20" cy="6" r="2" />
+        <path d="M6 6h4M14 6h4M4 9v6a3 3 0 003 3h13" />
+      </>
+    ),
+  },
+  {
+    title: 'Verification',
+    body: 'Passports, transcripts and financials checked and countersigned.',
+    glyph: (
+      <>
+        <path d="M5 3h9l5 5v13H5z" />
+        <path d="M14 3v5h5" />
+        <path d="M8.5 14.5l2.5 2.5 4.5-5" />
+      </>
+    ),
+  },
+  {
+    title: 'Deadlines',
+    body: 'Offer windows, CAS dates and visa filings tracked to the day.',
+    glyph: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M3 10h18M8 3v4M16 3v4" />
+        <circle cx="12" cy="15.5" r="2.2" />
+      </>
+    ),
+  },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,12 +57,14 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { identifier, password });
       setAuth(data.user, data.token);
       toast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid credentials';
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Invalid credentials';
       toast(msg, 'error');
     } finally {
       setLoading(false);
@@ -30,106 +72,109 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 flex-col justify-between p-12">
-        <div>
-          <div className="flex items-center gap-3 mb-16">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-              <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
-              </svg>
-            </div>
-            <span className="text-white font-bold text-xl tracking-tight">StudyCRM</span>
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
-            The smarter way to<br />manage study abroad
-          </h1>
-          <p className="text-indigo-200 text-lg mb-12">
-            Track every student from first inquiry to departure — all in one place.
-          </p>
-          <ul className="space-y-4">
-            {[
-              { icon: '🎯', text: 'Lead pipeline with Kanban drag-and-drop' },
-              { icon: '🗂️', text: 'Document verification workflow' },
-              { icon: '🏛️', text: 'University application tracker' },
-              { icon: '✈️', text: 'Visa stage monitoring' },
-              { icon: '💳', text: 'Finance & payment management' },
-            ].map(item => (
-              <li key={item.text} className="flex items-center gap-3 text-indigo-100">
-                <span className="text-lg">{item.icon}</span>
-                <span>{item.text}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p className="text-indigo-300 text-sm">
-          Built for consultancies that mean business.
-        </p>
+    <main className="relative min-h-screen overflow-hidden bg-base">
+      {/* Engraved field — a struck seal bleeding off the left edge */}
+      <div
+        aria-hidden
+        className="engraving pointer-events-none absolute top-1/2 hidden -translate-y-1/2 lg:block"
+        style={{ left: '-15rem', width: '44rem' }}
+      >
+        <VernyrSeal className="w-full h-auto" />
       </div>
 
-      {/* Right panel */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-base">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-accent" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
-              </svg>
-            </div>
-            <span className="font-bold text-lg text-t1">StudyCRM</span>
-          </div>
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 sm:px-10">
+        <header className="flex items-center gap-3 text-t1">
+          <VernyrMark className="w-9 h-9" />
+          <Wordmark className="text-[19px]" />
+          <span aria-hidden className="h-4 w-px bg-line" />
+          <span className="text-[13px] text-t2">Counsellor workspace</span>
+        </header>
 
-          <h2 className="text-2xl font-bold text-t1 mb-2">Sign in to your account</h2>
-          <p className="text-t2 mb-8">Enter your credentials to access the dashboard.</p>
+        <div className="grid flex-1 items-center gap-16 py-14 lg:grid-cols-12 lg:gap-10">
+          {/* Brand column */}
+          <section className="hidden lg:col-span-5 lg:block">
+            <h1 className="text-[2.6rem] font-semibold leading-[1.08] tracking-[-0.03em] text-t1 text-balance">
+              Every file, every deadline, every student.
+            </h1>
+            <p className="mt-5 max-w-[46ch] text-[15px] leading-relaxed text-t2 text-pretty">
+              Vernyr keeps a consultancy&rsquo;s paperwork straight — so nothing slips between an
+              enquiry and a boarding pass.
+            </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-t2 mb-1.5">Email address</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-xl bg-surface border border-line text-t1 placeholder-t3 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-t2 mb-1.5">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl bg-surface border border-line text-t1 placeholder-t3 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-6 rounded-xl bg-accent text-white font-semibold hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Signing in…
-                </>
-              ) : 'Sign in'}
-            </button>
-          </form>
+            <ul className="mt-11 border-t border-line">
+              {CAPABILITIES.map((c) => (
+                <li key={c.title} className="flex gap-4 border-b border-line py-4">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                    className="mt-0.5 w-[18px] h-[18px] shrink-0 text-accent"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    {c.glyph}
+                  </svg>
+                  <div>
+                    <p className="text-[14px] font-medium text-t1">{c.title}</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-t2">{c.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-          <p className="text-center text-t3 text-xs mt-8">
-            Contact your administrator if you need access.
-          </p>
+          {/* Sign-in plate */}
+          <section className="lg:col-span-6 lg:col-start-7">
+            <div className="mx-auto w-full max-w-md rounded-2xl border border-line bg-surface p-7 sm:p-9">
+              <h2 className="text-[22px] font-semibold tracking-[-0.015em] text-t1">Sign in</h2>
+              <p className="mt-1.5 text-[14px] text-t2">
+                Staff accounts are issued by your administrator. Administrators sign in with their
+                email address.
+              </p>
+
+              <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                <Field
+                  label="Username"
+                  value={identifier}
+                  onChange={setIdentifier}
+                  placeholder="e.g. sarah.thompson"
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  disabled={loading}
+                />
+                <Field
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={setPassword}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                />
+                <div className="pt-1">
+                  <SubmitButton loading={loading} loadingLabel="Signing in…">
+                    Sign in
+                  </SubmitButton>
+                </div>
+              </form>
+
+              <p className="mt-7 border-t border-line pt-5 text-[13px] leading-relaxed text-t2">
+                Locked out or need an account? Ask a super admin to issue one from Settings →
+                Users.
+              </p>
+            </div>
+          </section>
         </div>
+
+        <footer className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-t2">
+          <span>© {new Date().getFullYear()} Vernyr</span>
+          <span className="tabular-nums">Study abroad operations</span>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }

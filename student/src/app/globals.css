@@ -308,3 +308,8 @@ body {
 .im-send:hover:not(:disabled) { background: #0974e0; }
 .im-card { background: var(--im-card); border-color: var(--im-hairline); }
 .im-quote { background: var(--im-quote); }
+
+/* Guilloché watermark on the auth screens. The dark ground needs more ink than
+   the light one to read as engraving rather than smudge. */
+.engraving { color: var(--color-accent); opacity: 0.11; }
+:root.dark .engraving { opacity: 0.20; }

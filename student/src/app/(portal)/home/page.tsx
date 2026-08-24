@@ -103,7 +103,7 @@ export default function HomePage() {
             <div className="flex-1 min-w-0">
               <p className="text-xs text-t3 uppercase tracking-wider font-medium mb-0.5">Your Counsellor</p>
               <p className="font-semibold text-t1 truncate">{student.assignedCounsellor.name}</p>
-              <p className="text-xs text-t3 truncate">{student.assignedCounsellor.email}</p>
+              <p className="text-xs text-t3 truncate">{student.assignedCounsellor.email || ''}</p>
             </div>
             <Link
               href="/chat"

@@ -12,12 +12,18 @@ import { notify } from '../utils/notify';
 
 const router = Router();
 
-// Admin accounts have no chat access — counselling chat is between staff who
-// work a student's case (counsellors etc.) and the student.
-const NO_CHAT_ROLES = ['admin', 'super_admin'];
+/**
+ * Chat itself is between a student and the counsellor working their case. The
+ * admin is an observer: every conversation is readable for oversight, but they
+ * cannot take part — so any non-GET request from them is refused here, which
+ * covers sending, editing, deleting, reacting and read receipts in one place.
+ */
+const OBSERVER_ROLES = ['admin'];
+export const isChatObserver = (req: AuthRequest) => !!req.user && OBSERVER_ROLES.includes(req.user.role);
+
 router.use(authenticate, (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (req.user && NO_CHAT_ROLES.includes(req.user.role)) {
-    res.status(403).json({ message: 'Chat is not available for admin accounts' });
+  if (isChatObserver(req) && req.method !== 'GET') {
+    res.status(403).json({ message: 'Admin accounts can read conversations but not take part in them' });
     return;
   }
   next();
@@ -27,7 +33,9 @@ router.use(authenticate, (req: AuthRequest, res: Response, next: NextFunction) =
 
 router.get('/conversations', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const conversations = await Conversation.find({ participants: req.user!.id })
+    // An observer sees every conversation; everyone else sees their own.
+    const scope = isChatObserver(req) ? {} : { participants: req.user!.id };
+    const conversations = await Conversation.find(scope)
       .populate('participants', 'name email avatar role')
       .populate('studentId', 'personal')
       .sort('-updatedAt')
@@ -47,7 +55,11 @@ router.get('/conversations', authenticate, async (req: AuthRequest, res: Respons
     ]);
     const unreadById = new Map(counts.map(c => [c._id.toString(), c.n as number]));
 
-    res.json(conversations.map(c => ({ ...c, unread: unreadById.get(c._id.toString()) ?? 0 })));
+    // "Unread" is meaningless for an observer — they are in no conversation.
+    res.json(conversations.map(c => ({
+      ...c,
+      unread: isChatObserver(req) ? 0 : unreadById.get(c._id.toString()) ?? 0,
+    })));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
@@ -356,6 +368,11 @@ async function isParticipant(conversationId: mongoose.Types.ObjectId | string, u
   return !!conv && conv.participants.some(p => p.toString() === userId);
 }
 
+/** Read guard: participants, plus observers who may read any conversation. */
+async function canRead(req: AuthRequest, conversationId: mongoose.Types.ObjectId | string): Promise<boolean> {
+  return isChatObserver(req) || isParticipant(conversationId, req.user!.id);
+}
+
 /** Strip content from "deleted for everyone" tombstones before sending to clients */
 function sanitize(msg: InstanceType<typeof Message>): Record<string, unknown> {
   const obj = msg.toObject() as unknown as Record<string, unknown>;
@@ -384,7 +401,7 @@ router.get('/search/:conversationId', authenticate, async (req: AuthRequest, res
   const q = (req.query.q as string | undefined)?.trim();
   if (!q) { res.json([]); return; }
   try {
-    if (!(await isParticipant(req.params.conversationId, req.user!.id))) {
+    if (!(await canRead(req, req.params.conversationId))) {
       res.status(403).json({ message: 'Not a participant of this conversation' }); return;
     }
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -478,7 +495,7 @@ router.post('/message/:id/react', authenticate, async (req: AuthRequest, res: Re
 
 router.get('/:conversationId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!(await isParticipant(req.params.conversationId, req.user!.id))) {
+    if (!(await canRead(req, req.params.conversationId))) {
       res.status(403).json({ message: 'Not a participant of this conversation' }); return;
     }
     const limit  = Math.min(Number(req.query.limit) || 200, 200);

@@ -210,9 +210,9 @@ router.patch('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// PATCH /api/students/:id/assign-counsellor  — admin / counsellor_manager only
+// PATCH /api/students/:id/assign-counsellor  — admin only
 router.patch('/:id/assign-counsellor', authenticate, async (req: AuthRequest, res: Response) => {
-  if (!req.user || !['super_admin', 'admin', 'counsellor_manager'].includes(req.user.role)) {
+  if (req.user?.role !== 'admin') {
     res.status(403).json({ message: 'Insufficient permissions' }); return;
   }
   const { counsellorId } = req.body;

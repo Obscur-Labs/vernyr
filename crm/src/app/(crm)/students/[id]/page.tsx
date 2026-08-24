@@ -2,6 +2,7 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { suggestUsername } from '@/lib/credentials';
 import { fileHref } from '@/lib/media';
 import { apiUrl } from '@/lib/config';
 import { StageTracker } from '@/components/StageTracker';
@@ -214,8 +215,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
     }
   };
 
-  const canReviewDocs   = user && ['super_admin','admin','doc_verification'].includes(user.role);
-  const canAssignCounsellor = user && ['super_admin','admin','counsellor_manager'].includes(user.role);
+  const canReviewDocs   = user && ['admin','counsellor'].includes(user.role);
+  const canAssignCounsellor = user?.role === 'admin';
 
   // Assign counsellor
   const [counsellors, setCounsellors]           = useState<{ _id: string; name: string }[]>([]);
@@ -243,7 +244,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
 
   // Portal account creation
   const [showPortalForm, setShowPortalForm] = useState(false);
-  const [portalEmail, setPortalEmail]       = useState('');
+  const [portalUsername, setPortalUsername] = useState('');
   const [portalPassword, setPortalPassword] = useState('');
   const [creatingPortal, setCreatingPortal] = useState(false);
   const [portalCreated, setPortalCreated]   = useState(false);
@@ -255,14 +256,17 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       await api.post('/users/student-account', {
         studentId: id,
         name: student?.personal?.name,
-        email: portalEmail,
+        username: portalUsername.trim().toLowerCase(),
+        email: student?.personal?.email,
         password: portalPassword,
       });
       setPortalCreated(true);
       setShowPortalForm(false);
       toast('Portal account created!', 'success');
-    } catch {
-      toast('Failed to create portal account', 'error');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? 'Failed to create portal account';
+      toast(msg, 'error');
     } finally {
       setCreatingPortal(false);
     }
@@ -306,7 +310,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 {student.personal?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
               </div>
               <h2 className="text-base font-bold text-t1">{student.personal?.name}</h2>
-              <p className="text-xs text-t2 mt-0.5">{student.personal?.email}</p>
+              <p className="text-xs text-t2 mt-0.5">{student.personal?.email || '—'}</p>
               <p className="text-xs text-t2">{student.personal?.phone}</p>
               {student.assignedCounsellor && (
                 <p className="text-xs text-t3 mt-2">
@@ -314,7 +318,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 </p>
               )}
               {/* Chat button — needs a portal account; admins have no chat access */}
-              {student.userId && user && !['admin', 'super_admin'].includes(user.role) && (
+              {student.userId && user && user.role !== 'admin' && (
                 <Link
                   href={`/chat?with=${student.userId}`}
                   className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-accent/15 text-accent text-xs font-semibold hover:bg-accent/25 transition-colors"
@@ -980,13 +984,13 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           )}
 
           {/* Student portal account */}
-          {user && ['super_admin','admin','counsellor_manager'].includes(user.role) && (
+          {user?.role === 'admin' && (
             <div className="bg-surface border border-line rounded-2xl p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-t2 uppercase tracking-wider">Student Portal</h3>
                 {!portalCreated && !showPortalForm && (
                   <button
-                    onClick={() => { setPortalEmail(student.personal?.email ?? ''); setShowPortalForm(true); }}
+                    onClick={() => { setPortalUsername(suggestUsername(student.personal?.name ?? '')); setShowPortalForm(true); }}
                     className="text-xs text-accent hover:underline"
                   >
                     + Create Account
@@ -998,17 +1002,19 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                   <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
                     <path d="M3 8l3.5 3.5 6.5-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  Portal account active — student can log in at StudyPortal
+                  Portal account active — student can log in at the Vernyr portal
                 </div>
               ) : showPortalForm ? (
                 <form onSubmit={handleCreatePortalAccount} className="space-y-3">
                   <div>
-                    <label className="block text-xs text-t3 mb-1">Login Email</label>
+                    <label className="block text-xs text-t3 mb-1">Username</label>
                     <input
-                      type="email"
-                      value={portalEmail}
-                      onChange={e => setPortalEmail(e.target.value)}
+                      type="text"
+                      value={portalUsername}
+                      onChange={e => setPortalUsername(e.target.value.toLowerCase())}
                       required
+                      pattern="[a-z0-9][a-z0-9._-]{2,31}"
+                      title="3–32 characters: letters, numbers, dot, underscore or hyphen"
                       className="w-full px-3 py-1.5 rounded-lg bg-card border border-line text-t1 text-sm focus:outline-none focus:border-accent"
                     />
                   </div>

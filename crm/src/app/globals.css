@@ -339,3 +339,8 @@ body {
 .im-quote { background: var(--im-quote); }
 
 /* (end iMessage Air theme) */
+
+/* Guilloché watermark on the auth screens. The dark ground needs more ink than
+   the light one to read as engraving rather than smudge. */
+.engraving { color: var(--color-accent); opacity: 0.22; }
+:root.light .engraving { opacity: 0.12; }

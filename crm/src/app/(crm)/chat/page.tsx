@@ -148,19 +148,20 @@ function ChatInner() {
   const activeConvRef  = useRef<string | null>(null);
 
   const myId = user?._id ?? '';
-  const chatBlocked = !!user && ['admin', 'super_admin'].includes(user.role);
+  // The admin observes every conversation but cannot take part in one.
+  const readOnly = !!user && user.role === 'admin';
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 60);
   }, []);
 
   const markRead = useCallback((convId: string) => {
+    if (readOnly) return;   // observers never mark anything read
     api.post(`/messages/${convId}/read`).catch(() => {});
-  }, []);
+  }, [readOnly]);
 
   /* ── Load conversations on mount ───────────────────────────────────────── */
   useEffect(() => {
-    if (chatBlocked) { setLoading(false); return; }
     api.get<Conversation[]>('/messages/conversations')
       .then(res => {
         setConversations(res.data);
@@ -191,7 +192,7 @@ function ChatInner() {
 
   /* ── Socket connection ─────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!user || chatBlocked) return;
+    if (!user) return;
     const token  = localStorage.getItem('crm_token');
     const socket = io(apiOrigin, { auth: { token } });
     socketRef.current = socket;
@@ -458,20 +459,6 @@ function ChatInner() {
   const otherOnline      = otherParticipant ? onlineIds.has(otherParticipant._id) : false;
   const isClosed         = !!activeConv?.archived;
 
-  /* ── Admin accounts have no chat access ────────────────────────────────── */
-  if (chatBlocked) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4 text-3xl">🔒</div>
-        <p className="text-t1 font-semibold text-base">Chat is not available for admin accounts</p>
-        <p className="text-t3 text-sm mt-1.5 max-w-sm leading-relaxed">
-          Conversations happen between students and the staff working their case (counsellors, visa team, …).
-          Use the student profile to review case activity instead.
-        </p>
-      </div>
-    );
-  }
-
   /* ─────────────────────────────────────────────────────────────────────── */
   return (
     <div className="flex h-full overflow-hidden">
@@ -670,7 +657,7 @@ function ChatInner() {
                         )}
                         <div className={`group flex ${isMe ? 'justify-end animate-msg-right' : 'justify-start animate-msg-left'} gap-2 py-1`}>
                           {/* Reply button (left of my bubbles) */}
-                          {isMe && (
+                          {isMe && !readOnly && (
                             <button
                               onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
                               title="Reply"
@@ -708,7 +695,7 @@ function ChatInner() {
                           </div>
 
                           {/* Reply button (right of their bubbles) */}
-                          {!isMe && (
+                          {!isMe && !readOnly && (
                             <button
                               onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
                               title="Reply"
@@ -738,14 +725,23 @@ function ChatInner() {
               )}
             </div>
 
-            {/* Composer — replaced by a notice when the conversation is closed */}
-            {isClosed ? (
+            {/* Composer — replaced by a notice when the conversation is closed, or when an admin is observing */}
+            {isClosed || readOnly ? (
+              readOnly && !isClosed ? (
+              <div className="flex-shrink-0 px-4 sm:px-5 py-4 im-chrome border-t">
+                <p className="text-sm im-sub text-center leading-relaxed">
+                  👁️ Read-only — you are viewing this conversation as an admin.
+                  Replying is left to the counsellor working the case.
+                </p>
+              </div>
+              ) : (
               <div className="flex-shrink-0 px-4 sm:px-5 py-4 im-chrome border-t">
                 <p className="text-sm im-sub text-center leading-relaxed">
                   🔒 This conversation is closed — the student was reassigned to another counsellor.
                   The history stays available.
                 </p>
               </div>
+              )
             ) : (
             <>
             {/* Reply banner */}

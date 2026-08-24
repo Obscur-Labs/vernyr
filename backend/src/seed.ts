@@ -3,7 +3,7 @@
  * Run:  npx ts-node src/seed.ts
  *
  * Creates:
- *  • 11 staff users  (super_admin → support)
+ *  • 6 staff users  (admin × 3, counsellor × 3) + 3 university partners
  *  • 3 student users + linked Student records
  *  • 12 Leads  (across all statuses, assigned to counsellors)
  *  • Applications, Visas, Payments, Documents per student
@@ -20,7 +20,7 @@ import bcrypt from 'bcryptjs';
 dotenv.config();
 
 // ── Models ───────────────────────────────────────────────────────────────────
-import User         from './models/User';
+import User, { usesEmailLogin, type UserRole } from './models/User';
 import Student      from './models/Student';
 import Lead         from './models/Lead';
 import Application  from './models/Application';
@@ -66,41 +66,40 @@ async function seed() {
   const pwDefault = await hash('password123');
 
   const staffData = [
-    { name: 'Alex Rivera',     email: 'superadmin@studycrm.com', role: 'super_admin',        universityName: undefined },
-    { name: 'Jordan Blake',    email: 'admin@studycrm.com',      role: 'admin',              universityName: undefined },
-    { name: 'Morgan Chen',     email: 'cm@studycrm.com',         role: 'counsellor_manager', universityName: undefined },
-    { name: 'Sarah Thompson',  email: 'sarah@studycrm.com',      role: 'counsellor',         universityName: undefined },
-    { name: 'David Okafor',    email: 'david@studycrm.com',      role: 'counsellor',         universityName: undefined },
-    { name: 'Priya Sharma',    email: 'priya@studycrm.com',      role: 'counsellor',         universityName: undefined },
-    { name: 'Lisa Monroe',     email: 'finance@studycrm.com',    role: 'finance',            universityName: undefined },
-    { name: 'Kevin Park',      email: 'accounts@studycrm.com',   role: 'accountant',         universityName: undefined },
-    { name: 'Nina Patel',      email: 'visa@studycrm.com',       role: 'visa_team',          universityName: undefined },
-    { name: 'Omar Hassan',     email: 'docs@studycrm.com',       role: 'doc_verification',   universityName: undefined },
-    { name: 'Tina Grant',      email: 'uni@studycrm.com',        role: 'university_team',    universityName: undefined },
-    { name: 'Carlos Mendez',   email: 'support@studycrm.com',    role: 'support',            universityName: undefined },
+    { name: 'Alex Rivera',     username: 'alex.rivera',    email: 'alex@studycrm.com',   role: 'admin',      universityName: undefined },
+    { name: 'Jordan Blake',    username: 'admin',          email: 'admin@studycrm.com',  role: 'admin',      universityName: undefined },
+    { name: 'Morgan Chen',     username: 'morgan.chen',    email: 'morgan@studycrm.com', role: 'admin',      universityName: undefined },
+    { name: 'Sarah Thompson',  username: 'sarah.thompson', email: undefined,             role: 'counsellor', universityName: undefined },
+    { name: 'David Okafor',    username: 'david.okafor',   email: undefined,             role: 'counsellor', universityName: undefined },
+    { name: 'Priya Sharma',    username: 'priya.sharma',   email: undefined,             role: 'counsellor', universityName: undefined },
     // External university partners — scoped to their institution
-    { name: 'James Whitfield', email: 'admissions@manchester.ac.uk', role: 'university', universityName: 'University of Manchester' },
-    { name: 'Mei Lin',         email: 'intl@unimelb.edu.au',         role: 'university', universityName: 'University of Melbourne' },
-    { name: 'Robert Hughes',   email: 'apply@ed.ac.uk',              role: 'university', universityName: 'University of Edinburgh' },
+    { name: 'James Whitfield', username: 'manchester.admissions', email: undefined, role: 'university', universityName: 'University of Manchester' },
+    { name: 'Mei Lin',         username: 'melbourne.intl',        email: undefined, role: 'university', universityName: 'University of Melbourne' },
+    { name: 'Robert Hughes',   username: 'edinburgh.apply',       email: undefined, role: 'university', universityName: 'University of Edinburgh' },
   ];
 
   const staff = await User.insertMany(
     staffData.map(u => ({
-      name: u.name, email: u.email, role: u.role,
+      name: u.name, username: u.username, role: u.role,
       password: pwDefault, isActive: true,
+      ...(u.email ? { email: u.email } : {}),
       ...(u.universityName ? { universityName: u.universityName } : {}),
     }))
   );
 
-  const superAdmin       = staff[0];
-  const admin            = staff[1];
-  const counsellorMgr    = staff[2];
-  const counsellor1      = staff[3];   // Sarah
-  const counsellor2      = staff[4];   // David
-  const counsellor3      = staff[5];   // Priya
-  const financeUser      = staff[6];
-  const visaUser         = staff[8];
-  const docUser          = staff[9];
+  // Looked up by username rather than array position, so reordering or adding
+  // a row can never silently reassign someone's records.
+  const byUsername = new Map(staff.map(u => [u.username as string, u]));
+  const pick = (username: string) => {
+    const u = byUsername.get(username);
+    if (!u) throw new Error(`seed: no staff user '${username}'`);
+    return u;
+  };
+
+  const admin       = pick('admin');
+  const counsellor1 = pick('sarah.thompson');
+  const counsellor2 = pick('david.okafor');
+  const counsellor3 = pick('priya.sharma');
 
   const uniPartners = staff.filter(u => u.role === 'university');
   console.log(`👥  Created ${staff.length - uniPartners.length} staff users + ${uniPartners.length} university partners`);
@@ -210,6 +209,7 @@ async function seed() {
   const studentUsers = await User.insertMany([
     {
       name: 'Aisha Malik',
+      username: 'aisha.malik',
       email: 'aisha@student.com',
       password: studentUserPw,
       role: 'student',
@@ -218,6 +218,7 @@ async function seed() {
     },
     {
       name: 'Rahul Verma',
+      username: 'rahul.verma',
       email: 'rahul@student.com',
       password: studentUserPw,
       role: 'student',
@@ -226,6 +227,7 @@ async function seed() {
     },
     {
       name: 'Emily Zhang',
+      username: 'emily.zhang',
       email: 'emily@student.com',
       password: studentUserPw,
       role: 'student',
@@ -387,7 +389,7 @@ async function seed() {
       status:        'paid',
       paidDate:      daysAgo(60),
       invoiceNumber: 'INV-2025-001',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     {
       studentId:     aisha._id,
@@ -398,7 +400,7 @@ async function seed() {
       status:        'paid',
       paidDate:      daysAgo(90),
       invoiceNumber: 'INV-2025-002',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     {
       studentId:     aisha._id,
@@ -409,7 +411,7 @@ async function seed() {
       status:        'paid',
       paidDate:      daysAgo(12),
       invoiceNumber: 'INV-2025-003',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     {
       studentId:     aisha._id,
@@ -420,7 +422,7 @@ async function seed() {
       status:        'pending',
       dueDate:       daysAhead(30),
       invoiceNumber: 'INV-2025-004',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     // Rahul
     {
@@ -432,7 +434,7 @@ async function seed() {
       status:        'paid',
       paidDate:      daysAgo(50),
       invoiceNumber: 'INV-2025-005',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     {
       studentId:     rahul._id,
@@ -443,7 +445,7 @@ async function seed() {
       status:        'paid',
       paidDate:      daysAgo(70),
       invoiceNumber: 'INV-2025-006',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     {
       studentId:     rahul._id,
@@ -454,7 +456,7 @@ async function seed() {
       status:        'overdue',
       dueDate:       daysAgo(5),
       invoiceNumber: 'INV-2025-007',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
     // Emily
     {
@@ -466,7 +468,7 @@ async function seed() {
       status:        'pending',
       dueDate:       daysAhead(15),
       invoiceNumber: 'INV-2025-008',
-      createdBy:     financeUser._id,
+      createdBy:     admin._id,
     },
   ]);
   console.log(`💳  Created ${payments.length} payment records`);
@@ -489,7 +491,7 @@ async function seed() {
       status:         'approved',
       currentVersion: mkVer('Aisha_Passport.pdf', 80),
       versions:       [mkVer('Aisha_Passport.pdf', 80)],
-      reviewedBy:     docUser._id,
+      reviewedBy:     admin._id,
     },
     {
       studentId:      aisha._id,
@@ -498,7 +500,7 @@ async function seed() {
       status:         'approved',
       currentVersion: mkVer('Aisha_IELTS.pdf', 75),
       versions:       [mkVer('Aisha_IELTS.pdf', 75)],
-      reviewedBy:     docUser._id,
+      reviewedBy:     admin._id,
     },
     {
       studentId:      aisha._id,
@@ -515,7 +517,7 @@ async function seed() {
       status:           'rejected',
       currentVersion:   mkVer('Aisha_Bank_Statement.pdf', 15),
       versions:         [mkVer('Aisha_Bank_Statement.pdf', 15)],
-      reviewedBy:       docUser._id,
+      reviewedBy:       admin._id,
       rejectionReason:  'Statement must be less than 3 months old. Please upload a recent one.',
     },
     // Rahul
@@ -526,7 +528,7 @@ async function seed() {
       status:         'approved',
       currentVersion: { fileUrl: '/uploads/seed_rahul_passport.pdf', fileName: 'Rahul_Passport.pdf', uploadedAt: daysAgo(65), uploadedBy: rahulUser._id },
       versions:       [{ fileUrl: '/uploads/seed_rahul_passport.pdf', fileName: 'Rahul_Passport.pdf', uploadedAt: daysAgo(65), uploadedBy: rahulUser._id }],
-      reviewedBy:     docUser._id,
+      reviewedBy:     admin._id,
     },
     {
       studentId:      rahul._id,
@@ -535,7 +537,7 @@ async function seed() {
       status:         'approved',
       currentVersion: { fileUrl: '/uploads/seed_rahul_gmat.pdf', fileName: 'Rahul_GMAT.pdf', uploadedAt: daysAgo(60), uploadedBy: rahulUser._id },
       versions:       [{ fileUrl: '/uploads/seed_rahul_gmat.pdf', fileName: 'Rahul_GMAT.pdf', uploadedAt: daysAgo(60), uploadedBy: rahulUser._id }],
-      reviewedBy:     docUser._id,
+      reviewedBy:     admin._id,
     },
     // Emily
     {
@@ -677,30 +679,29 @@ async function seed() {
   // ── 11. Summary ───────────────────────────────────────────────────────────
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('✅  Seed complete! Login credentials:\n');
+  // Printed from the seeded records rather than a hand-written list, so the
+  // credentials can never drift from what was actually created.
+  const handle = (u: { username?: string; email?: string; role: string }) =>
+    usesEmailLogin(u.role as UserRole) ? u.email! : u.username!;
+
   console.log('  STAFF  (password: password123)');
   console.log('  ─────────────────────────────────────────────────────────');
-  console.log('  Super Admin     →  superadmin@studycrm.com');
-  console.log('  Admin           →  admin@studycrm.com');
-  console.log('  Counsellor Mgr  →  cm@studycrm.com');
-  console.log('  Counsellor 1    →  sarah@studycrm.com');
-  console.log('  Counsellor 2    →  david@studycrm.com');
-  console.log('  Counsellor 3    →  priya@studycrm.com');
-  console.log('  Finance         →  finance@studycrm.com');
-  console.log('  Accountant      →  accounts@studycrm.com');
-  console.log('  Visa Team       →  visa@studycrm.com');
-  console.log('  Doc Verification→  docs@studycrm.com');
-  console.log('  University Team →  uni@studycrm.com');
-  console.log('  Support         →  support@studycrm.com');
+  console.log('  the admin signs in with an email address, every other role with a username\n');
+  for (const u of staffData.filter(x => x.role !== 'university')) {
+    console.log(`  ${u.role.replace(/_/g, ' ').padEnd(19)} →  ${handle(u)}`);
+  }
+
   console.log('\n  UNIVERSITY PARTNERS  (password: password123)');
   console.log('  ─────────────────────────────────────────────────────────');
-  console.log('  Univ of Manchester  →  admissions@manchester.ac.uk');
-  console.log('  Univ of Melbourne   →  intl@unimelb.edu.au');
-  console.log('  Univ of Edinburgh   →  apply@ed.ac.uk');
+  for (const u of staffData.filter(x => x.role === 'university')) {
+    console.log(`  ${(u.universityName ?? u.name).padEnd(24)} →  ${handle(u)}`);
+  }
+
   console.log('\n  STUDENTS  (password: student123)');
   console.log('  ─────────────────────────────────────────────────────────');
-  console.log('  Aisha Malik  (visa_filing)   →  aisha@student.com');
-  console.log('  Rahul Verma  (offer_letter)  →  rahul@student.com');
-  console.log('  Emily Zhang  (counselling)   →  emily@student.com');
+  studentUsers.forEach((u, i) => {
+    console.log(`  ${u.name.padEnd(13)} (${studentDocs[i].stage.padEnd(13)}) →  ${u.username}`);
+  });
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   await mongoose.disconnect();

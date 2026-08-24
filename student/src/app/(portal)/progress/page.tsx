@@ -77,7 +77,7 @@ export default function ProgressPage() {
               <h3 className="font-semibold text-t1 text-sm mb-4">Profile Summary</h3>
               <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
                 <Detail label="Name"        value={student.personal.name} />
-                <Detail label="Email"       value={student.personal.email} />
+                <Detail label="Email"       value={student.personal.email || '—'} />
                 <Detail label="Phone"       value={student.personal.phone} />
                 <Detail label="Nationality" value={student.personal.nationality} />
                 <Detail label="Intake"      value={prefs.intake} />

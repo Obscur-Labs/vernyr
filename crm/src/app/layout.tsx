@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/context/ThemeContext';
 const geist = Geist({ variable: '--font-geist', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'StudyCRM',
-  description: 'Study abroad CRM for counsellors and students',
+  title: 'Vernyr',
+  description: 'Study abroad operations for counsellors and students',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

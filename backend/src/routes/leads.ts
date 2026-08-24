@@ -80,7 +80,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
       // Notify counsellor + all admins/managers
       const admins = await User.find({
-        role: { $in: ['super_admin', 'admin', 'counsellor_manager'] },
+        role: 'admin',
         isActive: true,
       }).select('_id');
       const notifyIds = admins.map(u => u._id.toString());

@@ -24,6 +24,8 @@
     "start:student": "npm run start -w student",
 
     "seed": "npm run seed -w backend",
+    "migrate:usernames": "npm run migrate:usernames -w backend",
+    "migrate:roles": "npm run migrate:roles -w backend",
 
     "typecheck": "npm run typecheck:backend && npm run typecheck:crm && npm run typecheck:student",
     "typecheck:backend": "tsc --noEmit -p backend",

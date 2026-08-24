@@ -1,35 +1,26 @@
 'use client';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import { usesEmailLogin, loginHandle } from '@/lib/credentials';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import { SkeletonTable } from '@/components/Skeleton';
 import type { User, UserRole } from '@/types';
 
-const ROLE_OPTIONS: UserRole[] = [
-  'super_admin','admin','counsellor_manager','counsellor',
-  'finance','accountant','visa_team','doc_verification',
-  'university_team','university','support',
-];
+const ROLE_OPTIONS: UserRole[] = ['admin', 'counsellor', 'university'];
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  super_admin:       'bg-indigo-500/15 text-indigo-400',
-  admin:             'bg-violet-500/15 text-violet-400',
-  counsellor_manager:'bg-emerald-500/15 text-emerald-400',
-  counsellor:        'bg-emerald-500/15 text-emerald-400',
-  finance:           'bg-amber-500/15 text-amber-400',
-  accountant:        'bg-amber-500/15 text-amber-400',
-  visa_team:         'bg-blue-500/15 text-blue-400',
-  doc_verification:  'bg-orange-500/15 text-orange-400',
-  university_team:   'bg-cyan-500/15 text-cyan-400',
-  support:           'bg-slate-500/15 text-slate-400',
-  student:           'bg-sky-500/15 text-sky-400',
-  university:        'bg-teal-500/15 text-teal-400',
+  admin:      'bg-indigo-500/15 text-indigo-400',
+  counsellor: 'bg-emerald-500/15 text-emerald-400',
+  student:    'bg-sky-500/15 text-sky-400',
+  university: 'bg-teal-500/15 text-teal-400',
 };
 
 interface NewUserForm {
-  name: string; email: string; password: string; role: UserRole; phone: string; universityName: string;
+  name: string; username: string; email: string; password: string; role: UserRole; phone: string; universityName: string;
 }
+
+const BLANK_USER: NewUserForm = { name:'',username:'',email:'',password:'',role:'counsellor',phone:'',universityName:'' };
 
 export default function SettingsPage() {
   const { user: me } = useAuthStore();
@@ -40,7 +31,7 @@ export default function SettingsPage() {
   const [users, setUsers]             = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser]         = useState<NewUserForm>({ name:'',email:'',password:'',role:'counsellor',phone:'',universityName:'' });
+  const [newUser, setNewUser]         = useState<NewUserForm>(BLANK_USER);
   const [addingUser, setAddingUser]   = useState(false);
 
   // Profile tab
@@ -56,7 +47,7 @@ export default function SettingsPage() {
         .finally(() => setLoadingUsers(false));
     }
     if (activeTab === 1 && me) {
-      setProfileForm({ name: me.name, email: me.email, phone: me.phone || '' });
+      setProfileForm({ name: me.name, email: me.email || '', phone: me.phone || '' });
     }
   }, [activeTab, me]);
 
@@ -67,7 +58,7 @@ export default function SettingsPage() {
       const res = await api.post('/users', newUser);
       setUsers(prev => [...prev, res.data]);
       setShowAddUser(false);
-      setNewUser({ name:'',email:'',password:'',role:'counsellor',phone:'',universityName:'' });
+      setNewUser(BLANK_USER);
       toast('Team member added', 'success');
     } catch {
       toast('Failed to add user', 'error');
@@ -141,7 +132,9 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: 'Full Name *', key: 'name' },
-                  { label: 'Email *', key: 'email' },
+                  usesEmailLogin(newUser.role)
+                    ? { label: 'Email *', key: 'email' }
+                    : { label: 'Username *', key: 'username' },
                   { label: 'Password *', key: 'password' },
                   { label: 'Phone', key: 'phone' },
                 ].map(f => (
@@ -149,6 +142,8 @@ export default function SettingsPage() {
                     <label className="block text-xs text-t3 mb-1">{f.label}</label>
                     <input
                       type={f.key === 'password' ? 'password' : f.key === 'email' ? 'email' : 'text'}
+                      autoComplete={f.key === 'password' ? 'new-password' : 'off'}
+                      placeholder={f.key === 'username' ? 'e.g. sarah.thompson' : undefined}
                       required={f.label.endsWith('*')}
                       value={(newUser as unknown as Record<string,string>)[f.key]}
                       onChange={e => setNewUser(p => ({ ...p, [f.key]: e.target.value }))}
@@ -166,6 +161,11 @@ export default function SettingsPage() {
                 >
                   {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r.replace(/_/g,' ')}</option>)}
                 </select>
+                <p className="text-xs text-t3 mt-1">
+                  {usesEmailLogin(newUser.role)
+                    ? 'Admin roles sign in with an email address.'
+                    : 'This role signs in with a username.'}
+                </p>
               </div>
               {newUser.role === 'university' && (
                 <div className="col-span-2">
@@ -195,7 +195,7 @@ export default function SettingsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-line">
-                    {['Member','Email','Role','Phone','Actions'].map(h => (
+                    {['Member','Sign-in','Role','Phone','Actions'].map(h => (
                       <th key={h} className="text-left text-xs font-medium text-t2 px-4 py-3 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -212,7 +212,7 @@ export default function SettingsPage() {
                           {u._id === me?._id && <span className="text-xs bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">You</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-t2">{u.email}</td>
+                      <td className="px-4 py-3 text-sm text-t2">{loginHandle(u)}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${ROLE_COLORS[u.role]}`}>
                           {u.role.replace(/_/g,' ')}

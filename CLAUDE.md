@@ -105,7 +105,15 @@ throws if the selected mode's values are missing.
 ### Auth Flow
 JWT-based. The backend issues a token on `/api/auth/login`. The CRM stores it in `localStorage` under `crm_token`; the student portal uses `student_token`. Both frontends use Zustand with `persist` middleware (`crm-auth` / `student-auth` keys) to hydrate auth state. The Axios instance in `src/lib/api.ts` (each frontend has one) attaches the token via an interceptor and redirects to `/login` on 401.
 
-Users have a `role` field (`super_admin`, `admin`, `counsellor_manager`, `finance`, `visa_team`, `doc_verification`, `university_team`, `counsellor`, `accountant`, `support`, `student`, `university`). Route-level authorization uses the `authorize(...roles)` middleware from `backend/src/middleware/auth.ts`.
+Users have a `role` field — four of them: `admin`, `counsellor`, `student`, `university`.
+`admin` is the single privileged role (there is no super admin); `counsellor` is
+case-working staff; `student` and `university` are scoped to their own data.
+Route-level authorization uses the `authorize(...roles)` middleware from
+`backend/src/middleware/auth.ts`.
+
+The admin is a **read-only observer** in chat: `routes/messages.ts` refuses any
+non-GET request from them, so every conversation is readable for oversight but
+they cannot send, edit, delete, react or mark read.
 
 The `student` role has a `studentId` FK on the User document pointing to the `Student` collection. Self-registration (`POST /api/auth/register-student`) atomically creates both records and links them.
 

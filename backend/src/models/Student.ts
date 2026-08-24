@@ -8,7 +8,7 @@ export interface IStudent extends Document {
   stage: StudentStage;
   personal: {
     name: string;
-    email: string;
+    email?: string;
     phone: string;
     dob?: string;
     gender?: string;
@@ -44,7 +44,7 @@ const StudentSchema = new Schema<IStudent>({
   stage:             { type: String, enum: ['inquiry','counselling','university_selection','application_submitted','offer_letter','fee_payment','cas_i20','visa_filing','visa_approved','departure'], default: 'inquiry' },
   personal: {
     name:        { type: String, required: true },
-    email:       { type: String, required: true, lowercase: true },
+    email:       { type: String, lowercase: true },
     phone:       { type: String, required: true },
     dob:         String, gender: String, nationality: String, address: String,
   },
