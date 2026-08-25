@@ -71,8 +71,10 @@ const RBAC_MATRIX: RbacRule[] = [
     allow: ['admin'], source: 'routes/users.ts — authorize()' },
   { area: 'Users', surface: 'POST /api/users/student-account', rule: 'Create a portal login for a student',
     allow: ['admin'], source: 'routes/users.ts — authorize()' },
-  { area: 'Users', surface: 'PUT /api/users/:id', rule: 'Update a user — any authenticated caller',
-    source: 'routes/users.ts' },
+  { area: 'Users', surface: 'PUT /api/users/:id', rule: 'Update yourself, or anyone if you are an admin; role and isActive are admin-only',
+    allow: ['admin'], source: 'routes/users.ts — ADMIN_ONLY_FIELDS' },
+  { area: 'Users', surface: 'POST /api/auth/register', rule: 'Create an account for someone else',
+    allow: ['admin'], source: 'routes/auth.ts — authorize()' },
 
   { area: 'Students', surface: 'GET /api/students', rule: 'Scoped per role: students see themselves, counsellors see their assignments, university sees its own applicants',
     source: 'routes/students.ts:90-98' },

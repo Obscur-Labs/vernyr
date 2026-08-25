@@ -10,6 +10,14 @@ export const usesEmailLogin = (role: UserRole) => EMAIL_LOGIN_ROLES.includes(rol
 /** Letters, digits, dot, underscore, hyphen — 3–32 chars, must start alphanumeric. */
 export const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,31}$/;
 
+/**
+ * A blank credential must be stored as nothing at all. `sparse` only skips
+ * missing and null values, so an empty string still takes a slot in the unique
+ * index — and the first account saved with one blocks every later account that
+ * leaves the same field empty.
+ */
+const blankToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
+
 export interface IUser extends Document {
   name: string;
   username?: string;
@@ -28,8 +36,8 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>({
   name:     { type: String, required: true, trim: true },
-  username: { type: String, unique: true, sparse: true, lowercase: true, trim: true, match: [USERNAME_RE, 'Username must be 3–32 characters: letters, numbers, dot, underscore or hyphen'] },
-  email:    { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+  username: { type: String, unique: true, sparse: true, lowercase: true, trim: true, set: blankToUndefined, match: [USERNAME_RE, 'Username must be 3–32 characters: letters, numbers, dot, underscore or hyphen'] },
+  email:    { type: String, unique: true, sparse: true, lowercase: true, trim: true, set: blankToUndefined },
   password: { type: String, required: true, minlength: 6 },
   role:           { type: String, enum: ['admin','counsellor','student','university'], default: 'counsellor' },
   avatar:         { type: String },

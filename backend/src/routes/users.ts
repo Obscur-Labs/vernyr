@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import User, { USERNAME_RE } from '../models/User';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { logActivity } from '../utils/activityLog';
+import { clientError } from '../utils/mongoErrors';
 
 const router = Router();
 
@@ -35,6 +36,8 @@ router.post('/', authenticate, authorize('admin'), async (req: AuthRequest, res:
     });
     res.status(201).json(user);
   } catch (err) {
+    const known = clientError(err);
+    if (known) { res.status(known.status).json({ message: known.message }); return; }
     res.status(500).json({ message: 'Server error', error: err });
   }
 });
@@ -64,23 +67,60 @@ router.post('/student-account', authenticate, authorize('admin'), async (req: Au
     });
     res.status(201).json(user);
   } catch (err) {
+    const known = clientError(err);
+    if (known) { res.status(known.status).json({ message: known.message }); return; }
     res.status(500).json({ message: 'Server error', error: err });
   }
 });
 
-// PUT /api/users/:id — update user
+/** Fields only an admin may set — a user must not be able to promote themselves. */
+const ADMIN_ONLY_FIELDS = ['role', 'isActive'] as const;
+
+// PUT /api/users/:id — update yourself, or anyone if you are an admin
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  const isAdmin = req.user!.role === 'admin';
+  const isSelf = req.user!.id === req.params.id;
+
+  if (!isAdmin && !isSelf) {
+    res.status(403).json({ message: 'You can only update your own account' });
+    return;
+  }
+
   try {
     const { password, ...updateData } = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password');
+    void password;   // password has its own endpoint — /api/auth/change-password
+
+    // Dropped rather than rejected: the profile form posts the whole record
+    // back, so a self-update legitimately carries the caller's current role.
+    if (!isAdmin) for (const field of ADMIN_ONLY_FIELDS) delete updateData[field];
+
+    // Clearing a credential has to remove the field, not store ''. The unique
+    // index treats an empty string as a real value, so one blank would block
+    // every later account that leaves the same field empty.
+    const unset: Record<string, ''> = {};
+    for (const field of ['username', 'email'] as const) {
+      if (field in updateData && !String(updateData[field] ?? '').trim()) {
+        delete updateData[field];
+        unset[field] = '';
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      Object.keys(unset).length ? { $set: updateData, $unset: unset } : updateData,
+      { new: true, runValidators: true },
+    ).select('-password');
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
+
     logActivity(req, {
       action: 'update', entity: 'User', entityId: user._id,
       label: `Updated ${user.username ?? user.email}`,
-      changes: Object.keys(updateData),
+      changes: [...Object.keys(updateData), ...Object.keys(unset)],
     });
     res.json(user);
   } catch (err) {
+    const known = clientError(err);
+    if (known) { res.status(known.status).json({ message: known.message }); return; }
     res.status(500).json({ message: 'Server error', error: err });
   }
 });

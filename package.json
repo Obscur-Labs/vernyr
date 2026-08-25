@@ -26,6 +26,7 @@
     "seed": "npm run seed -w backend",
     "migrate:usernames": "npm run migrate:usernames -w backend",
     "migrate:roles": "npm run migrate:roles -w backend",
+    "migrate:blank-credentials": "npm run migrate:blank-credentials -w backend",
 
     "typecheck": "npm run typecheck:backend && npm run typecheck:crm && npm run typecheck:student",
     "typecheck:backend": "tsc --noEmit -p backend",

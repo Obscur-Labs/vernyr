@@ -4,7 +4,7 @@ import { env } from '../config/env';
 import { body, validationResult } from 'express-validator';
 import User, { USERNAME_RE } from '../models/User';
 import Student from '../models/Student';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { logActivity } from '../utils/activityLog';
 
 const router = Router();
@@ -67,8 +67,14 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise
   }
 });
 
-// POST /api/auth/register (admin seeding only)
-router.post('/register', [
+/**
+ * POST /api/auth/register — create an account for someone else.
+ *
+ * Gated to admins. Ungated it was an open endpoint that would mint an account
+ * at any role, including `admin`, for anyone who could reach the API. The first
+ * admin comes from `npm run seed` or the /dev console, not from here.
+ */
+router.post('/register', authenticate, authorize('admin'), [
   body('name').notEmpty().trim(),
   body('username').optional().trim().toLowerCase().matches(USERNAME_RE),
   body('email').optional().isEmail().normalizeEmail(),

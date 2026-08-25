@@ -3,6 +3,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { suggestUsername } from '@/lib/credentials';
+import { useBreadcrumbTail } from '@/context/BreadcrumbContext';
 import { fileHref } from '@/lib/media';
 import { apiUrl } from '@/lib/config';
 import { StageTracker } from '@/components/StageTracker';
@@ -57,6 +58,9 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
   const [activeTab, setActiveTab]       = useState(0);
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
+
+  // Replaces the record id in the breadcrumb once we know whose file this is
+  useBreadcrumbTail(student?.personal?.name);
 
   // Forms
   const [editProfile, setEditProfile]   = useState(false);
