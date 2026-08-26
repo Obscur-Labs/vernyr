@@ -58,7 +58,15 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', { identifier, password });
-      setAuth(data.user, data.token);
+
+      // The portal seat has no Dashboard, which is what makes it a portal seat.
+      // Signing in here used to succeed and then land on a page of 403s.
+      if (!data.access?.permissions?.dashboard?.read) {
+        toast('This account signs in on the student portal, not here.', 'error');
+        return;
+      }
+
+      setAuth(data.user, data.token, data.access);
       toast('Welcome back!', 'success');
       router.push('/dashboard');
     } catch (err: unknown) {

@@ -2,12 +2,14 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/context/ToastContext';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 export const metadata: Metadata = {
   title: 'Vernyr — My Journey',
   description: 'Track your study abroad journey from inquiry to departure.',
-  manifest: '/manifest.json',
+  manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Vernyr' },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -29,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             {children}
+            <InstallPrompt appName="Vernyr" />
           </ToastProvider>
         </ThemeProvider>
       </body>

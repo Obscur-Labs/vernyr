@@ -6,6 +6,9 @@ import User, { UserRole, usesEmailLogin, USERNAME_RE } from '../models/User';
 import ActivityLog from '../models/ActivityLog';
 import { logDevActivity, diffFields } from '../utils/activityLog';
 import { isCloudinaryConfigured } from '../config/cloudinary';
+import PortalAccount from '../models/PortalAccount';
+import { MODULES } from '../config/modules';
+import { listPresets, countUsersOnPreset, effectivePermissions } from '../services/access';
 
 /**
  * Unauthenticated developer console API.
@@ -50,85 +53,82 @@ router.use(localhostOnly);
 export const ROLES: UserRole[] = ['admin', 'counsellor', 'student', 'university'];
 
 /**
- * A hand-maintained mirror of the access rules enforced across the API. Most of
- * them are inline `req.user.role` checks rather than `authorize()` calls, so
- * there is no way to derive this at runtime — when you change a guard in a
- * route, update the matching entry here.
+ * Row-level scoping — the half of access that permissions cannot express.
+ *
+ * `can(module, action)` answers *whether*; these rules answer *whose*. They are
+ * still hand-maintained because they live inside handlers, so when you change
+ * one, change it here too. The module matrix below is no longer hand-written:
+ * it is generated from the live registry and the presets in force.
  */
-interface RbacRule {
+interface ScopingRule {
   area: string;
   surface: string;
   rule: string;
-  allow?: string[];
-  deny?: string[];
   source: string;
 }
 
-const RBAC_MATRIX: RbacRule[] = [
-  { area: 'Users', surface: 'GET /api/users', rule: 'List staff accounts',
-    allow: ['admin'], source: 'routes/users.ts — authorize()' },
-  { area: 'Users', surface: 'POST /api/users', rule: 'Create a user',
-    allow: ['admin'], source: 'routes/users.ts — authorize()' },
-  { area: 'Users', surface: 'POST /api/users/student-account', rule: 'Create a portal login for a student',
-    allow: ['admin'], source: 'routes/users.ts — authorize()' },
-  { area: 'Users', surface: 'PUT /api/users/:id', rule: 'Update yourself, or anyone if you are an admin; role and isActive are admin-only',
-    allow: ['admin'], source: 'routes/users.ts — ADMIN_ONLY_FIELDS' },
-  { area: 'Users', surface: 'POST /api/auth/register', rule: 'Create an account for someone else',
-    allow: ['admin'], source: 'routes/auth.ts — authorize()' },
-
-  { area: 'Students', surface: 'GET /api/students', rule: 'Scoped per role: students see themselves, counsellors see their assignments, university sees its own applicants',
-    source: 'routes/students.ts:90-98' },
-  { area: 'Students', surface: 'POST/PUT/DELETE /api/students', rule: 'University accounts are read-only',
-    deny: ['university'], source: 'routes/students.ts:121,150,169,192,265' },
-  { area: 'Students', surface: 'PUT /api/students/:id/counsellor', rule: 'Assign a counsellor',
-    allow: ['admin'], source: 'routes/students.ts:215' },
-
-  { area: 'Leads', surface: 'GET /api/leads', rule: 'Counsellors only see leads assigned to them',
-    source: 'routes/leads.ts:15' },
-
-  { area: 'Applications', surface: 'write ops /api/applications', rule: 'University accounts are read-only',
-    deny: ['university'], source: 'routes/applications.ts:22-105' },
-
-  { area: 'Documents', surface: 'write ops /api/documents', rule: 'University accounts are read-only',
-    deny: ['university'], source: 'routes/documents.ts — READ_ONLY_ROLES' },
-  { area: 'Documents', surface: 'POST /api/documents/requests', rule: 'Request documents from a student — staff only',
-    deny: ['university', 'student'], source: 'routes/documents.ts — isStaff()' },
-  { area: 'Documents', surface: 'GET /api/documents/download-all/:studentId', rule: 'Bulk ZIP export — staff only',
-    deny: ['university', 'student'], source: 'routes/documents.ts — isStaff()' },
-
-  { area: 'Chat', surface: 'non-GET /api/messages', rule: 'The admin observes chat but cannot take part — no sending, editing, deleting, reacting or read receipts',
-    deny: ['admin'], source: 'routes/messages.ts — OBSERVER_ROLES' },
-  { area: 'Chat', surface: 'GET /api/messages/conversations', rule: 'The admin sees every conversation; everyone else sees their own',
+const SCOPING_RULES: ScopingRule[] = [
+  { area: 'Students', surface: 'GET /api/students',
+    rule: 'Students see only themselves, counsellors see their own assignments, university partners see their own applicants',
+    source: 'routes/students.ts — role branch in the list filter' },
+  { area: 'Students', surface: 'GET/PUT/PATCH /api/students/:id',
+    rule: 'A student may only reach the record their account is linked to',
+    source: 'routes/students.ts — denyOtherStudentsRecord()' },
+  { area: 'Students', surface: 'PUT/PATCH /api/students/:id',
+    rule: 'A student may only set personal, education, scores, passport and preferences — never stage or assignedCounsellor',
+    source: 'routes/students.ts — STUDENT_SELF_FIELDS' },
+  { area: 'Students', surface: 'write ops /api/students',
+    rule: 'University accounts are read-only regardless of preset',
+    source: 'routes/students.ts — role check' },
+  { area: 'Leads', surface: 'GET /api/leads',
+    rule: 'Counsellors only see leads assigned to them',
+    source: 'routes/leads.ts' },
+  { area: 'Documents', surface: 'POST /api/documents/requests, GET /download-all/:studentId',
+    rule: 'Staff surfaces — not reachable by students or university partners',
+    source: 'routes/documents.ts — isStaff()' },
+  { area: 'Chat', surface: 'GET /api/messages/conversations',
+    rule: 'An observer (chat Read without Send) sees every conversation; everyone else sees their own',
     source: 'routes/messages.ts — isChatObserver()' },
-  { area: 'Chat', surface: 'GET /api/messages/:conversationId', rule: 'Caller must be a participant, or the admin observing',
+  { area: 'Chat', surface: 'GET /api/messages/:conversationId',
+    rule: 'Caller must be a participant, or an observer',
     source: 'routes/messages.ts — canRead()' },
-
-  { area: 'CRM nav', surface: '/leads', rule: 'Hidden from students',
-    allow: ['admin', 'counsellor', 'university'], source: 'crm AppShell.tsx — NAV_ITEMS' },
-  { area: 'CRM nav', surface: '/applications', rule: 'Counselling plus the university side',
-    allow: ['admin', 'counsellor', 'university'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/visa', rule: 'Visa tracker',
-    allow: ['admin', 'counsellor'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/documents', rule: 'Document review',
-    allow: ['admin', 'counsellor'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/finance', rule: 'Payments and invoices',
-    allow: ['admin'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/reports', rule: 'Reporting',
-    allow: ['admin'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/settings', rule: 'User administration',
-    allow: ['admin'], source: 'crm AppShell.tsx' },
-  { area: 'CRM nav', surface: '/chat', rule: 'Counsellors take part; the admin gets a read-only view',
-    allow: ['admin', 'counsellor'], source: 'crm AppShell.tsx' },
+  { area: 'Members', surface: 'PUT /api/users/:id',
+    rule: 'Yourself, or anyone if you hold members.update; role, isActive, presetKey and permissions are never self-settable',
+    source: 'routes/users.ts — PRIVILEGED_FIELDS' },
+  { area: 'Auth', surface: 'every authenticated route',
+    rule: 'A deactivated account is refused on the next request, not when its token expires',
+    source: 'middleware/auth.ts — authenticate()' },
 ];
 
-/** GET /api/dev/rbac — roles, live headcount per role, and the access matrix */
+/**
+ * GET /api/dev/rbac — the live access picture.
+ *
+ * `modules` and `presets` are read straight from the registry and the presets
+ * in force, so this cannot drift. `scoping` is the hand-maintained remainder.
+ */
 router.get('/rbac', async (_req, res: Response) => {
   try {
-    const counts = await User.aggregate([{ $group: { _id: '$role', n: { $sum: 1 } } }]);
+    const counts = [
+      ...(await User.aggregate([{ $group: { _id: '$role', n: { $sum: 1 } } }])),
+      ...(await PortalAccount.aggregate([{ $group: { _id: '$role', n: { $sum: 1 } } }])),
+    ];
     const byRole = new Map<string, number>(counts.map(c => [c._id as string, c.n as number]));
+    const presets = await listPresets();
+
     res.json({
       roles: ROLES.map(role => ({ role, users: byRole.get(role) ?? 0 })),
-      matrix: RBAC_MATRIX,
+      modules: MODULES,
+      presets: await Promise.all(presets.map(async (p) => ({
+        key: p.key,
+        name: p.name,
+        description: p.description,
+        isSystem: p.isSystem,
+        scope: p.scope,
+        fullAccess: p.fullAccess,
+        members: await countUsersOnPreset(p.key),
+        permissions: effectivePermissions(p),
+      }))),
+      scoping: SCOPING_RULES,
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
@@ -220,7 +220,12 @@ router.get('/users', async (req: Request, res: Response) => {
       ];
     }
 
-    const users = await User.find(filter).select('-password').sort('role name');
+    const [staff, portal] = await Promise.all([
+      User.find(filter).select('-password').lean(),
+      PortalAccount.find(filter).select('-password').lean(),
+    ]);
+    const users = [...staff, ...portal].sort((a, b) =>
+      a.role === b.role ? a.name.localeCompare(b.name) : a.role.localeCompare(b.role));
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
@@ -264,7 +269,7 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
 });
 
 /** Editable through the console — everything except the password and _id. */
-const EDITABLE = ['name', 'username', 'email', 'role', 'phone', 'universityName', 'isActive'] as const;
+const EDITABLE = ['name', 'username', 'email', 'role', 'presetKey', 'phone', 'universityName', 'isActive'] as const;
 
 /** PUT /api/dev/users/:id — update any field except the password, on any user */
 router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
@@ -276,7 +281,7 @@ router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     // Loaded and saved rather than findByIdAndUpdate: the credential rule lives
     // in a pre('validate') hook, which update queries skip entirely.
-    const user = await User.findById(req.params.id);
+    const user = (await User.findById(req.params.id)) ?? (await PortalAccount.findById(req.params.id));
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
 
     const before = user.toObject() as unknown as Record<string, unknown>;
@@ -334,7 +339,7 @@ router.patch('/users/:id/password', async (req: Request, res: Response): Promise
     res.status(400).json({ message: 'password must be at least 6 characters' }); return;
   }
   try {
-    const user = await User.findById(req.params.id);
+    const user = (await User.findById(req.params.id)) ?? (await PortalAccount.findById(req.params.id));
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
     // save() so the pre-save hook hashes it — findByIdAndUpdate would store plaintext
     user.password = password;
@@ -352,7 +357,8 @@ router.patch('/users/:id/password', async (req: Request, res: Response): Promise
 /** DELETE /api/dev/users/:id */
 router.delete('/users/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id).select('-password');
+    const user = (await User.findByIdAndDelete(req.params.id).select('-password'))
+      ?? (await PortalAccount.findByIdAndDelete(req.params.id).select('-password'));
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
     logDevActivity(req, {
       action: 'delete', entity: 'User', entityId: user._id,
@@ -370,7 +376,7 @@ router.delete('/users/:id', async (req: Request, res: Response): Promise<void> =
  */
 router.post('/users/:id/impersonate', async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = (await User.findById(req.params.id)) ?? (await PortalAccount.findById(req.params.id));
     if (!user) { res.status(404).json({ message: 'User not found' }); return; }
 
     const token = jwt.sign(
@@ -382,7 +388,7 @@ router.post('/users/:id/impersonate', async (req: Request, res: Response): Promi
       action: 'impersonate', entity: 'User', entityId: user._id,
       label: `Signed in as ${user.username ?? user.email} (${user.role})`,
     });
-    res.json({ token, user, studentId: user.studentId?.toString() ?? null });
+    res.json({ token, user, studentId: 'studentId' in user ? String(user.studentId ?? '') || null : null });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }

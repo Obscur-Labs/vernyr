@@ -91,11 +91,7 @@ const BellIcon = ({ className = '' }: { className?: string }) => (
 const getInitials = (name: string) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
-/**
- * A sidebar row. The active state is carried by a tint plus a rail on the
- * leading edge — readable at a glance without the neon halo the previous
- * version glowed behind every selected item.
- */
+/** A sidebar row. */
 function SideLink({
   href, label, icon, active, onNavigate, badge,
 }: {
@@ -142,11 +138,7 @@ interface SidebarProps {
   onSeenNotifications: () => void;
 }
 
-/**
- * Module scope, not a closure inside `AppShell`. Declaring a component during
- * render creates a new type each time, so React was unmounting and rebuilding
- * the entire sidebar whenever a notification arrived.
- */
+/** Module scope, not a closure inside `AppShell`. */
 function Sidebar({
   pathname, unreadCount, theme, userName,
   onToggleTheme, onSignOut, onNavigate, onSeenNotifications,

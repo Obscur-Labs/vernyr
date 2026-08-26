@@ -2,12 +2,12 @@ import { Router, Response } from 'express';
 import Lead from '../models/Lead';
 import Student from '../models/Student';
 import User from '../models/User';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { notify } from '../utils/notify';
 
 const router = Router();
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('leads', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.status) filter.status = req.query.status;
@@ -20,7 +20,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('leads', 'create'), async (req: AuthRequest, res: Response) => {
   try {
     const lead = await Lead.create({ ...req.body, assignedTo: req.body.assignedTo || req.user!.id });
     res.status(201).json(lead);
@@ -29,7 +29,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.get('/:id', authenticate, async (req, res: Response) => {
+router.get('/:id', authenticate, can('leads', 'read'), async (req, res: Response) => {
   try {
     const lead = await Lead.findById(req.params.id).populate('assignedTo', 'name email');
     if (!lead) { res.status(404).json({ message: 'Lead not found' }); return; }
@@ -39,7 +39,7 @@ router.get('/:id', authenticate, async (req, res: Response) => {
   }
 });
 
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, can('leads', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     // Capture pre-update state for conversion detection
     const previous = await Lead.findById(req.params.id).lean();
@@ -103,7 +103,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
 // Leads are never deleted — only close them as closed_lost to preserve history.
 // This endpoint exists for admin hard-deletes only.
-router.delete('/:id', authenticate, async (req, res: Response) => {
+router.delete('/:id', authenticate, can('leads', 'delete'), async (req, res: Response) => {
   try {
     await Lead.findByIdAndDelete(req.params.id);
     res.json({ message: 'Lead deleted' });

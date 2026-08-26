@@ -4,11 +4,11 @@ import Student from '../models/Student';
 import Application from '../models/Application';
 import Visa from '../models/Visa';
 import Payment from '../models/Payment';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/stats', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/stats', authenticate, can('dashboard', 'read'), async (_req: AuthRequest, res: Response) => {
   try {
     const [totalLeads, totalStudents, totalApplications, visaApprovals, pendingPayments, leadsByStatus, studentsByStage] = await Promise.all([
       Lead.countDocuments(),
@@ -34,7 +34,7 @@ router.get('/stats', authenticate, async (_req: AuthRequest, res: Response) => {
   }
 });
 
-router.get('/reports', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/reports', authenticate, can('reports', 'read'), async (_req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

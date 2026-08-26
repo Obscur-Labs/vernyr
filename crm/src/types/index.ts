@@ -22,6 +22,70 @@ export interface User {
   universityName?: string;
   isActive: boolean;
   createdAt: string;
+  /* ── Access ────────────────────────────────────────────────────────────
+     `presetKey` may be absent on accounts that predate the access system;
+     the server resolves those through `role` and reports it back here with
+     `presetInherited` set, so the UI can say the seat was never chosen. */
+  presetKey?: string;
+  presetName?: string;
+  presetInherited?: boolean;
+  hasOverrides?: boolean;
+  permissions?: PermissionMap;
+}
+
+/* ── Access control ────────────────────────────────────────────────────── */
+
+export const ACTIONS = ['create', 'read', 'update', 'delete'] as const;
+export type Action = (typeof ACTIONS)[number];
+
+/** `{ students: { read: true, update: true } }` — an absent verb means "no". */
+export type PermissionMap = Record<string, Partial<Record<Action, boolean>>>;
+
+export interface ModuleDef {
+  key: string;
+  label: string;
+  group: 'Pipeline' | 'Casework' | 'Money' | 'Communication' | 'Administration';
+  description: string;
+  actions: Action[];
+  actionLabels?: Partial<Record<Action, string>>;
+}
+
+export interface Preset {
+  key: string;
+  name: string;
+  description: string;
+  fullAccess: boolean;
+  permissions: PermissionMap;
+  isSystem: boolean;
+  scope: 'staff' | 'portal';
+  memberCount?: number;
+}
+
+export interface PortalAccount {
+  _id: string;
+  name: string;
+  username?: string;
+  email?: string;
+  role: 'student' | 'university';
+  studentId?: { _id: string; personal?: { name?: string }; stage?: StudentStage } | string | null;
+  universityName?: string;
+  isActive: boolean;
+  lastSeenAt?: string;
+  createdAt: string;
+  presetKey?: string;
+  presetName?: string;
+  presetInherited?: boolean;
+  hasOverrides?: boolean;
+  permissions?: PermissionMap;
+}
+
+/** What the signed-in caller may do — returned by login and /access/me. */
+export interface AccessSnapshot {
+  presetKey: string;
+  presetName: string;
+  fullAccess: boolean;
+  hasOverrides?: boolean;
+  permissions: PermissionMap;
 }
 
 export interface Lead {

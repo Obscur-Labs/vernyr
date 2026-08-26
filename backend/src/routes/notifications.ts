@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import Notification from '../models/Notification';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('notifications', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const notifications = await Notification.find({ userId: req.user!.id }).sort('-createdAt').limit(limit);
@@ -14,7 +14,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('notifications', 'create'), async (req: AuthRequest, res: Response) => {
   try {
     const notification = await Notification.create(req.body);
     res.status(201).json(notification);
@@ -24,7 +24,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // PUT /api/notifications/:id/read
-router.put('/:id/read', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id/read', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user!.id },
@@ -39,7 +39,7 @@ router.put('/:id/read', authenticate, async (req: AuthRequest, res: Response) =>
 });
 
 // PUT /api/notifications/read-all
-router.put('/read-all', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/read-all', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     await Notification.updateMany({ userId: req.user!.id, read: false }, { read: true });
     res.json({ message: 'All notifications marked as read' });
@@ -49,7 +49,7 @@ router.put('/read-all', authenticate, async (req: AuthRequest, res: Response) =>
 });
 
 // PATCH aliases (used by student portal)
-router.patch('/:id/read', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/:id/read', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user!.id },
@@ -63,7 +63,7 @@ router.patch('/:id/read', authenticate, async (req: AuthRequest, res: Response) 
   }
 });
 
-router.patch('/read-all', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/read-all', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     await Notification.updateMany({ userId: req.user!.id, read: false }, { read: true });
     res.json({ message: 'All notifications marked as read' });
@@ -72,7 +72,7 @@ router.patch('/read-all', authenticate, async (req: AuthRequest, res: Response) 
   }
 });
 
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, can('notifications', 'delete'), async (req: AuthRequest, res: Response) => {
   try {
     await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user!.id });
     res.json({ message: 'Notification deleted' });
@@ -82,7 +82,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // PUT /api/notifications/:id/unread
-router.put('/:id/unread', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id/unread', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user!.id },
@@ -97,7 +97,7 @@ router.put('/:id/unread', authenticate, async (req: AuthRequest, res: Response) 
 });
 
 // PATCH /api/notifications/:id/unread
-router.patch('/:id/unread', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/:id/unread', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user!.id },
@@ -112,7 +112,7 @@ router.patch('/:id/unread', authenticate, async (req: AuthRequest, res: Response
 });
 
 // POST /api/notifications/bulk
-router.post('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/bulk', authenticate, can('notifications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const { action, ids } = req.body;
     if (!action || !Array.isArray(ids) || ids.length === 0) {

@@ -4,8 +4,9 @@ import Student, { IStudent } from '../models/Student';
 import Conversation from '../models/Conversation';
 import Message from '../models/Message';
 import User from '../models/User';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { getIo } from '../socket/emitter';
+import { portalScope, portalAccountForStudent } from '../services/accounts';
 
 const router = Router();
 
@@ -82,27 +83,23 @@ async function handleCounsellorChange(
   if (io) for (const uid of touched) io.to(`user:${uid}`).emit('conversations_changed');
 }
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('students', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.stage) filter.stage = req.query.stage;
 
     if (req.user?.role === 'student') {
-      // Students can only see their own record
-      const User = (await import('../models/User')).default;
-      const usr = await User.findById(req.user.id);
-      if (usr?.studentId) filter._id = usr.studentId;
+      const { studentId } = await portalScope(req.user.id);
+      if (studentId) filter._id = new mongoose.Types.ObjectId(studentId);
       else { res.json([]); return; }
     } else if (req.user?.role === 'counsellor') {
       filter.assignedCounsellor = req.user.id;
     } else if (req.user?.role === 'university') {
-      // University reps see only students who applied to their institution
-      const User = (await import('../models/User')).default;
       const Application = (await import('../models/Application')).default;
-      const usr = await User.findById(req.user.id).select('universityName');
-      if (!usr?.universityName) { res.json([]); return; }
+      const { universityName } = await portalScope(req.user.id);
+      if (!universityName) { res.json([]); return; }
       const apps = await Application.find({
-        university: { $regex: usr.universityName, $options: 'i' },
+        university: { $regex: universityName, $options: 'i' },
       }).select('studentId');
       const studentIds = [...new Set(apps.map(a => a.studentId.toString()))];
       filter._id = { $in: studentIds.map(id => new mongoose.Types.ObjectId(id)) };
@@ -117,7 +114,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('students', 'create'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users cannot create student records' }); return;
   }
@@ -129,8 +126,37 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+/**
+ * A student holds `students.read` and `students.update` so the portal works —
+ * but the module grant says *whether*, never *whose*. Without this the id in
+ * the URL was the only thing deciding which record they reached, so any signed-in
+ * student could read or edit any other student by guessing one.
+ */
+async function denyOtherStudentsRecord(req: AuthRequest, targetId: string): Promise<string | null> {
+  if (req.user?.role !== 'student') return null;
+  const { studentId } = await portalScope(req.user.id);
+  if (!studentId) return 'This account is not linked to a student record';
+  return studentId === String(targetId) ? null : 'You can only view your own record';
+}
+
+/**
+ * What a student may change about themselves. Everything absent from this list
+ * belongs to the people working the case — `stage` and `assignedCounsellor`
+ * above all, which decide where the applicant sits in the pipeline.
+ */
+const STUDENT_SELF_FIELDS = ['personal', 'education', 'scores', 'passport', 'preferences'];
+
+function stripFieldsStudentsCannotSet(req: AuthRequest, body: Record<string, unknown>) {
+  if (req.user?.role !== 'student') return body;
+  return Object.fromEntries(Object.entries(body).filter(([k]) => STUDENT_SELF_FIELDS.includes(k)));
+}
+
 /** GET /api/students/by-user/:userId — resolve a portal User to their Student record */
-router.get('/by-user/:userId', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/by-user/:userId', authenticate, can('students', 'read'), async (req: AuthRequest, res: Response) => {
+  if (req.user?.role === 'student' && req.params.userId !== req.user.id) {
+    res.status(403).json({ message: 'You can only view your own record' });
+    return;
+  }
   try {
     const student = await Student.findOne({ userId: req.params.userId })
       .populate('assignedCounsellor', 'name email');
@@ -141,20 +167,21 @@ router.get('/by-user/:userId', authenticate, async (req: AuthRequest, res: Respo
   }
 });
 
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:id', authenticate, can('students', 'read'), async (req: AuthRequest, res: Response) => {
+  const denied = await denyOtherStudentsRecord(req, req.params.id);
+  if (denied) { res.status(403).json({ message: denied }); return; }
   try {
     const student = await Student.findById(req.params.id).populate('assignedCounsellor', 'name email');
     if (!student) { res.status(404).json({ message: 'Student not found' }); return; }
 
     // University rep — only allow if student has an application to their institution
     if (req.user?.role === 'university') {
-      const User = (await import('../models/User')).default;
       const Application = (await import('../models/Application')).default;
-      const usr = await User.findById(req.user.id).select('universityName');
-      if (!usr?.universityName) { res.status(403).json({ message: 'Access denied' }); return; }
+      const { universityName } = await portalScope(req.user.id);
+      if (!universityName) { res.status(403).json({ message: 'Access denied' }); return; }
       const app = await Application.findOne({
         studentId: student._id,
-        university: { $regex: usr.universityName, $options: 'i' },
+        university: { $regex: universityName, $options: 'i' },
       });
       if (!app) { res.status(403).json({ message: 'Access denied' }); return; }
     }
@@ -165,10 +192,13 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, can('students', 'update'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users cannot modify student records' }); return;
   }
+  const denied = await denyOtherStudentsRecord(req, req.params.id);
+  if (denied) { res.status(403).json({ message: denied }); return; }
+  req.body = stripFieldsStudentsCannotSet(req, req.body ?? {});
   try {
     const before = await Student.findById(req.params.id).select('assignedCounsellor');
     const student = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: false })
@@ -188,10 +218,13 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // PATCH alias (used by student portal)
-router.patch('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/:id', authenticate, can('students', 'update'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users cannot modify student records' }); return;
   }
+  const denied = await denyOtherStudentsRecord(req, req.params.id);
+  if (denied) { res.status(403).json({ message: denied }); return; }
+  req.body = stripFieldsStudentsCannotSet(req, req.body ?? {});
   try {
     const before = await Student.findById(req.params.id).select('assignedCounsellor');
     const student = await Student.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: false })
@@ -211,7 +244,7 @@ router.patch('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // PATCH /api/students/:id/assign-counsellor  — admin only
-router.patch('/:id/assign-counsellor', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/:id/assign-counsellor', authenticate, can('students', 'update'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
     res.status(403).json({ message: 'Insufficient permissions' }); return;
   }
@@ -241,8 +274,7 @@ router.patch('/:id/assign-counsellor', authenticate, async (req: AuthRequest, re
       });
     }
 
-    // Notify the student if they have a portal account
-    const studentUser = await User.findOne({ studentId: student._id }).select('_id');
+    const studentUser = await portalAccountForStudent(String(student._id));
     if (studentUser) {
       const counsellorDoc = student.assignedCounsellor as unknown as { name?: string } | null;
       const cName = counsellorDoc?.name ?? 'A counsellor';
@@ -261,7 +293,7 @@ router.patch('/:id/assign-counsellor', authenticate, async (req: AuthRequest, re
   }
 });
 
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, can('students', 'delete'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users cannot delete student records' }); return;
   }

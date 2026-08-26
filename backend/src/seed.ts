@@ -30,6 +30,7 @@ import DocumentModel from './models/Document';
 import Notification from './models/Notification';
 import Conversation from './models/Conversation';
 import Message      from './models/Message';
+import PortalAccount from './models/PortalAccount';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const id = () => new mongoose.Types.ObjectId();
@@ -206,13 +207,13 @@ async function seed() {
 
   // Create matching User accounts for each student
   const studentUserPw = await hash('student123');
-  const studentUsers = await User.insertMany([
+  const studentUsers = await PortalAccount.insertMany([
     {
       name: 'Aisha Malik',
       username: 'aisha.malik',
       email: 'aisha@student.com',
       password: studentUserPw,
-      role: 'student',
+      role: 'student', presetKey: 'student',
       isActive: true,
       studentId: studentDocs[0]._id,
     },
@@ -221,7 +222,7 @@ async function seed() {
       username: 'rahul.verma',
       email: 'rahul@student.com',
       password: studentUserPw,
-      role: 'student',
+      role: 'student', presetKey: 'student',
       isActive: true,
       studentId: studentDocs[1]._id,
     },
@@ -230,7 +231,7 @@ async function seed() {
       username: 'emily.zhang',
       email: 'emily@student.com',
       password: studentUserPw,
-      role: 'student',
+      role: 'student', presetKey: 'student',
       isActive: true,
       studentId: studentDocs[2]._id,
     },
@@ -699,7 +700,7 @@ async function seed() {
 
   console.log('\n  STUDENTS  (password: student123)');
   console.log('  ─────────────────────────────────────────────────────────');
-  studentUsers.forEach((u, i) => {
+  studentUsers.forEach((u: { name: string; username?: string }, i: number) => {
     console.log(`  ${u.name.padEnd(13)} (${studentDocs[i].stage.padEnd(13)}) →  ${u.username}`);
   });
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

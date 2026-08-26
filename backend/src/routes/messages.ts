@@ -3,27 +3,35 @@ import mongoose from 'mongoose';
 import Message from '../models/Message';
 import Conversation from '../models/Conversation';
 import User from '../models/User';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
 import { uploadBuffer, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { isUserViewing } from '../socket';
 import { notify } from '../utils/notify';
+import { attachAccounts, lastSeenOf } from '../services/accounts';
 
 const router = Router();
 
 /**
- * Chat itself is between a student and the counsellor working their case. The
- * admin is an observer: every conversation is readable for oversight, but they
- * cannot take part — so any non-GET request from them is refused here, which
- * covers sending, editing, deleting, reacting and read receipts in one place.
+ * Chat is between a student and the counsellor working their case. An observer
+ * is anyone holding Read on the chat module without Send — the admin seat by
+ * default, and any preset configured that way. They see every conversation for
+ * oversight and cannot become a participant in one.
+ *
+ * That used to be a hard-coded list of roles here. It is a switch on the access
+ * matrix now, so the rule is visible to whoever is allowed to change it.
  */
-const OBSERVER_ROLES = ['admin'];
-export const isChatObserver = (req: AuthRequest) => !!req.user && OBSERVER_ROLES.includes(req.user.role);
+export const isChatObserver = (req: AuthRequest) => !may(req, 'chat', 'create');
 
-router.use(authenticate, (req: AuthRequest, res: Response, next: NextFunction) => {
+// Everything under /api/messages needs the chat module at minimum.
+router.use(authenticate, can('chat', 'read'), (req: AuthRequest, res: Response, next: NextFunction) => {
+  // Belt to the per-route braces below: an observer never writes to chat,
+  // whichever verb a future route happens to use.
   if (isChatObserver(req) && req.method !== 'GET') {
-    res.status(403).json({ message: 'Admin accounts can read conversations but not take part in them' });
+    res.status(403).json({
+      message: 'Your role can read conversations but not take part in them',
+    });
     return;
   }
   next();
@@ -36,10 +44,10 @@ router.get('/conversations', authenticate, async (req: AuthRequest, res: Respons
     // An observer sees every conversation; everyone else sees their own.
     const scope = isChatObserver(req) ? {} : { participants: req.user!.id };
     const conversations = await Conversation.find(scope)
-      .populate('participants', 'name email avatar role')
       .populate('studentId', 'personal')
       .sort('-updatedAt')
       .lean();
+    await attachAccounts(conversations, ['participants', 'lastMessage.senderId']);
 
     // Per-conversation unread counts (messages from others I haven't read)
     const uid = new mongoose.Types.ObjectId(req.user!.id);
@@ -65,7 +73,7 @@ router.get('/conversations', authenticate, async (req: AuthRequest, res: Respons
   }
 });
 
-router.post('/conversations', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/conversations', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response) => {
   try {
     const conversation = await Conversation.create(req.body);
     res.status(201).json(conversation);
@@ -75,7 +83,7 @@ router.post('/conversations', authenticate, async (req: AuthRequest, res: Respon
 });
 
 /** Find or create a 1-on-1 conversation between the caller and a participant */
-router.post('/conversation', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/conversation', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response) => {
   const { participantId } = req.body;
   const myId = req.user!.id;
   try {
@@ -104,7 +112,7 @@ function previewFor(type: string | undefined, text?: string, meta?: Record<strin
   }
 }
 
-router.post('/send', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/send', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response): Promise<void> => {
   const { conversationId, text, type = 'text', meta, replyTo } = req.body;
   try {
     const convCheck = await Conversation.findById(conversationId).select('archived');
@@ -160,7 +168,7 @@ router.post('/send', authenticate, async (req: AuthRequest, res: Response): Prom
  * Fields: file, conversationId, studentId? (required when student uploads so we
  *         also create a Document record for their profile)
  */
-router.post('/send-file', authenticate, requireCloudinary, upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary, upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
   if (!req.file) { res.status(400).json({ message: 'No file uploaded' }); return; }
 
   const { conversationId, studentId, voice, duration, replyTo } = req.body as Record<string, string>;
@@ -278,7 +286,7 @@ router.post('/send-file', authenticate, requireCloudinary, upload.single('file')
  * POST /api/messages/form-response
  * Body: { conversationId, formMessageId, answers: [{ id, label, value }] }
  */
-router.post('/form-response', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/form-response', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response): Promise<void> => {
   const { conversationId, formMessageId, answers } = req.body as {
     conversationId: string;
     formMessageId: string;
@@ -343,7 +351,7 @@ router.post('/form-response', authenticate, async (req: AuthRequest, res: Respon
 
 // ── Read receipts ─────────────────────────────────────────────────────────────
 /** POST /api/messages/:conversationId/read — mark everything in the conversation read */
-router.post('/:conversationId/read', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/:conversationId/read', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     await Message.updateMany(
       { conversationId: req.params.conversationId, readBy: { $ne: req.user!.id } },
@@ -374,8 +382,10 @@ async function canRead(req: AuthRequest, conversationId: mongoose.Types.ObjectId
 }
 
 /** Strip content from "deleted for everyone" tombstones before sending to clients */
-function sanitize(msg: InstanceType<typeof Message>): Record<string, unknown> {
-  const obj = msg.toObject() as unknown as Record<string, unknown>;
+/** Accepts a document or a lean object — callers use both. */
+function sanitize(msg: unknown): Record<string, unknown> {
+  const src = msg as { toObject?: () => unknown };
+  const obj = (typeof src.toObject === 'function' ? src.toObject() : msg) as Record<string, unknown>;
   if (obj.deletedForEveryone) {
     obj.text = '';
     delete obj.fileUrl; delete obj.fileName;
@@ -389,8 +399,10 @@ function sanitize(msg: InstanceType<typeof Message>): Record<string, unknown> {
 router.get('/last-seen/:userId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { isUserOnline } = await import('../socket');
-    const user = await User.findById(req.params.userId).select('lastSeenAt');
-    res.json({ online: isUserOnline(req.params.userId), lastSeenAt: user?.lastSeenAt ?? null });
+    res.json({
+      online: isUserOnline(req.params.userId),
+      lastSeenAt: await lastSeenOf(req.params.userId),
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
@@ -418,7 +430,7 @@ router.get('/search/:conversationId', authenticate, async (req: AuthRequest, res
 });
 
 /** PUT /api/messages/message/:id — edit own text message */
-router.put('/message/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/message/:id', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response): Promise<void> => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ message: 'text is required' }); return; }
   try {
@@ -440,7 +452,7 @@ router.put('/message/:id', authenticate, async (req: AuthRequest, res: Response)
 });
 
 /** DELETE /api/messages/message/:id?scope=me|everyone */
-router.delete('/message/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/message/:id', authenticate, can('chat', 'delete'), async (req: AuthRequest, res: Response): Promise<void> => {
   const scope = req.query.scope === 'everyone' ? 'everyone' : 'me';
   try {
     const msg = await Message.findById(req.params.id);
@@ -464,7 +476,7 @@ router.delete('/message/:id', authenticate, async (req: AuthRequest, res: Respon
 });
 
 /** POST /api/messages/message/:id/react — toggle an emoji reaction */
-router.post('/message/:id/react', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/message/:id/react', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response): Promise<void> => {
   const { emoji } = req.body as { emoji?: string };
   if (!emoji || emoji.length > 8) { res.status(400).json({ message: 'emoji is required' }); return; }
   try {
@@ -508,9 +520,10 @@ router.get('/:conversationId', authenticate, async (req: AuthRequest, res: Respo
     if (before && !isNaN(before.getTime())) filter.createdAt = { $lt: before };
 
     const page = await Message.find(filter)
-      .populate('senderId', 'name avatar')
       .sort('-createdAt')
-      .limit(limit);
+      .limit(limit)
+      .lean();
+    await attachAccounts(page, ['senderId']);
 
     res.json(page.reverse().map(m => sanitize(m)));
   } catch (err) {
@@ -519,7 +532,7 @@ router.get('/:conversationId', authenticate, async (req: AuthRequest, res: Respo
 });
 
 /** Generic send — used by CRM counsellor chat */
-router.post('/:conversationId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:conversationId', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const convCheck = await Conversation.findById(req.params.conversationId).select('archived');
     if (!convCheck) { res.status(404).json({ message: 'Conversation not found' }); return; }
@@ -540,10 +553,10 @@ router.post('/:conversationId', authenticate, async (req: AuthRequest, res: Resp
       updatedAt: new Date(),
     });
 
-    const populated = await message.populate('senderId', 'name avatar');
+    const [populated] = await attachAccounts([message.toObject() as unknown as Record<string, unknown>], ['senderId']);
 
     const io = getIo();
-    if (io) io.to(req.params.conversationId).emit('receive_message', populated.toObject());
+    if (io) io.to(req.params.conversationId).emit('receive_message', populated);
 
     res.status(201).json(populated);
   } catch (err) {

@@ -105,17 +105,114 @@ throws if the selected mode's values are missing.
 ### Auth Flow
 JWT-based. The backend issues a token on `/api/auth/login`. The CRM stores it in `localStorage` under `crm_token`; the student portal uses `student_token`. Both frontends use Zustand with `persist` middleware (`crm-auth` / `student-auth` keys) to hydrate auth state. The Axios instance in `src/lib/api.ts` (each frontend has one) attaches the token via an interceptor and redirects to `/login` on 401.
 
-Users have a `role` field — four of them: `admin`, `counsellor`, `student`, `university`.
-`admin` is the single privileged role (there is no super admin); `counsellor` is
-case-working staff; `student` and `university` are scoped to their own data.
-Route-level authorization uses the `authorize(...roles)` middleware from
-`backend/src/middleware/auth.ts`.
+### Accounts live in two collections
 
-The admin is a **read-only observer** in chat: `routes/messages.ts` refuses any
-non-GET request from them, so every conversation is readable for oversight but
-they cannot send, edit, delete, react or mark read.
+- **`users`** — staff: `admin`, `counsellor`.
+- **`portalaccounts`** — the people we serve: `student`, `university`.
 
-The `student` role has a `studentId` FK on the User document pointing to the `Student` collection. Self-registration (`POST /api/auth/register-student`) atomically creates both records and links them.
+Both share `models/accountFields.ts` (credentials, hashing, `presetKey`,
+`permissions`), so a login is a login either way. Ids come from one space and
+were preserved when the two were split, so every existing `ref: 'User'` on a
+message, conversation, notification or document still points at the right
+document.
+
+**`backend/src/services/accounts.ts` is the seam.** Anything spanning both goes
+through it:
+
+- `findAccountByCredential` / `findAccountById` — sign-in and principal lookup
+- `credentialConflict` — usernames and emails must be unique across **both**
+  collections; a Mongo unique index only covers its own, so every create and
+  update path must call this
+- `attachAccounts(docs, paths)` — `.populate()` for a ref that could be either
+  kind (chat participants, message senders, `currentVersion.uploadedBy`). Call
+  it on lean objects; `refPath` was rejected because it would need a
+  discriminator written into every existing message and conversation.
+
+Portal logins are managed at `/portal-accounts` in the CRM (module:
+`portal_accounts`), never on Members.
+
+```bash
+npm run migrate:split-accounts                    # dry run
+cd backend && npx ts-node src/scripts/splitPortalAccounts.ts --apply
+cd backend && npx ts-node src/scripts/splitPortalAccounts.ts --apply --rollback
+```
+
+### Access control — modules, presets, overrides
+
+Authorization is a permission system, not a role check. Three files own it:
+
+- **`backend/src/config/modules.ts`** — the module registry. Every area of the
+  product is a module (`students`, `finance`, `chat`, `members`, `access`, …) and
+  every action inside it is one of `create` / `read` / `update` / `delete`. This
+  list lives in code because each entry must match a guarded route; adding one
+  here without guarding its routes gives the UI a switch that does nothing.
+- **`backend/src/config/presets.ts`** — the built-in presets (`admin`,
+  `counsellor`, `university`, `student`), also in code. **Nothing has to exist in
+  the `presets` collection for the app to work.**
+- **`backend/src/services/access.ts`** — resolution and the principal cache.
+
+A caller's effective permissions resolve in three layers:
+
+1. the preset named by `presetKey` on the account (either collection), or — when
+   that field is absent, which is the normal state for any account created
+   before this system — the built-in whose key matches their `role`;
+2. `fullAccess`, which grants every module including ones added later. It is a
+   *floor*, not a wall: the preset's own map is laid over it, which is how the
+   Admin seat holds everything and is still barred from replying in chat;
+3. `permissions` on the account — the per-person grants and revocations behind
+   Advanced settings. An override can revoke as well as grant.
+
+Editing a built-in preset writes a row in `presets` that **shadows** the code
+default; deleting that row restores it. Custom presets are rows with a key no
+built-in claims.
+
+Routes ask exactly one question:
+
+```ts
+router.post('/', authenticate, can('leads', 'create'), handler);
+const isObserver = !may(req, 'chat', 'create');   // inline branching
+```
+
+`can()` only ever **denies**. Row-level scoping — a student seeing their own
+record, a counsellor seeing their own caseload, a university partner seeing their
+own applicants — still lives in the handlers, and holding a module permission
+never widens it. `authorize(...roles)` survives for the few checks that really
+are about the kind of account calling.
+
+`authenticate` now loads the caller's live record (cached ~10s, invalidated on
+any user or preset write) rather than trusting the token's claims, so a
+deactivated account is refused on its next request and a permission change takes
+effect without signing out.
+
+### Roles
+
+`User.role` still exists and still matters, but only for **data scoping** and
+sign-in style — never for authorization:
+
+- `admin` signs in with an email address; every other role uses a username.
+- `counsellor` is scoped to their own caseload.
+- `university` is scoped to applicants who applied to their institution, and is
+  refused writes on student records regardless of preset.
+- `student` is bound to the one `Student` record its `studentId` points at, and
+  may only set `personal`, `education`, `scores`, `passport` and `preferences`
+  on it (`STUDENT_SELF_FIELDS` in `routes/students.ts`).
+
+### CRM access surfaces
+
+- `/members` — staff and partner accounts only (`GET /api/users` excludes
+  `role: 'student'`; portal logins are issued from the student's own page).
+  Create, edit, assign a preset, and open Advanced settings for per-person
+  overrides.
+- `/roles` — preset CRUD and the module × action matrix, behind an Advanced
+  settings disclosure. Guarded by the `access` module, so granting `access.update`
+  lets someone change what everyone else can do.
+
+Both refuse a save that would cost the caller their own `access.update`.
+
+Navigation is permission-driven: `crm/src/lib/navigation.tsx` gives each entry a
+`module`, and `navFor(permissions)` shows it when the caller holds `read` on it.
+There is no role list to maintain. The client copy decides what to *draw*; the
+server decides what to allow.
 
 ### Data Model Relationships
 ```
@@ -182,9 +279,10 @@ It is gated four ways — leave every one of them in place:
 | caller must be loopback (`127.0.0.1` / `::1`) | `localhostOnly` |
 | CRM page renders `notFound()` in production builds | `crm/src/app/dev/layout.tsx` |
 
-`ENABLE_DEV_ROUTES` must never be set on a deployed backend. Note that `authorize()` is used
-in only one route file — most guards are inline `req.user.role` checks — so the access matrix
-in `routes/dev.ts` is a hand-maintained mirror. Update it whenever you change a guard.
+`ENABLE_DEV_ROUTES` must never be set on a deployed backend. `GET /api/dev/rbac` now derives
+the module matrix from the live registry and the presets in force, so it cannot drift. The one
+hand-maintained part is `SCOPING_RULES` — the row-level rules that live inside handlers and
+that permissions cannot express. Update those when you change a handler's scoping.
 
 ### CRM Frontend Structure
 - App Router with a `(crm)` route group for authenticated pages
@@ -203,3 +301,17 @@ Mirrors the CRM structure but also has `ThemeContext` for light/dark switching. 
 - Mongoose models export both the interface (`IStudent`, etc.) and the compiled model as the default export.
 - `User.toJSON` strips the `password` field automatically — never manually omit it in routes.
 - Frontend pages use `'use client'` and fetch data in `useEffect`; there is no server-side data fetching (RSC) in use.
+
+## Installable apps (PWA)
+
+Both Next apps install to a phone home screen from the browser.
+
+- `src/app/manifest.ts` in each app → `/manifest.webmanifest`
+- `public/sw.js` — a minimal service worker. It exists to make the app
+  installable and keep the shell reachable offline; it never caches `/api/`.
+- `components/InstallPrompt.tsx` registers the worker and shows the banner.
+  Android/Chrome uses `beforeinstallprompt`; iOS fires no such event, so Safari
+  gets the Share → Add to Home Screen wording instead.
+- Icons are `public/icon-192.png` and `icon-512.png` (`any` + `maskable`).
+
+Installability needs HTTPS in production; `localhost` is exempt.

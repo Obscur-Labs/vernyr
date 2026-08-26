@@ -12,28 +12,24 @@
     "dev:backend": "npm run dev -w backend",
     "dev:crm": "npm run dev -w crm",
     "dev:student": "npm run dev -w student",
-
     "build": "npm run build:backend && npm run build:crm && npm run build:student",
     "build:backend": "npm run build -w backend",
     "build:crm": "npm run build -w crm",
     "build:student": "npm run build -w student",
-
     "start": "concurrently -n backend,crm,student -c blue,green,magenta \"npm:start:backend\" \"npm:start:crm\" \"npm:start:student\"",
     "start:backend": "npm run start -w backend",
     "start:crm": "npm run start -w crm",
     "start:student": "npm run start -w student",
-
     "seed": "npm run seed -w backend",
     "migrate:usernames": "npm run migrate:usernames -w backend",
     "migrate:roles": "npm run migrate:roles -w backend",
     "migrate:blank-credentials": "npm run migrate:blank-credentials -w backend",
-
     "typecheck": "npm run typecheck:backend && npm run typecheck:crm && npm run typecheck:student",
     "typecheck:backend": "tsc --noEmit -p backend",
     "typecheck:crm": "tsc --noEmit -p crm",
     "typecheck:student": "tsc --noEmit -p student",
-
-    "clean": "rimraf node_modules backend/node_modules crm/node_modules student/node_modules backend/dist crm/.next student/.next"
+    "clean": "rimraf node_modules backend/node_modules crm/node_modules student/node_modules backend/dist crm/.next student/.next",
+    "migrate:split-accounts": "npm run migrate:split-accounts -w backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

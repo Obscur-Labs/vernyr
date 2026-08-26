@@ -68,11 +68,7 @@ export function Header({ onOpenSearch, onOpenMenu, onToggleFold, folded }: Props
   const { tail } = useBreadcrumb();
   const crumbs = crumbsFor(pathname, tail);
 
-  /**
-   * There is no way to read the history stack, so treat "we have navigated at
-   * least once in this tab" as the condition — that is exactly when Back has
-   * somewhere to go without leaving the app.
-   */
+  /** The history stack is unreadable; length > 1 means Back stays in-app. */
   useEffect(() => {
     setCanGoBack(window.history.length > 1);
   }, [pathname]);

@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
 import { io, Socket } from 'socket.io-client';
-import type { Notification } from '@/types';
+import type { AccessSnapshot, Notification } from '@/types';
 import { apiOrigin } from '@/lib/config';
 
 const FOLD_KEY = 'crm_sidebar_folded';
@@ -22,10 +22,7 @@ const BellIcon = ({ className = '' }: { className?: string }) => (
   </svg>
 );
 
-/**
- * One sidebar row. Collapsed it is a 44pt square holding just the glyph, with
- * the label carried by `title` so the affordance survives the fold.
- */
+/** One sidebar row. */
 function NavRow({
   href, label, icon, active, folded, onNavigate, badge,
 }: {
@@ -76,12 +73,7 @@ interface SidebarProps {
   onNavigate: () => void;
 }
 
-/**
- * Defined at module scope, not inside `AppShell`. A component declared during
- * render is a new type on every render, so React would tear the whole sidebar
- * down and rebuild it — losing scroll position and restarting the fold
- * transition each time a notification arrived.
- */
+/** Defined at module scope, not inside `AppShell`. */
 function Sidebar({ items, pathname, folded, unreadCount, onNavigate }: SidebarProps) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
@@ -135,7 +127,7 @@ function Sidebar({ items, pathname, folded, unreadCount, onNavigate }: SidebarPr
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, access, setAccess } = useAuthStore();
   const { toast } = useToast();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [folded, setFolded] = useState(false);
@@ -175,6 +167,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!token) router.push('/login');
   }, [router]);
 
+  // Refresh the seat on boot. The persisted copy is what draws the first paint;
+  // this is what catches a permission changed while the tab was closed.
+  useEffect(() => {
+    if (!user) return;
+    api.get<AccessSnapshot>('/access/me')
+      .then((r) => setAccess(r.data))
+      .catch(() => {});
+  }, [user, setAccess]);
+
   // Close the mobile drawer on navigation — otherwise it covers the page it
   // just opened.
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -199,7 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => { socket.disconnect(); };
   }, [user, toast]);
 
-  const visibleNav = sidebarFor(user?.role);
+  const visibleNav = sidebarFor(access?.permissions);
 
   return (
     <div className="flex h-screen overflow-hidden bg-base">

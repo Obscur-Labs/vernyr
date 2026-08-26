@@ -1,17 +1,18 @@
 import { Router, Response } from 'express';
 import Application from '../models/Application';
 import User from '../models/User';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
+import { portalScope } from '../services/accounts';
 
 const router = Router();
 
-/** Resolve the universityName for a university-role user */
+/** Resolve the universityName for a university-role caller. */
 async function getUniversityScope(userId: string): Promise<string | null> {
-  const u = await User.findById(userId).select('universityName');
-  return u?.universityName ?? null;
+  const { universityName } = await portalScope(userId);
+  return universityName ?? null;
 }
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('applications', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -35,7 +36,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // University reps cannot create applications
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('applications', 'create'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users cannot create applications' });
     return;
@@ -48,7 +49,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:id', authenticate, can('applications', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const application = await Application.findById(req.params.id).populate('studentId', 'personal');
     if (!application) { res.status(404).json({ message: 'Application not found' }); return; }
@@ -67,7 +68,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, can('applications', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const existing = await Application.findById(req.params.id);
     if (!existing) { res.status(404).json({ message: 'Application not found' }); return; }
@@ -101,7 +102,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // University reps cannot delete applications
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, can('applications', 'delete'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users cannot delete applications' });
     return;

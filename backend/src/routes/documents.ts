@@ -10,11 +10,12 @@ import DocumentRequest from '../models/DocumentRequest';
 import Student from '../models/Student';
 import Message from '../models/Message';
 import Conversation from '../models/Conversation';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
 import { uploadBuffer, destroyAsset, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { notify } from '../utils/notify';
+import { attachAccounts } from '../services/accounts';
 
 const router = Router();
 
@@ -49,7 +50,7 @@ async function syncRequestChatMessages(requestId: string, status: 'pending' | 'f
  * Creates DocumentRequest records, posts a document_request card into the chat
  * (when a conversation exists or is provided) and notifies the student.
  */
-router.post('/requests', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/requests', authenticate, can('documents', 'create'), async (req: AuthRequest, res: Response): Promise<void> => {
   if (!isStaff(req.user?.role)) {
     res.status(403).json({ message: 'Only staff can request documents' }); return;
   }
@@ -132,7 +133,7 @@ router.post('/requests', authenticate, async (req: AuthRequest, res: Response): 
 });
 
 /** GET /api/documents/requests?studentId=&status= */
-router.get('/requests', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/requests', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -148,7 +149,7 @@ router.get('/requests', authenticate, async (req: AuthRequest, res: Response) =>
 });
 
 /** PUT /api/documents/requests/:id/cancel */
-router.put('/requests/:id/cancel', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/requests/:id/cancel', authenticate, can('documents', 'update'), async (req: AuthRequest, res: Response): Promise<void> => {
   if (!isStaff(req.user?.role)) { res.status(403).json({ message: 'Forbidden' }); return; }
   try {
     const request = await DocumentRequest.findByIdAndUpdate(req.params.id, { status: 'cancelled' }, { new: true });
@@ -179,7 +180,7 @@ function fetchRemote(url: string, redirectsLeft = 3): Promise<IncomingMessage> {
 }
 
 /** GET /api/documents/download-all/:studentId — staff only, streams a ZIP of current versions */
-router.get('/download-all/:studentId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/download-all/:studentId', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response): Promise<void> => {
   if (!isStaff(req.user?.role)) { res.status(403).json({ message: 'Forbidden' }); return; }
   try {
     const student = await Student.findById(req.params.studentId);
@@ -242,7 +243,7 @@ async function destroyUnreferencedVersions(versions: IDocVersion[]): Promise<voi
   );
 }
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -251,15 +252,15 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const docs = await DocumentModel.find(filter)
       .populate('studentId', 'personal')
       .populate('reviewedBy', 'name email')
-      .populate('currentVersion.uploadedBy', 'name')
-      .sort('-createdAt');
-    res.json(docs);
+      .sort('-createdAt')
+      .lean();
+    res.json(await attachAccounts(docs, ['currentVersion.uploadedBy']));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('documents', 'create'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }
@@ -273,7 +274,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
 // POST /api/documents/upload — multipart file upload (student portal + CRM)
 // Optional field `requestId` fulfils a pending DocumentRequest.
-router.post('/upload', authenticate, requireCloudinary, async (req: AuthRequest, res: Response, next) => {
+router.post('/upload', authenticate, can('documents', 'create'), requireCloudinary, async (req: AuthRequest, res: Response, next) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }
@@ -385,19 +386,19 @@ router.post('/upload', authenticate, requireCloudinary, async (req: AuthRequest,
   }
 });
 
-router.get('/:id', authenticate, async (req, res: Response) => {
+router.get('/:id', authenticate, can('documents', 'read'), async (req, res: Response) => {
   try {
     const doc = await DocumentModel.findById(req.params.id)
       .populate('reviewedBy', 'name email')
-      .populate('currentVersion.uploadedBy', 'name');
+      .lean();
     if (!doc) { res.status(404).json({ message: 'Document not found' }); return; }
-    res.json(doc);
+    res.json((await attachAccounts([doc], ['currentVersion.uploadedBy']))[0]);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
 });
 
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, can('documents', 'update'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }
@@ -411,7 +412,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // PUT /api/documents/:id/status — review workflow
-router.put('/:id/status', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id/status', authenticate, can('documents', 'update'), async (req: AuthRequest, res: Response) => {
   try {
     const { status, rejectionReason, notes } = req.body;
     const updateData: Record<string, unknown> = {
@@ -434,7 +435,7 @@ router.put('/:id/status', authenticate, async (req: AuthRequest, res: Response) 
   }
 });
 
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, can('documents', 'delete'), async (req: AuthRequest, res: Response) => {
   if (req.user?.role === 'university') {
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }

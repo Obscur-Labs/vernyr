@@ -1,52 +1,37 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import bcrypt from 'bcryptjs';
+import {
+  accountFields,
+  applyAccountBehaviour,
+  USERNAME_RE,
+  blankToUndefined,
+  type AccountBase,
+} from './accountFields';
 
+/** `users` — the people who work here. */
+
+export type StaffRole = 'admin' | 'counsellor';
+/** Kept as the union of both collections' roles, for code that spans them. */
 export type UserRole = 'admin' | 'counsellor' | 'student' | 'university';
 
-/** The admin signs in with an email address; every other role signs in with a username. */
+export const STAFF_ROLES: StaffRole[] = ['admin', 'counsellor'];
+
+/** The admin signs in with an email address; everyone else uses a username. */
 export const EMAIL_LOGIN_ROLES: UserRole[] = ['admin'];
 export const usesEmailLogin = (role: UserRole) => EMAIL_LOGIN_ROLES.includes(role);
 
-/** Letters, digits, dot, underscore, hyphen — 3–32 chars, must start alphanumeric. */
-export const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,31}$/;
+export { USERNAME_RE, blankToUndefined };
 
-/**
- * A blank credential must be stored as nothing at all. `sparse` only skips
- * missing and null values, so an empty string still takes a slot in the unique
- * index — and the first account saved with one blocks every later account that
- * leaves the same field empty.
- */
-const blankToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
-
-export interface IUser extends Document {
-  name: string;
-  username?: string;
-  email?: string;
-  password: string;
-  role: UserRole;
-  avatar?: string;
-  phone?: string;
-  studentId?: import('mongoose').Types.ObjectId;
-  universityName?: string;   // set for role === 'university' — scopes their access
-  isActive: boolean;
-  lastSeenAt?: Date;         // updated when the user's last socket disconnects
-  createdAt: Date;
-  comparePassword(candidate: string): Promise<boolean>;
+export interface IUser extends AccountBase, Document {
+  role: StaffRole;
 }
 
-const UserSchema = new Schema<IUser>({
-  name:     { type: String, required: true, trim: true },
-  username: { type: String, unique: true, sparse: true, lowercase: true, trim: true, set: blankToUndefined, match: [USERNAME_RE, 'Username must be 3–32 characters: letters, numbers, dot, underscore or hyphen'] },
-  email:    { type: String, unique: true, sparse: true, lowercase: true, trim: true, set: blankToUndefined },
-  password: { type: String, required: true, minlength: 6 },
-  role:           { type: String, enum: ['admin','counsellor','student','university'], default: 'counsellor' },
-  avatar:         { type: String },
-  phone:          { type: String },
-  studentId:      { type: Schema.Types.ObjectId, ref: 'Student' },
-  universityName: { type: String },   // required when role === 'university'
-  isActive:   { type: Boolean, default: true },
-  lastSeenAt: { type: Date },
-}, { timestamps: true });
+const UserSchema = new Schema<IUser>(
+  {
+    ...accountFields,
+    role: { type: String, enum: STAFF_ROLES, default: 'counsellor' },
+  },
+  { timestamps: true },
+);
 
 UserSchema.pre('validate', function (next) {
   if (usesEmailLogin(this.role)) {
@@ -57,16 +42,6 @@ UserSchema.pre('validate', function (next) {
   next();
 });
 
-UserSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
-});
-
-UserSchema.methods.comparePassword = function (candidate: string) {
-  return bcrypt.compare(candidate, this.password);
-};
-
-UserSchema.set('toJSON', { transform: (_doc, ret) => { delete (ret as unknown as Record<string, unknown>).password; return ret; } });
+applyAccountBehaviour(UserSchema);
 
 export default mongoose.model<IUser>('User', UserSchema);

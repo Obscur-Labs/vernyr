@@ -8,7 +8,8 @@
     "seed": "ts-node src/seed.ts",
     "migrate:usernames": "ts-node src/scripts/backfillUsernames.ts",
     "migrate:roles": "ts-node src/scripts/consolidateRoles.ts",
-    "migrate:blank-credentials": "ts-node src/scripts/clearBlankCredentials.ts"
+    "migrate:blank-credentials": "ts-node src/scripts/clearBlankCredentials.ts",
+    "migrate:split-accounts": "ts-node src/scripts/splitPortalAccounts.ts"
   },
   "dependencies": {
     "archiver": "^8.0.0",

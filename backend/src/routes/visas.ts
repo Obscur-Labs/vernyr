@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import Visa from '../models/Visa';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('visa', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -19,7 +19,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('visa', 'create'), async (req: AuthRequest, res: Response) => {
   try {
     const visa = await Visa.create(req.body);
     res.status(201).json(visa);
@@ -28,7 +28,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.get('/:id', authenticate, async (req, res: Response) => {
+router.get('/:id', authenticate, can('visa', 'read'), async (req, res: Response) => {
   try {
     const visa = await Visa.findById(req.params.id).populate('studentId', 'personal');
     if (!visa) { res.status(404).json({ message: 'Visa record not found' }); return; }
@@ -38,7 +38,7 @@ router.get('/:id', authenticate, async (req, res: Response) => {
   }
 });
 
-router.put('/:id', authenticate, async (req, res: Response) => {
+router.put('/:id', authenticate, can('visa', 'update'), async (req, res: Response) => {
   try {
     const visa = await Visa.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('studentId', 'personal');
@@ -49,7 +49,7 @@ router.put('/:id', authenticate, async (req, res: Response) => {
   }
 });
 
-router.delete('/:id', authenticate, async (req, res: Response) => {
+router.delete('/:id', authenticate, can('visa', 'delete'), async (req, res: Response) => {
   try {
     await Visa.findByIdAndDelete(req.params.id);
     res.json({ message: 'Visa record deleted' });

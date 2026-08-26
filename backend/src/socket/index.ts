@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import { setIo, getIo } from './emitter';
 import User from '../models/User';
+import { touchLastSeen } from '../services/accounts';
 
 /** userId → live socket ids (a user can have several tabs open) */
 const onlineUsers = new Map<string, Set<string>>();
@@ -84,7 +85,7 @@ export function setupSocket(io: Server) {
             onlineUsers.delete(userId);
             const lastSeenAt = new Date();
             io.emit('presence', { userId, online: false, lastSeenAt: lastSeenAt.toISOString() });
-            User.findByIdAndUpdate(userId, { lastSeenAt }).exec().catch(() => {});
+            touchLastSeen(userId, lastSeenAt).catch(() => {});
           }
         }
       }

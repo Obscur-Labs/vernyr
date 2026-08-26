@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import Payment from '../models/Payment';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, can, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, can('finance', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
     if (req.query.studentId) filter.studentId = req.query.studentId;
@@ -20,7 +20,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, can('finance', 'create'), async (req: AuthRequest, res: Response) => {
   try {
     const payment = await Payment.create({ ...req.body, createdBy: req.user!.id });
     res.status(201).json(payment);
@@ -29,7 +29,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.get('/:id', authenticate, async (req, res: Response) => {
+router.get('/:id', authenticate, can('finance', 'read'), async (req, res: Response) => {
   try {
     const payment = await Payment.findById(req.params.id)
       .populate('studentId', 'personal')
@@ -41,7 +41,7 @@ router.get('/:id', authenticate, async (req, res: Response) => {
   }
 });
 
-router.put('/:id', authenticate, async (req, res: Response) => {
+router.put('/:id', authenticate, can('finance', 'update'), async (req, res: Response) => {
   try {
     const payment = await Payment.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('studentId', 'personal');
@@ -52,7 +52,7 @@ router.put('/:id', authenticate, async (req, res: Response) => {
   }
 });
 
-router.delete('/:id', authenticate, async (req, res: Response) => {
+router.delete('/:id', authenticate, can('finance', 'delete'), async (req, res: Response) => {
   try {
     await Payment.findByIdAndDelete(req.params.id);
     res.json({ message: 'Payment deleted' });

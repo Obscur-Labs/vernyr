@@ -12,13 +12,13 @@ import { navFor, type NavItem } from '@/lib/navigation';
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const permissions = useAuthStore((s) => s.access?.permissions);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const available = useMemo(() => navFor(user?.role), [user?.role]);
+  const available = useMemo(() => navFor(permissions), [permissions]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
