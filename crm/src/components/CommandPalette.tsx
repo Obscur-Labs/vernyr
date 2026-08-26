@@ -82,7 +82,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 pt-[12vh]"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-sm"
       onClick={onClose}
       role="presentation"
     >
@@ -90,7 +90,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         role="dialog"
         aria-modal="true"
         aria-label="Search pages"
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+        className="animate-scale-in w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-line px-4">
@@ -104,7 +104,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             onKeyDown={onKeyDown}
             placeholder="Search pages…"
             aria-label="Search pages"
-            className="w-full bg-transparent py-4 text-sm text-t1 placeholder:text-t3 focus:outline-none"
+            className="w-full bg-transparent py-4 text-[15px] text-t1 placeholder:text-t3 focus:outline-none focus-visible:shadow-none"
           />
           <kbd className="hidden shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] font-medium text-t3 sm:block">
             esc
@@ -123,21 +123,38 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 data-active={i === active}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => go(item)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                  i === active ? 'bg-accent text-white' : 'text-t2 hover:bg-muted'
+                className={`hig-press flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] ${
+                  i === active ? 'bg-accent text-white' : 'text-t2'
                 }`}
               >
                 <span className={i === active ? 'text-white' : 'text-t3'}>{item.icon}</span>
                 <span className="flex-1 font-medium">{item.label}</span>
-                <span className={`font-mono text-xs ${i === active ? 'text-white/70' : 'text-t3'}`}>
+                <span
+                  className={`text-[12px] ${i === active ? 'text-white/75' : 'text-t3'}`}
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                >
                   {item.href}
                 </span>
               </button>
             ))
           )}
         </div>
+
+        <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-[11px] text-t3">
+          <span><Key>&#8593;</Key><Key>&#8595;</Key> navigate</span>
+          <span><Key>&#8629;</Key> open</span>
+          <span className="ml-auto"><Key>esc</Key> close</span>
+        </div>
       </div>
     </div>
+  );
+}
+
+function Key({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="mr-1 inline-block min-w-[18px] rounded border border-line px-1 text-center font-sans text-[10px] leading-4 text-t3">
+      {children}
+    </kbd>
   );
 }
 

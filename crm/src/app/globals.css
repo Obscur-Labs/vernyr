@@ -10,8 +10,8 @@
   --color-muted:   #1b2745;
   --color-line:    #253255;
   --color-t1:      #edf0ff;
-  --color-t2:      #7984ad;
-  --color-t3:      #3e4d70;
+  --color-t2:      #98a2c9;
+  --color-t3:      #8690ad;
   --color-accent:  #6366f1;
   --background:    #080d1b;
   --foreground:    #edf0ff;
@@ -25,7 +25,7 @@
   --color-line:    #d4d8f8;
   --color-t1:      #0c1040;
   --color-t2:      #48567a;
-  --color-t3:      #8892b8;
+  --color-t3:      #5f6988;
   --color-accent:  #4f46e5;
   --background:    #f0f2ff;
   --foreground:    #0c1040;
@@ -41,8 +41,8 @@
   --color-muted:   #1e1548;
   --color-line:    #281e5e;
   --color-t1:      #f0eeff;
-  --color-t2:      #8478b0;
-  --color-t3:      #483f70;
+  --color-t2:      #a094d0;
+  --color-t3:      #8880ae;
   --color-accent:  #7c3aed;
 }
 :root.light[data-palette="violet"] {
@@ -53,7 +53,7 @@
   --color-line:    #d8d0ff;
   --color-t1:      #1a0050;
   --color-t2:      #50408a;
-  --color-t3:      #9880c8;
+  --color-t3:      #725ea0;
   --color-accent:  #7c3aed;
 }
 
@@ -62,14 +62,13 @@
 ═══════════════════════════════════════════════════════════════ */
 :root[data-palette="emerald"] {
   --color-base:    #04100d;
-  --color-surface: #07181412;
   --color-surface: #071814;
   --color-card:    #0c2019;
   --color-muted:   #102a22;
   --color-line:    #18382d;
   --color-t1:      #e8fdf5;
-  --color-t2:      #5da082;
-  --color-t3:      #2a5c45;
+  --color-t2:      #7cbfa1;
+  --color-t3:      #60987c;
   --color-accent:  #10b981;
 }
 :root.light[data-palette="emerald"] {
@@ -80,7 +79,7 @@
   --color-line:    #a7f3d0;
   --color-t1:      #064230;
   --color-t2:      #065f46;
-  --color-t3:      #34d399;
+  --color-t3:      #35785c;
   --color-accent:  #059669;
 }
 
@@ -94,8 +93,8 @@
   --color-muted:   #341522;
   --color-line:    #44202e;
   --color-t1:      #fff1f3;
-  --color-t2:      #b07882;
-  --color-t3:      #6b3d48;
+  --color-t2:      #c9959e;
+  --color-t3:      #a57c86;
   --color-accent:  #f43f5e;
 }
 :root.light[data-palette="rose"] {
@@ -106,7 +105,7 @@
   --color-line:    #fecdd3;
   --color-t1:      #4a0517;
   --color-t2:      #9f1239;
-  --color-t3:      #fb7185;
+  --color-t3:      #a8455a;
   --color-accent:  #e11d48;
 }
 
@@ -120,8 +119,8 @@
   --color-muted:   #2d2100;
   --color-line:    #3d2e00;
   --color-t1:      #fff8e0;
-  --color-t2:      #a88550;
-  --color-t3:      #634e28;
+  --color-t2:      #c4a273;
+  --color-t3:      #a38653;
   --color-accent:  #f59e0b;
 }
 :root.light[data-palette="amber"] {
@@ -132,7 +131,7 @@
   --color-line:    #fde68a;
   --color-t1:      #431a00;
   --color-t2:      #92400e;
-  --color-t3:      #fbbf24;
+  --color-t3:      #8b6918;
   --color-accent:  #d97706;
 }
 
@@ -146,8 +145,8 @@
   --color-muted:   #10274e;
   --color-line:    #183360;
   --color-t1:      #dff3ff;
-  --color-t2:      #5598be;
-  --color-t3:      #29547a;
+  --color-t2:      #78b6d8;
+  --color-t3:      #6994b4;
   --color-accent:  #0ea5e9;
 }
 :root.light[data-palette="sky"] {
@@ -158,7 +157,7 @@
   --color-line:    #bae6fd;
   --color-t1:      #082f49;
   --color-t2:      #0369a1;
-  --color-t3:      #38bdf8;
+  --color-t3:      #377293;
   --color-accent:  #0284c7;
 }
 
@@ -201,7 +200,7 @@ body {
   from { opacity: 0; transform: translateY(8px) scale(0.95); }
   to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
-.animate-toast-in { animation: toast-in 0.22s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -213,20 +212,19 @@ body {
   from { opacity: 0; transform: translateX(20px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.90); }
   to   { opacity: 1; transform: scale(1); }
 }
-.animate-scale-in { animation: scale-in 0.2s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-scale-in { animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes pop-in {
-  0%   { opacity: 0; transform: scale(0.7) translateY(4px); }
-  70%  { transform: scale(1.04); }
+  0%   { opacity: 0; transform: scale(0.86) translateY(4px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-.animate-pop-in { animation: pop-in 0.25s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-pop-in { animation: pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* Chat typing indicator */
 @keyframes typing-dot {
@@ -249,8 +247,8 @@ body {
   from { opacity: 0; transform: translate(10px, 12px) scale(0.96); }
   to   { opacity: 1; transform: translate(0, 0) scale(1); }
 }
-.animate-msg-left  { animation: msg-in-left  0.3s cubic-bezier(.22, 1.2, .36, 1) both; }
-.animate-msg-right { animation: msg-in-right 0.3s cubic-bezier(.22, 1.2, .36, 1) both; }
+.animate-msg-left  { animation: msg-in-left  0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-msg-right { animation: msg-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* Bubble micro-interaction — gentle lift on hover */
 .msg-bubble { transition: transform .18s cubic-bezier(.4, 0, .2, 1), box-shadow .18s ease, filter .18s ease; }
@@ -344,3 +342,231 @@ body {
    the light one to read as engraving rather than smudge. */
 .engraving { color: var(--color-accent); opacity: 0.22; }
 :root.light .engraving { opacity: 0.12; }
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLE HIG LAYER
+   Apple's Human Interface Guidelines applied to the CRM: San Francisco
+   typography, the 8pt grid, concentric radii, system easing curves and
+   translucent chrome. The palette above stays the brand's own — this layer
+   governs form, rhythm and motion, not hue.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Type — SF Pro on Apple hardware, Geist everywhere else. */
+  --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+                 var(--font-geist), 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+
+  /* iOS type scale */
+  --text-caption2:  11px;
+  --text-caption1:  12px;
+  --text-footnote:  13px;
+  --text-subhead:   15px;
+  --text-body:      17px;
+  --text-title3:    20px;
+  --text-title2:    22px;
+  --text-title1:    28px;
+
+  /* 8pt grid */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
+
+  /* Concentric radii — inner + padding = outer */
+  --radius-sm:   8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-full: 9999px;
+
+  /* Apple motion */
+  --ease-default: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:  cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  --duration-instant: 100ms;
+  --duration-fast:    200ms;
+  --duration-normal:  300ms;
+
+  /* Chrome heights — the toolbar and the sidebar brand row are one line. */
+  --chrome-h:        56px;
+  --sidebar-w:      248px;
+  --sidebar-w-fold:  68px;
+}
+
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-system); }
+
+/* ── Materials ────────────────────────────────────────────────────────────
+   The macOS toolbar/sidebar vibrancy: content blurs beneath the chrome
+   rather than hiding behind an opaque plate. */
+.hig-chrome {
+  background: color-mix(in oklch, var(--color-surface) 78%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.hig-sidebar {
+  background: color-mix(in oklch, var(--color-surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .hig-chrome, .hig-sidebar { background: var(--color-surface); }
+}
+
+/* ── Press feedback ───────────────────────────────────────────────────────
+   Every Apple control acknowledges the touch before the action lands. */
+.hig-press {
+  transition: transform var(--duration-instant) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default),
+              opacity var(--duration-fast) var(--ease-default);
+}
+.hig-press:active:not(:disabled) { transform: scale(0.97); }
+
+/* ── Focus ────────────────────────────────────────────────────────────────
+   One visible ring for keyboard users, never removed without replacement. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 40%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Capsule controls ─────────────────────────────────────────────────────
+   Primary and secondary buttons, HIG proportions: 44pt tall, weight 600. */
+.hig-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-subhead); font-weight: 600;
+  white-space: nowrap;
+}
+.hig-btn-primary   { background: var(--color-accent); color: #fff; }
+.hig-btn-primary:hover:not(:disabled)   { filter: brightness(1.08); }
+.hig-btn-secondary { background: color-mix(in oklch, var(--color-accent) 12%, transparent); color: var(--color-accent); }
+.hig-btn-secondary:hover:not(:disabled) { background: color-mix(in oklch, var(--color-accent) 20%, transparent); }
+.hig-btn:disabled  { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Grouped list ─────────────────────────────────────────────────────────
+   Settings-style rows: inset separators, 44pt minimum row height. */
+.hig-group {
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+}
+.hig-row { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.hig-row + .hig-row { box-shadow: inset 0 1px 0 var(--color-line); }
+
+/* ── Sidebar fold ─────────────────────────────────────────────────────────
+   A deliberate exception to "never animate layout properties". The fold is a
+   width change by definition, and every desktop app that ships one — Finder,
+   Xcode, VS Code — animates exactly this. Transform would slide the panel out
+   from under the content rather than making room, which is the wrong gesture.
+   It stays cheap because it is one element for 300ms, and because the labels
+   are unmounted rather than squeezed, so no text rewraps while it runs. */
+.hig-fold { transition: width var(--duration-normal) var(--ease-out); }
+.hig-fold-label {
+  transition: opacity var(--duration-fast) var(--ease-default),
+              transform var(--duration-normal) var(--ease-out);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   Every transition above collapses to an instant state change. */
+@media (prefers-reduced-motion: reduce) {
+  .hig-press, .hig-fold, .hig-fold-label { transition: none; }
+  .hig-press:active:not(:disabled) { transform: none; }
+  .animate-toast-in, .animate-fade-in, .animate-slide-in-right,
+  .animate-scale-in, .animate-pop-in { animation: none; }
+}
+
+/* ── Semantic accents ─────────────────────────────────────────────────────
+   Tailwind's `dark:` variant keys off the media query, but this app switches
+   themes with a class — so anything that must differ per theme is declared
+   here rather than as a utility. Each pair clears AA on its own ground.
+   CRM is dark-first: bare `:root` is dark, `:root.light` is light. */
+:root {
+  --color-danger:    #ff6b6b;
+  --color-danger-bg: rgba(255, 107, 107, 0.12);
+  --color-success:   #34c759;
+  --color-warning:   #ffb340;
+}
+:root.light {
+  --color-danger:    #c92a2a;
+  --color-danger-bg: rgba(201, 42, 42, 0.09);
+  --color-success:   #1a7f37;
+  --color-warning:   #9a5b00;
+}
+
+.danger-action { color: var(--color-danger); }
+.danger-action:hover { background: var(--color-danger-bg); }
+
+/* Role chips — the same pill in both themes, legible in each. */
+.chip { border-radius: var(--radius-full); padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.chip-admin      { background: rgba(99, 102, 241, 0.16); color: #a5b4fc; }
+.chip-counsellor { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; }
+.chip-student    { background: rgba(14, 165, 233, 0.16); color: #7dd3fc; }
+.chip-university { background: rgba(20, 184, 166, 0.16); color: #5eead4; }
+:root.light .chip-admin      { background: rgba(79, 70, 229, 0.10);  color: #4338ca; }
+:root.light .chip-counsellor { background: rgba(5, 150, 105, 0.10);  color: #036b4b; }
+:root.light .chip-student    { background: rgba(2, 132, 199, 0.10);  color: #04618f; }
+:root.light .chip-university { background: rgba(13, 148, 136, 0.10); color: #0c6a63; }
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS COLOURS ON A LIGHT GROUND
+   Every status label in the app is written at the -400 tier, which is
+   tuned for dark surfaces: emerald-400 clears 8:1 on the dark canvas and
+   only 2.4:1 on a white card. Rather than rewrite ~90 call sites, the
+   tier itself is redefined for the light theme — Tailwind v4 compiles
+   `text-emerald-400` to `var(--color-emerald-400)`, so one override moves
+   all of them at once, tints and fills included. Each value is the ramp's
+   700 step: >= 4.5:1 as ink on white, and still legible under white ink
+   when used as a fill.
+   CRM is dark-first, so only the .light branch is corrected.
+═══════════════════════════════════════════════════════════════ */
+:root.light {
+  --color-red-300: #dc2626;
+  --color-red-400: #dc2626;
+  --color-red-500: #dc2626;
+  --color-rose-300: #be123c;
+  --color-rose-400: #be123c;
+  --color-rose-500: #be123c;
+  --color-orange-300: #c2410c;
+  --color-orange-400: #c2410c;
+  --color-orange-500: #c2410c;
+  --color-amber-300: #b45309;
+  --color-amber-400: #b45309;
+  --color-amber-500: #b45309;
+  --color-yellow-300: #a16207;
+  --color-yellow-400: #a16207;
+  --color-yellow-500: #a16207;
+  --color-green-300: #15803d;
+  --color-green-400: #15803d;
+  --color-green-500: #15803d;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #047857;
+  --color-emerald-500: #047857;
+  --color-teal-300: #0f766e;
+  --color-teal-400: #0f766e;
+  --color-teal-500: #0f766e;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0369a1;
+  --color-sky-500: #0369a1;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #1d4ed8;
+  --color-blue-500: #1d4ed8;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4338ca;
+  --color-indigo-500: #4338ca;
+  --color-violet-300: #6d28d9;
+  --color-violet-400: #6d28d9;
+  --color-violet-500: #6d28d9;
+  --color-purple-300: #7e22ce;
+  --color-purple-400: #7e22ce;
+  --color-purple-500: #7e22ce;
+}
+
+/* `slate` joins the ramp above — the application board labels a column with it. */
+:root.light {
+  --color-slate-300: #334155;
+  --color-slate-400: #334155;
+  --color-slate-500: #334155;
+}

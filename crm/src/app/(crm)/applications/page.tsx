@@ -6,14 +6,14 @@ import { useToast } from '@/context/ToastContext';
 import { useAuthStore } from '@/stores/authStore';
 import type { Application, AppStatus } from '@/types';
 
-const ALL_COLUMNS: { id: AppStatus; label: string; border: string; badge: string }[] = [
-  { id: 'drafting',          label: 'Drafting',          border: 'border-l-slate-400',   badge: 'bg-slate-500/15 text-slate-400' },
-  { id: 'submitted',         label: 'Submitted',         border: 'border-l-blue-500',    badge: 'bg-blue-500/15 text-blue-400' },
-  { id: 'offer_received',    label: 'Offer Received',    border: 'border-l-amber-500',   badge: 'bg-amber-500/15 text-amber-400' },
-  { id: 'conditional_offer', label: 'Conditional Offer', border: 'border-l-orange-500',  badge: 'bg-orange-500/15 text-orange-400' },
-  { id: 'accepted',          label: 'Accepted',          border: 'border-l-emerald-500', badge: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'deferred',          label: 'Deferred',          border: 'border-l-violet-500',  badge: 'bg-violet-500/15 text-violet-400' },
-  { id: 'rejected',          label: 'Rejected',          border: 'border-l-red-500',     badge: 'bg-red-500/15 text-red-400' },
+const ALL_COLUMNS: { id: AppStatus; label: string; dot: string; badge: string }[] = [
+  { id: 'drafting',          label: 'Drafting',          dot: 'bg-slate-400',   badge: 'bg-slate-500/15 text-slate-400' },
+  { id: 'submitted',         label: 'Submitted',         dot: 'bg-blue-500',    badge: 'bg-blue-500/15 text-blue-400' },
+  { id: 'offer_received',    label: 'Offer Received',    dot: 'bg-amber-500',   badge: 'bg-amber-500/15 text-amber-400' },
+  { id: 'conditional_offer', label: 'Conditional Offer', dot: 'bg-orange-500',  badge: 'bg-orange-500/15 text-orange-400' },
+  { id: 'accepted',          label: 'Accepted',          dot: 'bg-emerald-500', badge: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'deferred',          label: 'Deferred',          dot: 'bg-violet-500',  badge: 'bg-violet-500/15 text-violet-400' },
+  { id: 'rejected',          label: 'Rejected',          dot: 'bg-red-500',     badge: 'bg-red-500/15 text-red-400' },
 ];
 
 // University reps only need decision-stage columns
@@ -115,9 +115,12 @@ export default function ApplicationsPage() {
                 onDragLeave={() => setOverCol(null)}
                 onDrop={e => handleDrop(e, col.id)}
               >
-                <div className={`px-4 py-3 border-b border-line border-l-4 rounded-t-2xl ${col.border}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-t1">{col.label}</span>
+                <div className="px-4 py-3 border-b border-line rounded-t-2xl">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-t1">
+                      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${col.dot}`} />
+                      <span className="truncate">{col.label}</span>
+                    </span>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${col.badge}`}>{colApps.length}</span>
                   </div>
                 </div>

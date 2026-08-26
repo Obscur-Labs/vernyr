@@ -33,13 +33,13 @@ export default function NotFound() {
       <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={() => router.back()}
-          className="rounded-xl bg-muted px-5 py-2.5 text-sm font-semibold text-t1 transition-colors hover:bg-line"
+          className="hig-btn hig-press bg-muted text-t1 hover:bg-line"
         >
           Go back
         </button>
         <Link
           href="/dashboard"
-          className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+          className="hig-btn hig-btn-primary hig-press"
         >
           Back to dashboard
         </Link>

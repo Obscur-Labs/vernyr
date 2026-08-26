@@ -159,7 +159,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="glass border border-[var(--glass-border)] rounded-2xl overflow-hidden">
             {/* Select all header */}
-            <div className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--glass-border)] bg-white/5">
+            <div className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--glass-border)] bg-muted">
               <input
                 type="checkbox"
                 checked={selectedIds.size === notifications.length && notifications.length > 0}
@@ -175,7 +175,7 @@ export default function NotificationsPage() {
               {notifications.map(n => (
                 <div
                   key={n._id}
-                  className={`group relative flex items-start gap-4 px-4 py-4 transition-colors ${!n.read ? 'bg-sky-500/5 hover:bg-sky-500/10' : 'hover:bg-white/5'}`}
+                  className={`group relative flex items-start gap-4 px-4 py-4 transition-colors ${!n.read ? 'bg-accent/[0.06] hover:bg-accent/10' : 'hover:bg-muted'}`}
                 >
                   {/* Checkbox */}
                   <input
@@ -187,7 +187,7 @@ export default function NotificationsPage() {
                   />
 
                   {/* Icon */}
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 ${!n.read ? 'bg-sky-500/15' : 'bg-white/5'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 ${!n.read ? 'bg-accent/15 text-accent' : 'bg-muted'}`}>
                     {TYPE_ICON[n.type] ?? '🔔'}
                   </div>
 

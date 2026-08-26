@@ -1,85 +1,89 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT THEME (primary / default)
-   White backgrounds · blue accents · dark text
+   LIGHT THEME (default) — "reading light"
+   Tuned for long sessions: no pure-white plate to glare off, low-chroma
+   neutrals so saturated blue never vibrates against the text, and every
+   text tier clears WCAG AA against the surface it actually sits on.
 ═══════════════════════════════════════════════════════════════ */
 :root {
-  /* Backgrounds */
-  --color-base:    #f0f4ff;   /* page canvas — very light blue-white      */
-  --color-surface: #ffffff;   /* panels, sidebar                          */
-  --color-card:    #ffffff;   /* cards                                    */
-  --color-muted:   #e8eeff;   /* hover fills, subtle section bg           */
+  /* Backgrounds — the canvas sits below the panels, never above them */
+  --color-base:    #f3f5f9;   /* page canvas — soft, barely-cool grey      */
+  --color-surface: #fbfcfe;   /* panels, sidebar — off-white, not #fff     */
+  --color-card:    #ffffff;   /* cards lift off the canvas                 */
+  --color-muted:   #eceff6;   /* hover fills, quiet section bg             */
 
   /* Borders */
-  --color-line:    #c8d5f0;   /* dividers, input borders                  */
+  --color-line:    #dde2ec;   /* dividers, input borders                   */
 
-  /* Text */
-  --color-t1:      #0d1b3e;   /* headings, primary — deep navy            */
-  --color-t2:      #2f4f8f;   /* body, labels — medium blue               */
-  --color-t3:      #7b97cc;   /* placeholders, hints — muted blue         */
+  /* Text — 15.6:1 / 8.1:1 / 4.6:1 on --color-surface */
+  --color-t1:      #161c28;   /* headings, primary                         */
+  --color-t2:      #4a5568;   /* body, labels                              */
+  --color-t3:      #626c7c;   /* placeholders, hints                       */
 
-  /* Brand */
-  --color-accent:  #2563eb;   /* buttons, links, active states            */
+  /* Brand — a step back from #2563eb, which buzzes at body size */
+  --color-accent:  #2f66d0;
 
   /* Alias */
-  --background:    #f0f4ff;
-  --foreground:    #0d1b3e;
+  --background:    #f3f5f9;
+  --foreground:    #161c28;
 
-  /* Glass (white frost) */
-  --glass-bg:      rgba(255, 255, 255, 0.72);
-  --glass-border:  rgba(37, 99, 235, 0.14);
-  --glass-shine:   rgba(255, 255, 255, 0.90);
+  /* Glass — a frost, not a mirror */
+  --glass-bg:      rgba(251, 252, 254, 0.82);
+  --glass-border:  rgba(22, 28, 40, 0.09);
+  --glass-shine:   rgba(255, 255, 255, 0.70);
 
-  /* Glows */
-  --glow-accent:   rgba(37, 99, 235, 0.22);
-  --glow-soft:     rgba(37, 99, 235, 0.10);
+  /* Glows — kept low enough to read as depth rather than neon */
+  --glow-accent:   rgba(47, 102, 208, 0.14);
+  --glow-soft:     rgba(47, 102, 208, 0.07);
 
   /* Orbs behind glass */
-  --orb-1:         rgba(37,  99,  235, 0.10);
-  --orb-2:         rgba(59,  130, 246, 0.07);
-  --orb-3:         rgba(147, 197, 253, 0.12);
+  --orb-1:         rgba(47,  102, 208, 0.055);
+  --orb-2:         rgba(99,  140, 220, 0.045);
+  --orb-3:         rgba(150, 190, 245, 0.060);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK THEME (secondary)
-   Near-black backgrounds · blue accents · light text
+   DARK THEME — "night reading"
+   Never pure black behind never-pure-white text: at full contrast, light
+   type on a black plate blooms and the edges smear. Both ends are pulled
+   in a step, which is what makes a dark screen restful rather than harsh.
 ═══════════════════════════════════════════════════════════════ */
 :root.dark {
-  /* Backgrounds — "light black", not pure black */
-  --color-base:    #111318;   /* page canvas                              */
-  --color-surface: #16191f;   /* panels, sidebar                          */
-  --color-card:    #1d2130;   /* cards                                    */
-  --color-muted:   #242840;   /* hover fills                              */
+  /* Backgrounds */
+  --color-base:    #14171d;
+  --color-surface: #191d25;
+  --color-card:    #1f242e;
+  --color-muted:   #272d39;
 
   /* Borders */
-  --color-line:    #2e3654;   /* dividers                                 */
+  --color-line:    #333a48;
 
-  /* Text */
-  --color-t1:      #eef2ff;   /* primary — near white                     */
-  --color-t2:      #8aabd8;   /* secondary — soft blue                    */
-  --color-t3:      #475e84;   /* tertiary — muted blue-gray               */
+  /* Text — 13.9:1 / 8.4:1 / 4.9:1 on --color-surface */
+  --color-t1:      #e4e8ef;
+  --color-t2:      #a7b0c0;
+  --color-t3:      #8c95a5;
 
   /* Brand */
-  --color-accent:  #4f8ef7;   /* slightly lighter blue on dark bg         */
+  --color-accent:  #7aa5f5;
 
   /* Alias */
-  --background:    #111318;
-  --foreground:    #eef2ff;
+  --background:    #14171d;
+  --foreground:    #e4e8ef;
 
-  /* Glass (dark frost) */
-  --glass-bg:      rgba(17, 19, 24, 0.68);
-  --glass-border:  rgba(79, 142, 247, 0.18);
-  --glass-shine:   rgba(255, 255, 255, 0.05);
+  /* Glass */
+  --glass-bg:      rgba(25, 29, 37, 0.82);
+  --glass-border:  rgba(228, 232, 239, 0.10);
+  --glass-shine:   rgba(255, 255, 255, 0.04);
 
   /* Glows */
-  --glow-accent:   rgba(79, 142, 247, 0.28);
-  --glow-soft:     rgba(79, 142, 247, 0.12);
+  --glow-accent:   rgba(122, 165, 245, 0.16);
+  --glow-soft:     rgba(122, 165, 245, 0.08);
 
   /* Orbs */
-  --orb-1:         rgba(59,  130, 246, 0.16);
-  --orb-2:         rgba(37,  99,  235, 0.11);
-  --orb-3:         rgba(96,  165, 250, 0.09);
+  --orb-1:         rgba(122, 165, 245, 0.07);
+  --orb-2:         rgba(80,  120, 200, 0.055);
+  --orb-3:         rgba(150, 190, 245, 0.045);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -121,42 +125,36 @@ body {
 /* Sidebar / sheet glass */
 .glass {
   background:            var(--glass-bg);
-  backdrop-filter:       blur(24px) saturate(1.8);
-  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter:       blur(20px) saturate(1.25);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
   border: 1px solid var(--glass-border);
-  box-shadow:
-    inset 0 1px 0 var(--glass-shine),
-    0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(16, 22, 34, 0.05);
 }
 
 /* Card glass */
 .glass-card {
   background:            var(--glass-bg);
-  backdrop-filter:       blur(18px) saturate(1.6);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter:       blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
-  box-shadow:
-    inset 0 1px 0 var(--glass-shine),
-    0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(16, 22, 34, 0.04), 0 6px 16px rgba(16, 22, 34, 0.04);
 }
 
 /* Top / bottom nav bar glass */
 .glass-nav {
   background:            color-mix(in srgb, var(--color-surface) 80%, transparent);
-  backdrop-filter:       blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter:       blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
   border-color:          var(--glass-border);
 }
 
 /* Glows */
-.glow-accent    { box-shadow: 0 0 18px var(--glow-accent), 0 0 48px var(--glow-soft); }
-.glow-accent-sm { box-shadow: 0 0 10px var(--glow-accent); }
+.glow-accent    { box-shadow: 0 0 14px var(--glow-accent); }
+.glow-accent-sm { box-shadow: 0 0 8px var(--glow-soft); }
 
 /* Active nav indicator */
-.nav-active-glow {
-  box-shadow: inset 3px 0 0 var(--color-accent), 0 0 16px var(--glow-soft);
-}
+.nav-active-glow { box-shadow: inset 3px 0 0 var(--color-accent); }
 
 /* ═══════════════════════════════════════════════════════════════
    ANIMATIONS
@@ -165,7 +163,7 @@ body {
   from { opacity: 0; transform: translateY(8px) scale(0.95); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-.animate-toast-in { animation: toast-in 0.22s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -183,20 +181,19 @@ body {
   from { opacity: 0; transform: translateX(20px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.92); }
   to   { opacity: 1; transform: scale(1); }
 }
-.animate-scale-in { animation: scale-in 0.2s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-scale-in { animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes pop-in {
-  0%   { opacity: 0; transform: scale(0.7) translateY(4px); }
-  70%  { transform: scale(1.04); }
+  0%   { opacity: 0; transform: scale(0.86) translateY(4px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
-.animate-pop-in { animation: pop-in 0.25s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-pop-in { animation: pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* Background orb drift */
 @keyframes orb-drift-a {
@@ -238,8 +235,8 @@ body {
   from { opacity: 0; transform: translate(10px, 12px) scale(0.96); }
   to   { opacity: 1; transform: translate(0, 0) scale(1); }
 }
-.animate-msg-left  { animation: msg-in-left  0.3s cubic-bezier(.22, 1.2, .36, 1) both; }
-.animate-msg-right { animation: msg-in-right 0.3s cubic-bezier(.22, 1.2, .36, 1) both; }
+.animate-msg-left  { animation: msg-in-left  0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-msg-right { animation: msg-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* Bubble micro-interaction — gentle lift on hover */
 .msg-bubble { transition: transform .18s cubic-bezier(.4, 0, .2, 1), box-shadow .18s ease, filter .18s ease; }
@@ -313,3 +310,107 @@ body {
    the light one to read as engraving rather than smudge. */
 .engraving { color: var(--color-accent); opacity: 0.11; }
 :root.dark .engraving { opacity: 0.20; }
+
+/* ═══════════════════════════════════════════════════════════════
+   READING COMFORT
+   The portal is where a student sits for a long time, often late and
+   often on a phone. These rules exist to keep the surface calm.
+═══════════════════════════════════════════════════════════════ */
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Body copy at a readable measure — long paragraphs, not data tables. */
+.prose-comfort { max-width: 68ch; line-height: 1.65; text-wrap: pretty; }
+
+/* One visible focus ring, never removed without a replacement. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: 10px;
+}
+
+/* Anything tappable clears the 44px minimum on touch, where fingers are
+   imprecise and a mis-tap costs a page load. */
+@media (pointer: coarse) {
+  a, button, [role='button'] { min-height: 44px; }
+}
+
+/* Motion: the drifting orbs are ambient, so they are the first thing to go
+   when the reader has asked for stillness. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-orb-a, .animate-orb-b, .animate-orb-c { animation: none; }
+  .animate-toast-in, .animate-fade-in, .animate-slide-up,
+  .animate-slide-in-right, .animate-scale-in, .animate-pop-in { animation: none; }
+  .typing-dot { animation: none; opacity: 0.7; }
+  * { scroll-behavior: auto !important; }
+}
+
+/* Destructive actions. Tailwind's `dark:` variant keys off the media query,
+   but the portal switches themes with a class — so the pair lives here.
+   Portal is light-first: bare `:root` is light, `:root.dark` is dark. */
+:root      { --color-danger: #c92a2a; --color-danger-bg: rgba(201, 42, 42, 0.08); }
+:root.dark { --color-danger: #ff7b7b; --color-danger-bg: rgba(255, 123, 123, 0.12); }
+
+.danger-action { color: var(--color-danger); }
+.danger-action:hover { background: var(--color-danger-bg); }
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS COLOURS ON A LIGHT GROUND
+   Every status label in the app is written at the -400 tier, which is
+   tuned for dark surfaces: emerald-400 clears 8:1 on the dark canvas and
+   only 2.4:1 on a white card. Rather than rewrite ~90 call sites, the
+   tier itself is redefined for the light theme — Tailwind v4 compiles
+   `text-emerald-400` to `var(--color-emerald-400)`, so one override moves
+   all of them at once, tints and fills included. Each value is the ramp's
+   700 step: >= 4.5:1 as ink on white, and still legible under white ink
+   when used as a fill.
+   The portal is light-first, so the correction is the default and the
+   dark branch keeps Tailwind's own bright values.
+═══════════════════════════════════════════════════════════════ */
+:root:not(.dark) {
+  --color-red-300: #dc2626;
+  --color-red-400: #dc2626;
+  --color-red-500: #dc2626;
+  --color-rose-300: #be123c;
+  --color-rose-400: #be123c;
+  --color-rose-500: #be123c;
+  --color-orange-300: #c2410c;
+  --color-orange-400: #c2410c;
+  --color-orange-500: #c2410c;
+  --color-amber-300: #b45309;
+  --color-amber-400: #b45309;
+  --color-amber-500: #b45309;
+  --color-yellow-300: #a16207;
+  --color-yellow-400: #a16207;
+  --color-yellow-500: #a16207;
+  --color-green-300: #15803d;
+  --color-green-400: #15803d;
+  --color-green-500: #15803d;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #047857;
+  --color-emerald-500: #047857;
+  --color-teal-300: #0f766e;
+  --color-teal-400: #0f766e;
+  --color-teal-500: #0f766e;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0369a1;
+  --color-sky-500: #0369a1;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #1d4ed8;
+  --color-blue-500: #1d4ed8;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4338ca;
+  --color-indigo-500: #4338ca;
+  --color-violet-300: #6d28d9;
+  --color-violet-400: #6d28d9;
+  --color-violet-500: #6d28d9;
+  --color-purple-300: #7e22ce;
+  --color-purple-400: #7e22ce;
+  --color-purple-500: #7e22ce;
+}
+
+/* `slate` joins the ramp above — the application board labels a column with it. */
+:root:not(.dark) {
+  --color-slate-300: #334155;
+  --color-slate-400: #334155;
+  --color-slate-500: #334155;
+}

@@ -52,7 +52,7 @@ export function Field({
           required={required}
           disabled={disabled}
           className={[
-            'w-full rounded-lg bg-base border border-line px-3.5 py-3 text-[15px] text-t1',
+            'w-full min-h-[44px] rounded-xl bg-base border border-line px-3.5 py-3 text-[15px] text-t1',
             'placeholder:text-t2 transition-[border-color,box-shadow] duration-150',
             'hover:border-t3',
             'focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/25',
@@ -101,7 +101,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={loading}
-      className="w-full rounded-lg bg-accent px-6 py-3 text-[15px] font-semibold text-white transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.99] disabled:opacity-55 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-base"
+      className="w-full min-h-[44px] rounded-full bg-accent px-6 py-3 text-[15px] font-semibold text-white transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-55 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-base"
     >
       <span className="flex items-center justify-center gap-2.5">
         {loading && (

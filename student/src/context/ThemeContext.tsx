@@ -11,9 +11,13 @@ const ThemeContext = createContext<ThemeCtx>({ theme: 'light', toggle: () => {} 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
+  // With no saved choice, follow the device. Someone reading at night has
+  // usually already told their phone that; making them find a toggle in the
+  // sidebar first means one screenful of glare before they get there.
   useEffect(() => {
     const saved = localStorage.getItem('student-theme') as Theme | null;
-    const resolved = saved ?? 'light';
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    const resolved: Theme = saved ?? (prefersDark ? 'dark' : 'light');
     setTheme(resolved);
     document.documentElement.classList.toggle('dark', resolved === 'dark');
   }, []);

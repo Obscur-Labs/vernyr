@@ -296,14 +296,6 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="p-6 animate-fade-in">
-      {/* Back button */}
-      <button onClick={() => history.back()} className="flex items-center gap-2 text-t2 hover:text-t1 text-sm mb-5 transition-colors">
-        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-          <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd"/>
-        </svg>
-        Back to Students
-      </button>
-
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* LEFT: Stage tracker sidebar */}
         <div className="xl:col-span-1 space-y-5">

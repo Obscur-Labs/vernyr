@@ -49,15 +49,33 @@ function AddLeadDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
     }
   };
 
+  // A sheet must dismiss on Escape — the drawer covers the page behind it, so
+  // without it the only way out is finding the one small close target.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-surface border-l border-line z-50 flex flex-col shadow-2xl">
+      <div className="animate-fade-in fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="animate-slide-in-right fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl"
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <h2 className="text-base font-semibold text-t1">Add New Lead</h2>
-          <button onClick={onClose} className="p-2 rounded-lg text-t2 hover:bg-muted">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="hig-press grid h-9 w-9 place-items-center rounded-lg text-t2 hover:bg-muted hover:text-t1"
+          >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
             </svg>

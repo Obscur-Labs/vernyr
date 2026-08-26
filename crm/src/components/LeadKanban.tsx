@@ -2,14 +2,14 @@
 import { useState } from 'react';
 import type { Lead, LeadStatus } from '@/types';
 
-const COLUMNS: { id: LeadStatus; label: string; border: string; badge: string }[] = [
-  { id: 'new',                 label: 'New',                 border: 'border-l-indigo-500',  badge: 'bg-indigo-500/15 text-indigo-400' },
-  { id: 'contacted',           label: 'Contacted',           border: 'border-l-blue-500',    badge: 'bg-blue-500/15 text-blue-400' },
-  { id: 'counselling',         label: 'Counselling',         border: 'border-l-violet-500',  badge: 'bg-violet-500/15 text-violet-400' },
-  { id: 'interested',          label: 'Interested',          border: 'border-l-amber-500',   badge: 'bg-amber-500/15 text-amber-400' },
-  { id: 'application_started', label: 'Application Started', border: 'border-l-orange-500',  badge: 'bg-orange-500/15 text-orange-400' },
-  { id: 'closed_won',          label: 'Closed Won',          border: 'border-l-emerald-500', badge: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'closed_lost',         label: 'Closed Lost',         border: 'border-l-red-500',     badge: 'bg-red-500/15 text-red-400' },
+const COLUMNS: { id: LeadStatus; label: string; dot: string; badge: string }[] = [
+  { id: 'new',                 label: 'New',                 dot: 'bg-indigo-500',  badge: 'bg-indigo-500/15 text-indigo-400' },
+  { id: 'contacted',           label: 'Contacted',           dot: 'bg-blue-500',    badge: 'bg-blue-500/15 text-blue-400' },
+  { id: 'counselling',         label: 'Counselling',         dot: 'bg-violet-500',  badge: 'bg-violet-500/15 text-violet-400' },
+  { id: 'interested',          label: 'Interested',          dot: 'bg-amber-500',   badge: 'bg-amber-500/15 text-amber-400' },
+  { id: 'application_started', label: 'Application Started', dot: 'bg-orange-500',  badge: 'bg-orange-500/15 text-orange-400' },
+  { id: 'closed_won',          label: 'Closed Won',          dot: 'bg-emerald-500', badge: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'closed_lost',         label: 'Closed Lost',         dot: 'bg-red-500',     badge: 'bg-red-500/15 text-red-400' },
 ];
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -77,9 +77,12 @@ export function LeadKanban({ leads, onStatusChange, onCardClick }: Props) {
             onDrop={e => handleDrop(e, col.id)}
           >
             {/* Column header */}
-            <div className={`px-4 py-3 border-b border-line border-l-4 rounded-t-2xl ${col.border}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-t1">{col.label}</span>
+            <div className="px-4 py-3 border-b border-line rounded-t-2xl">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-t1">
+                  <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${col.dot}`} />
+                  <span className="truncate">{col.label}</span>
+                </span>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${col.badge}`}>
                   {colLeads.length}
                 </span>

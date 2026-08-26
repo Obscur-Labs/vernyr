@@ -11,9 +11,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#2563eb',
+  // Matches --color-surface in each theme, so the browser chrome blends into
+  // the page instead of framing it in a bright band.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fbfcfe' },
+    { media: '(prefers-color-scheme: dark)', color: '#191d25' },
+  ],
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
