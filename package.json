@@ -29,7 +29,8 @@
     "typecheck:crm": "tsc --noEmit -p crm",
     "typecheck:student": "tsc --noEmit -p student",
     "clean": "rimraf node_modules backend/node_modules crm/node_modules student/node_modules backend/dist crm/.next student/.next",
-    "migrate:split-accounts": "npm run migrate:split-accounts -w backend"
+    "migrate:split-accounts": "npm run migrate:split-accounts -w backend",
+    "import:courses": "npm run import:courses -w backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -1,157 +1,124 @@
 'use client';
-import { useEffect, useState } from 'react';
-import api from '@/lib/api';
-import { StatCard } from '@/components/StatCard';
-import { SkeletonStat } from '@/components/Skeleton';
-import { useToast } from '@/context/ToastContext';
-import type { DashboardStats, LeadStatus, StudentStage } from '@/types';
 
-const STUDENT_STAGES: { id: StudentStage; label: string }[] = [
-  { id: 'inquiry',               label: 'Inquiry' },
-  { id: 'counselling',           label: 'Counselling' },
-  { id: 'university_selection',  label: 'University Selection' },
-  { id: 'application_submitted', label: 'Application Submitted' },
-  { id: 'offer_letter',          label: 'Offer Letter' },
-  { id: 'fee_payment',           label: 'Fee Payment' },
-  { id: 'cas_i20',               label: 'CAS / I-20' },
-  { id: 'visa_filing',           label: 'Visa Filing' },
-  { id: 'visa_approved',         label: 'Visa Approved' },
-  { id: 'departure',             label: 'Departure' },
+import { useState } from 'react';
+import Link from 'next/link';
+import {
+  BarChart, ChartCard, DonutChart, LineChart, fmtCompact, fmtNumber,
+} from '@/components/charts';
+import { Metric, ReportShell, useReport, type Range } from '@/components/reports/ReportShell';
+import {
+  BookIcon, DocumentTextIcon, GraduationIcon, PassportIcon, TargetIcon, WalletIcon,
+} from '@/components/icons';
+import {
+  APP_STATUS_COLORS, LEAD_STATUS_COLORS, LEAD_STATUS_ORDER,
+  STAGE_LABELS, STAGE_ORDER, colorize, money, orderedBuckets, type OverviewReport,
+} from '@/lib/reports';
+
+/** The section's front page — everything at once, each card a way into a report. */
+const SECTIONS = [
+  { href: '/reports/finance', label: 'Finance', hint: 'Revenue, ageing and what is outstanding', Icon: WalletIcon },
+  { href: '/reports/students', label: 'Students', hint: 'Stages, caseloads and intake', Icon: GraduationIcon },
+  { href: '/reports/applications', label: 'Applications', hint: 'Offers by country and university', Icon: DocumentTextIcon },
+  { href: '/reports/visas', label: 'Visas', hint: 'Filings, decisions and approval rate', Icon: PassportIcon },
+  { href: '/reports/leads', label: 'Leads', hint: 'Sources and conversion', Icon: TargetIcon },
+  { href: '/reports/catalogue', label: 'Catalogue', hint: 'What the course catalogue holds', Icon: BookIcon },
 ];
 
-const LEAD_STATUSES: { id: LeadStatus; label: string; color: string }[] = [
-  { id: 'new',                 label: 'New',                 color: 'bg-indigo-500' },
-  { id: 'contacted',           label: 'Contacted',           color: 'bg-blue-500' },
-  { id: 'counselling',         label: 'Counselling',         color: 'bg-violet-500' },
-  { id: 'interested',          label: 'Interested',          color: 'bg-amber-500' },
-  { id: 'application_started', label: 'Application Started', color: 'bg-orange-500' },
-  { id: 'closed_won',          label: 'Closed Won',          color: 'bg-emerald-500' },
-  { id: 'closed_lost',         label: 'Closed Lost',         color: 'bg-red-500' },
-];
-
-interface MonthlyReports {
-  monthlyStudents: number;
-  monthlyVisaApprovals: number;
-  monthlyRevenue: number;
-}
-
-export default function ReportsPage() {
-  const [stats, setStats]       = useState<DashboardStats | null>(null);
-  const [monthly, setMonthly]   = useState<MonthlyReports | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const { toast }               = useToast();
-
-  useEffect(() => {
-    Promise.all([
-      api.get('/dashboard/stats'),
-      api.get('/dashboard/reports'),
-    ]).then(([sr, mr]) => {
-      setStats(sr.data);
-      setMonthly(mr.data);
-    }).catch(() => toast('Failed to load reports', 'error'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const conversionRate = stats && stats.totalLeads > 0
-    ? Math.round((stats.totalStudents / stats.totalLeads) * 100)
-    : 0;
-
-  const maxStudentStage = stats ? Math.max(...STUDENT_STAGES.map(s => stats.studentsByStage[s.id] || 0), 1) : 1;
-  const maxLeadStatus   = stats ? Math.max(...LEAD_STATUSES.map(s => stats.leadsByStatus[s.id] || 0), 1) : 1;
+export default function ReportsOverviewPage() {
+  const [range, setRange] = useState<Range>(12);
+  const { data, loading, error } = useReport<OverviewReport>('/reports/overview', range);
 
   return (
-    <div className="p-6 animate-fade-in space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-t1">Reports</h1>
-        <p className="text-t2 text-sm mt-1">Performance metrics and pipeline analytics</p>
-      </div>
-
-      {/* Monthly metrics */}
-      <div>
-        <h2 className="text-base font-semibold text-t1 mb-4">This Month</h2>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          {loading ? (
-            [...Array(4)].map((_, i) => <SkeletonStat key={i} />)
-          ) : (
-            <>
-              <StatCard label="New Students"       value={monthly?.monthlyStudents || 0}         icon="🎓" color="indigo" />
-              <StatCard label="Visa Approvals"     value={monthly?.monthlyVisaApprovals || 0}    icon="✅" color="emerald" />
-              <StatCard label="Revenue"            value={`$${(monthly?.monthlyRevenue || 0).toLocaleString()}`} icon="💰" color="amber" />
-              <StatCard label="Conversion Rate"    value={`${conversionRate}%`}                   icon="📊" color="violet" />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Student pipeline */}
-        <div className="bg-surface border border-line rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-t1 mb-5">Student Pipeline</h2>
-          {loading ? (
-            <div className="space-y-3">{[...Array(10)].map((_, i) => <div key={i} className="h-5 bg-muted rounded animate-pulse" />)}</div>
-          ) : stats ? (
-            <div className="space-y-3">
-              {STUDENT_STAGES.map(s => {
-                const count = stats.studentsByStage[s.id] || 0;
-                const pct   = (count / maxStudentStage) * 100;
-                return (
-                  <div key={s.id} className="flex items-center gap-3">
-                    <span className="text-xs text-t2 w-36 flex-shrink-0 text-right">{s.label}</span>
-                    <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-t1 w-8 text-right">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Lead funnel */}
-        <div className="bg-surface border border-line rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-t1 mb-5">Lead Funnel</h2>
-          {loading ? (
-            <div className="space-y-3">{[...Array(7)].map((_, i) => <div key={i} className="h-5 bg-muted rounded animate-pulse" />)}</div>
-          ) : stats ? (
-            <div className="space-y-3">
-              {LEAD_STATUSES.map(s => {
-                const count = stats.leadsByStatus[s.id] || 0;
-                const pct   = (count / maxLeadStatus) * 100;
-                return (
-                  <div key={s.id} className="flex items-center gap-3">
-                    <span className="text-xs text-t2 w-36 flex-shrink-0 text-right">{s.label}</span>
-                    <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${s.color}`} style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-t1 w-8 text-right">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Overall totals */}
-      {!loading && stats && (
-        <div className="bg-surface border border-line rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-t1 mb-4">Overall Totals</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { label: 'Total Leads',        value: stats.totalLeads,        color: 'text-indigo-400' },
-              { label: 'Total Students',     value: stats.totalStudents,     color: 'text-emerald-400' },
-              { label: 'Total Applications', value: stats.totalApplications, color: 'text-blue-400' },
-              { label: 'Visa Approvals',     value: stats.visaApprovals,     color: 'text-violet-400' },
-            ].map(item => (
-              <div key={item.label} className="text-center">
-                <p className={`text-4xl font-bold ${item.color}`}>{item.value}</p>
-                <p className="text-xs text-t3 mt-1 uppercase tracking-wider">{item.label}</p>
-              </div>
-            ))}
+    <ReportShell
+      title="Reports"
+      subtitle="Performance across the whole pipeline"
+      range={range}
+      onRange={setRange}
+      loading={loading}
+      error={error}
+    >
+      {data && (
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Metric label="Leads" value={fmtNumber(data.totals.leads)} hint={`${data.totals.converted} converted`} />
+            <Metric label="Students" value={fmtNumber(data.totals.students)} />
+            <Metric
+              label="Conversion"
+              value={`${data.totals.conversionRate}%`}
+              hint="lead to student"
+              tone={data.totals.conversionRate >= 25 ? 'good' : 'warn'}
+            />
+            <Metric
+              label="Collected"
+              value={money(data.totals.revenuePaid)}
+              hint={`${money(data.totals.revenueOverdue)} overdue`}
+              tone={data.totals.revenueOverdue > 0 ? 'warn' : 'good'}
+            />
           </div>
-        </div>
+
+          <ChartCard title="Volume over time" subtitle="New records created each month">
+            <LineChart
+              labels={data.months}
+              series={[
+                { name: 'Leads', points: data.series.leads, color: 'var(--chart-1)' },
+                { name: 'Students', points: data.series.students, color: 'var(--chart-2)' },
+                { name: 'Applications', points: data.series.applications, color: 'var(--chart-3)' },
+              ]}
+            />
+          </ChartCard>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <ChartCard title="Lead funnel" subtitle="Every enquiry by status">
+              <DonutChart
+                slices={orderedBuckets(data.leadsByStatus, LEAD_STATUS_ORDER, LEAD_STATUS_COLORS)}
+                centerLabel="Leads"
+              />
+            </ChartCard>
+
+            <ChartCard title="Applications by status" subtitle="Where the paperwork stands">
+              <DonutChart slices={colorize(data.applicationsByStatus, APP_STATUS_COLORS)} centerLabel="Applications" />
+            </ChartCard>
+          </div>
+
+          <ChartCard title="Student journey" subtitle="Headcount at each stage">
+            <BarChart
+              slices={orderedBuckets(data.studentsByStage, STAGE_ORDER, undefined, STAGE_LABELS)}
+              monochrome
+              height={240}
+            />
+          </ChartCard>
+
+          <ChartCard title="Revenue collected" subtitle="By the month a payment cleared">
+            <LineChart
+              labels={data.months}
+              series={[{ name: 'Collected', points: data.series.revenue, color: 'var(--chart-2)' }]}
+              valueFormat={(n) => `$${fmtCompact(n)}`}
+              height={220}
+            />
+          </ChartCard>
+
+          <section>
+            <h2 className="mb-3 text-[15px] font-semibold tracking-tight text-t1">Go deeper</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {SECTIONS.map((s) => (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className="hig-press group flex items-start gap-3.5 rounded-2xl border border-line bg-surface p-4 hover:border-accent/40"
+                >
+                  <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent">
+                    <s.Icon className="h-[19px] w-[19px]" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[15px] font-semibold text-t1 group-hover:text-accent">{s.label}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-t3">{s.hint}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </>
       )}
-    </div>
+    </ReportShell>
   );
 }

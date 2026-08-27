@@ -1,4 +1,4 @@
-import type { UserRole } from '@/types';
+import type { ModuleDef, PermissionMap, UserRole } from '@/types';
 import { apiUrl } from './config';
 
 /**
@@ -47,18 +47,35 @@ export interface DevOverview {
   };
 }
 
-export interface RbacRule {
+/**
+ * Row-level scoping — the half of access that permissions cannot express, and
+ * the only hand-maintained part of this payload.
+ */
+export interface ScopingRule {
   area: string;
   surface: string;
   rule: string;
-  allow?: string[];
-  deny?: string[];
   source: string;
+}
+
+export interface DevPreset {
+  key: string;
+  name: string;
+  description: string;
+  isSystem: boolean;
+  scope: 'staff' | 'portal';
+  fullAccess: boolean;
+  members: number;
+  permissions: PermissionMap;
 }
 
 export interface DevRbac {
   roles: { role: UserRole; users: number }[];
-  matrix: RbacRule[];
+  /** Straight from the live registry — this cannot drift from the guards. */
+  modules: ModuleDef[];
+  /** The presets in force, built-ins and any row shadowing them. */
+  presets: DevPreset[];
+  scoping: ScopingRule[];
 }
 
 export interface ImpersonateResult {

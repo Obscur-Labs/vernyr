@@ -210,9 +210,85 @@ sign-in style — never for authorization:
 Both refuse a save that would cost the caller their own `access.update`.
 
 Navigation is permission-driven: `crm/src/lib/navigation.tsx` gives each entry a
-`module`, and `navFor(permissions)` shows it when the caller holds `read` on it.
-There is no role list to maintain. The client copy decides what to *draw*; the
-server decides what to allow.
+`module`, and an entry appears when the caller holds `read` on it. There is no
+role list to maintain. The client copy decides what to *draw*; the server
+decides what to allow.
+
+The registry nests one level. An entry with `children` is a **section** — the
+sidebar draws it as a Radix accordion, and it disappears entirely when the
+caller holds none of its children. `Access & accounts` deliberately has no
+`module` of its own, because holding any one of Members, Portal accounts or
+Roles is reason enough to see the group.
+
+- `sidebarFor(permissions)` — the pruned tree the sidebar renders.
+- `navFor(permissions)` — the same thing flattened, so ⌘K still reaches every
+  leaf by one keystroke. A section's own row is dropped in favour of its
+  children, which carry the real pages.
+
+The sections as they stand:
+
+| Section | Children |
+|---|---|
+| Catalogue | Courses, Universities, Countries |
+| Reports | Overview, Finance, Students, Applications, Visas, Leads, Catalogue |
+| Access & accounts | Members, Student logins, University logins, Roles & permissions |
+
+`Student logins` and `University logins` are `/portal-accounts?role=…` — the
+same screen with its filter pre-set, which the page reads back off the query
+string.
+
+### Course catalogue
+
+Country → university → course, in two collections plus a denormalised country
+string. There is no `Country` model: a country is whatever the universities say
+it is, and `GET /api/catalogue/countries` aggregates it.
+
+- **`University`** — unique on `(country, slug)`, which is what the importer
+  upserts against.
+- **`Course`** — unique on `(university, name, level)`. Carries both the parsed
+  value and the source's own wording: `tuition.amount`/`tuition.currency` drive
+  the filters, `tuition.text` ("6,000 EUR/year") is what gets shown when the
+  parse found no number. Anything the sheet had that the schema does not name
+  lands in `extras`, so next year's extra column survives without a migration.
+
+`backend/src/services/catalogue.ts` owns every parser — headers, money,
+duration, intakes, deadlines, exams, degree level. **Both the importer and the
+write routes run it**, so a hand-typed course and an imported one are the same
+shape and equally filterable. Add a header spelling there, not in the script.
+
+```bash
+npm run import:courses -- --dir "C:/path/to/courses data"           # dry run
+npm run import:courses -- --dir "C:/path/to/courses data" --apply
+```
+
+One workbook per country, one sheet per university, one row per course.
+`backend/src/utils/xlsx.ts` reads .xlsx with no dependency — a zip directory
+walk plus `inflateRaw` — because the alternative was a spreadsheet library in
+the runtime dependencies for a job that only ever runs from a script. The
+importer also handles what the real sheets do: truncated 31-character tab names
+resolved against the workbook's own "University list" sheet, lone `Bachelor's`
+banner rows that set the level for the block beneath them, and title rows above
+the header when the tab is just `Sheet1`.
+
+Every list endpoint under `/api/catalogue` speaks one filter vocabulary
+(`q`, `country`, `level`, `intake`, `university`, `discipline`, `exam`,
+`minTuition`, `maxTuition`, `sort`, `page`), so the CRM browser, a university's
+page and the portal's future picker all read the same query shape. Search is a
+substring regex rather than `$text`: a search-as-you-type box sends partial
+words, and "engin" matches nothing under a text index.
+
+Guarded by the `courses` module. The student and university presets already
+hold `courses.read` — the catalogue is ready for the portal, which has no UI
+for it yet.
+
+### Reports
+
+`/api/reports/{overview,finance,students,applications,visas,leads,catalogue}`,
+all behind `reports.read`. Each answers with series and breakdowns rather than
+finished sentences, in two uniform shapes — `{ value, count }` for a breakdown
+and a parallel `months[]` + `series` for a trend — so one chart component reads
+any of them. `?months=` sets the window (3–36, default 12) and gaps are filled
+with zeros, because a line chart needs a point per month.
 
 ### Data Model Relationships
 ```
@@ -291,6 +367,64 @@ that permissions cannot express. Update those when you change a handler's scopin
 - `useToast()` from `ToastContext` for all user-facing feedback
 - `useAuthStore` from `stores/authStore.ts` for auth state
 - All API calls go through the configured Axios instance at `lib/api.ts`
+
+#### The UI layer
+
+`components/ui/` is the shared vocabulary — import from `@/components/ui`, not
+from the individual files. Variants are declared with `class-variance-authority`
+and merged with `cn()` (`lib/utils.ts`), which is what lets a component's own
+padding and a caller's `className` override coexist instead of both landing in
+the class list.
+
+| Component | Notes |
+|---|---|
+| `Button` / `ButtonLink` / `IconButton` | variants `primary·secondary·outline·ghost·danger·destructive`, sizes `sm·md·lg·icon` |
+| `Card` / `CardHeader` / `PageHeader` | the panel and the two header rows every screen repeats |
+| `EmptyState` / `Skeleton` / `SkeletonList` | the two states every list reaches |
+| `Field` / `Input` / `Select` / `Textarea` / `Checkbox` | one `control` recipe behind all of them; `Field` wires label, hint and error to the control by id |
+| `SearchInput` / `Segmented` | the search box and the iOS-style range picker |
+| `Badge` / `RoleBadge` / `LevelBadge` | tones are semantic, not colours |
+| `Modal` / `ConfirmModal` | see below |
+| `Stat` | one component behind the dashboard's tinted tiles and the reports' plain metrics |
+| `Accordion` | Radix, used by the sidebar sections |
+
+Icons are Lucide, aliased once in `components/icons.tsx` so the whole app
+shares a size and stroke and no page imports `lucide-react` directly. Swapping
+which glyph means "university" is a one-line change there. Emoji are not used
+as icons — they bring their own palette, ignore the theme and render
+differently on every platform. Country flags are the exception: those identify
+a place rather than decorate a control.
+
+#### Overlays
+
+`Modal` is the only modal. It keeps the element mounted for the exit animation
+(`open` going false starts the exit; a timer unmounts it after), and owns the
+focus trap, the scroll lock and the scrollbar-gutter compensation. Pass
+`variant="sheet"` for a right-docked panel.
+
+Everything that floats shares one vocabulary in `globals.css`: `.overlay-scrim`
+(28px blur, theme-aware), `.overlay-panel`, and paired enter/exit animations —
+`animate-{backdrop,overlay,popover,sheet}-{in,out}`. Never hand-roll a
+`fixed inset-0 bg-black/50`; there is a class for it.
+
+#### Charts
+
+`components/charts/` wraps Recharts in the house style: `DonutChart`,
+`BarChart`, `HBarChart`, `LineChart`, `StackedBar`, `Sparkline`, plus
+`ChartCard` and one `ChartTooltip` for all of them — Recharts' default tooltip
+is a white box with inline styles that ignores the theme entirely.
+
+Every chart takes the same `{ value, count }` rows the reports API returns, so
+one can be pointed at a new endpoint without reshaping the data. The
+categorical palette is `--chart-1` … `--chart-12` in `globals.css`, with a
+light-theme override, so a series keeps its identity when the theme flips.
+`lib/reports.ts` maps each status enum to a fixed colour — "closed won" is the
+same green on the dashboard, in the reports and on the board.
+
+**Progress bars are not a chart.** A proportion goes in a donut, a comparison
+in bars, a trend in a line. `HBarChart` is the one bar-shaped exception, and
+only because long country and university names read better as HTML than as an
+SVG axis tick.
 
 ### Student Portal Structure
 Mirrors the CRM structure but also has `ThemeContext` for light/dark switching. Auth store tracks `studentId` separately. Portal pages live under `app/(portal)/`.

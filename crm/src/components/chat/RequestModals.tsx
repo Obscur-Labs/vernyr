@@ -8,8 +8,8 @@ import { DOC_LABELS } from './MessageCards';
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[92vw] max-w-[500px] max-h-[85vh] overflow-y-auto bg-surface border border-line rounded-2xl p-6 shadow-2xl animate-pop-in">
+      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} />
+      <div className="overlay-panel animate-overlay-in fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-[500px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-t1">{title}</h3>
           <button onClick={onClose} className="text-t3 hover:text-t1 text-xl leading-none">×</button>

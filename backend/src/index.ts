@@ -19,6 +19,8 @@ import notificationRoutes from "./routes/notifications";
 import dashboardRoutes from "./routes/dashboard";
 import accessRoutes from "./routes/access";
 import portalAccountRoutes from "./routes/portalAccounts";
+import catalogueRoutes from "./routes/catalogue";
+import reportRoutes from "./routes/reports";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -62,6 +64,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/portal-accounts", portalAccountRoutes);
+app.use("/api/catalogue", catalogueRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.

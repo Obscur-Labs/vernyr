@@ -32,16 +32,3 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
     </div>
   );
 }
-
-export function SkeletonStat() {
-  return (
-    <div className="bg-card border border-line rounded-2xl p-5 animate-pulse">
-      <div className="flex items-center justify-between mb-3">
-        <div className="w-8 h-8 bg-muted rounded-lg" />
-        <div className="w-16 h-5 bg-muted rounded-full" />
-      </div>
-      <div className="h-9 bg-muted rounded w-20 mb-2" />
-      <div className="h-3 bg-muted rounded w-24" />
-    </div>
-  );
-}

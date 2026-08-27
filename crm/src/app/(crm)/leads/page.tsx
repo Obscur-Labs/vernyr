@@ -62,7 +62,7 @@ function AddLeadDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
 
   return (
     <>
-      <div className="animate-fade-in fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
@@ -267,7 +267,7 @@ export default function LeadsPage() {
                         className="inline-flex items-center gap-1 mt-1 text-xs bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium hover:bg-emerald-500/25 transition-colors"
                         onClick={e => e.stopPropagation()}
                       >
-                        🎓 View Student
+                        View Student
                       </Link>
                     )}
                   </td>

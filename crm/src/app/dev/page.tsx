@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
 import { usesEmailLogin, loginHandle } from '@/lib/credentials';
@@ -9,7 +9,8 @@ import type {
   DevUser, DevOverview, DevRbac, ImpersonateResult,
   ActivityPage, ActivityAction,
 } from '@/lib/devApi';
-import type { UserRole } from '@/types';
+import { ACTIONS as PERMISSION_VERBS, type Action as PermissionVerb, type UserRole } from '@/types';
+import { groupModules, labelFor } from '@/lib/access';
 import { studentUrl } from '@/lib/config';
 
 const ROLES: UserRole[] = ['admin', 'counsellor', 'student', 'university'];
@@ -170,9 +171,9 @@ function Modal({ title, subtitle, onClose, children, wide }: {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className={`w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} rounded-2xl border border-line bg-surface p-5 max-h-[90vh] overflow-y-auto`}
+        className={`overlay-panel animate-overlay-in w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} max-h-[90vh] overflow-y-auto rounded-3xl p-5`}
         onClick={e => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-t1">{title}</h3>
@@ -549,7 +550,7 @@ function StudentHandoffModal({ result, onClose }: { result: ImpersonateResult; o
   ].join('\n');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="w-full max-w-2xl rounded-2xl border border-line bg-surface p-5" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-semibold text-t1 mb-1">Sign in as {result.user.name}</h3>
         <p className="text-sm text-t2 mb-4">
@@ -865,62 +866,168 @@ function ActivityTab() {
 
 /* ── Access matrix ────────────────────────────────────────────────────────── */
 
+const VERB_LETTER: Record<PermissionVerb, string> = { create: 'C', read: 'R', update: 'U', delete: 'D' };
+
+/**
+ * The live access picture: every module against every preset in force.
+ *
+ * Both axes come from the server's own registry rather than a copy kept here,
+ * so adding a module or editing a preset shows up on this screen without
+ * anyone remembering to update it. Only `scoping` below is hand-maintained,
+ * because those rules live inside handlers and permissions cannot state them.
+ */
 function RbacTab() {
   const { toast } = useToast();
   const [data, setData] = useState<DevRbac | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    devApi<DevRbac>('/rbac').then(setData).catch(err => toast((err as Error).message, 'error'));
+    devApi<DevRbac>('/rbac')
+      .then(setData)
+      .catch(err => { setError((err as Error).message); toast((err as Error).message, 'error'); });
   }, [toast]);
 
+  if (error) return <p className="text-sm text-red-400">Could not load the access matrix: {error}</p>;
   if (!data) return <p className="text-sm text-t2">Loading…</p>;
 
-  const areas = [...new Set(data.matrix.map(r => r.area))];
+  const groups = groupModules(data.modules);
+  const areas = [...new Set(data.scoping.map(r => r.area))];
 
   return (
     <div className="space-y-5">
-      <Card title="Roles in use">
+      <Card title="Accounts by role">
         <div className="flex flex-wrap gap-2">
           {data.roles.map(r => (
             <div key={r.role} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
               <RoleBadge role={r.role} />
-              <span className="text-xs text-t2">{r.users} user{r.users === 1 ? '' : 's'}</span>
+              <span className="text-xs text-t2">{r.users} account{r.users === 1 ? '' : 's'}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-t3">
+          Role decides sign-in style and row-level scoping. It does not decide what a caller may
+          do — that is the preset plus any per-person override.
+        </p>
+      </Card>
+
+      <Card title="Presets in force">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {data.presets.map(p => (
+            <div key={p.key} className="rounded-lg bg-muted px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-t1">{p.name}</span>
+                <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-[10px] text-t3">{p.key}</span>
+                {p.isSystem && (
+                  <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-400">
+                    built-in
+                  </span>
+                )}
+                {p.fullAccess && (
+                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                    full access
+                  </span>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-t2">{p.description}</p>
+              <p className="mt-1.5 text-xs text-t3">
+                {p.members} account{p.members === 1 ? '' : 's'} · {p.scope} scope
+              </p>
             </div>
           ))}
         </div>
       </Card>
 
-      <p className="text-xs text-t3">
-        Most guards are inline <code className="font-mono">req.user.role</code> checks rather than
-        <code className="font-mono mx-1">authorize()</code> calls, so this table is a hand-maintained
-        mirror declared in <code className="font-mono">backend/src/routes/dev.ts</code> — update it when
-        you change a guard.
-      </p>
+      <Card title="Module matrix">
+        <p className="mb-3 text-xs text-t3">
+          <span className="font-mono text-emerald-400">C R U D</span> — create, read, update, delete.
+          A lit letter is granted, a dimmed one is not, and a dot means the module does not offer
+          that verb at all.
+        </p>
 
-      {areas.map(area => (
-        <Card key={area} title={area}>
-          <div className="space-y-3">
-            {data.matrix.filter(r => r.area === area).map(rule => (
-              <div key={rule.surface + rule.rule} className="rounded-lg bg-muted px-3 py-2.5">
-                <p className="font-mono text-xs text-accent break-all">{rule.surface}</p>
-                <p className="text-sm text-t1 mt-1">{rule.rule}</p>
-                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  {rule.allow?.map(r => (
-                    <span key={r} className="px-1.5 py-0.5 rounded text-xs bg-emerald-500/15 text-emerald-400 font-mono">+{r}</span>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left">
+            <thead>
+              <tr className="border-b border-line">
+                <th className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-t3">Module</th>
+                {data.presets.map(p => (
+                  <th key={p.key} className="px-2 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-t3">
+                    {p.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(group => (
+                <Fragment key={group.group}>
+                  <tr>
+                    <td
+                      colSpan={data.presets.length + 1}
+                      className="px-2 pb-1 pt-4 text-[10px] font-bold uppercase tracking-widest text-accent"
+                    >
+                      {group.group}
+                    </td>
+                  </tr>
+                  {group.modules.map(mod => (
+                    <tr key={mod.key} className="border-t border-line/60">
+                      <td className="px-2 py-2">
+                        <span className="text-sm text-t1">{mod.label}</span>
+                        <span className="ml-2 font-mono text-[10px] text-t3">{mod.key}</span>
+                      </td>
+                      {data.presets.map(p => (
+                        <td key={p.key} className="px-2 py-2 text-center">
+                          <span className="inline-flex gap-1 font-mono text-xs">
+                            {PERMISSION_VERBS.map(action => {
+                              if (!mod.actions.includes(action)) {
+                                return <span key={action} className="w-3 text-t3/20">·</span>;
+                              }
+                              const granted = p.permissions?.[mod.key]?.[action] === true;
+                              return (
+                                <span
+                                  key={action}
+                                  title={`${labelFor(mod, action)} — ${granted ? 'granted' : 'denied'}`}
+                                  className={`w-3 ${granted ? 'font-bold text-emerald-400' : 'text-t3/35'}`}
+                                >
+                                  {VERB_LETTER[action]}
+                                </span>
+                              );
+                            })}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                  {rule.deny?.map(r => (
-                    <span key={r} className="px-1.5 py-0.5 rounded text-xs bg-red-500/15 text-red-400 font-mono">−{r}</span>
-                  ))}
-                  {!rule.allow && !rule.deny && (
-                    <span className="px-1.5 py-0.5 rounded text-xs bg-slate-500/15 text-slate-400 font-mono">any authenticated</span>
-                  )}
-                </div>
-                <p className="text-xs text-t3 mt-2 font-mono">{rule.source}</p>
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <div>
+        <h3 className="mb-1 text-sm font-semibold text-t1">Row-level scoping</h3>
+        <p className="mb-3 text-xs text-t3">
+          <code className="font-mono">can(module, action)</code> answers <em>whether</em>; these rules
+          answer <em>whose</em>. They live inside handlers, so this list is hand-maintained in
+          <code className="mx-1 font-mono">backend/src/routes/dev.ts</code> — update it when you change
+          a handler&rsquo;s scoping.
+        </p>
+
+        <div className="space-y-5">
+          {areas.map(area => (
+            <Card key={area} title={area}>
+              <div className="space-y-3">
+                {data.scoping.filter(r => r.area === area).map(rule => (
+                  <div key={rule.surface + rule.rule} className="rounded-lg bg-muted px-3 py-2.5">
+                    <p className="break-all font-mono text-xs text-accent">{rule.surface}</p>
+                    <p className="mt-1 text-sm text-t1">{rule.rule}</p>
+                    <p className="mt-2 font-mono text-xs text-t3">{rule.source}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
-      ))}
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

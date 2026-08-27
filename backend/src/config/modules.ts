@@ -10,7 +10,7 @@ export interface ModuleDef {
   key: string;
   label: string;
   /** Groups the matrix in the UI so a long list stays scannable. */
-  group: 'Pipeline' | 'Casework' | 'Money' | 'Communication' | 'Administration';
+  group: 'Pipeline' | 'Casework' | 'Catalogue' | 'Money' | 'Communication' | 'Administration';
   description: string;
   /** Some modules are read-only surfaces; offering them a Delete switch lies. */
   actions: Action[];
@@ -65,6 +65,15 @@ export const MODULES: ModuleDef[] = [
     actions: CRUD,
   },
   {
+    key: 'courses',
+    label: 'Course catalogue',
+    group: 'Catalogue',
+    description:
+      'Countries, universities and the courses inside them. Read is the browser and the picker; the write verbs are for curating the catalogue itself.',
+    actions: CRUD,
+    actionLabels: { create: 'Add', update: 'Curate', delete: 'Remove' },
+  },
+  {
     key: 'finance',
     label: 'Finance',
     group: 'Money',
@@ -91,7 +100,8 @@ export const MODULES: ModuleDef[] = [
     key: 'reports',
     label: 'Reports',
     group: 'Administration',
-    description: 'Aggregate analytics across the whole pipeline.',
+    description:
+      'Every report — finance, students, applications, visas, leads. One switch covers the section: a report only ever aggregates what its own module already exposes.',
     actions: ['read'],
   },
   {

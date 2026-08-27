@@ -44,6 +44,7 @@ export const labelFor = (mod: ModuleDef, action: Action): string =>
 export const GROUP_ORDER: ModuleDef['group'][] = [
   'Pipeline',
   'Casework',
+  'Catalogue',
   'Money',
   'Communication',
   'Administration',

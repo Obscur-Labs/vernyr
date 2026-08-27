@@ -7,9 +7,13 @@ import api from '@/lib/api';
 import { fileHref } from '@/lib/media';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
-import type { Conversation, Message, Student, DocType, FormField } from '@/types';
+import type { Conversation, ConversationParticipant, Message, Student, DocType, FormField } from '@/types';
 import { DocRequestCard, FormRequestCard, FormResponseCard, ReplyQuote, Ticks } from '@/components/chat/MessageCards';
 import { RequestDocsModal, RequestFormModal } from '@/components/chat/RequestModals';
+import {
+  ChatIcon, ClipboardIcon, DocumentTextIcon, EyeIcon, InboxIcon, LockIcon,
+  PaperclipIcon, PlusIcon,
+} from '@/components/icons';
 
 import { apiOrigin, apiUrl } from '@/lib/config';
 
@@ -17,6 +21,44 @@ import { apiOrigin, apiUrl } from '@/lib/config';
 function getOther(conv: Conversation, myId: string) {
   return conv.participants.find(p => p._id !== myId) ?? conv.participants[0];
 }
+
+/**
+ * A conversation is a room around one student's case: the student on one side,
+ * the counsellor working it on the other. Naming it after "the other
+ * participant" only reads correctly for the two people in it — an admin
+ * observing sees whichever of them happens to sort first. So the room is
+ * described by who is *in* it, not by who the viewer is not.
+ */
+interface Room {
+  /** The case this room is about. */
+  title: string;
+  student?: ConversationParticipant;
+  /** Staff side — the counsellor, or whoever else holds the case. */
+  staff?: ConversationParticipant;
+  /** Everyone, student first, for avatars and the participant line. */
+  members: ConversationParticipant[];
+}
+
+function getRoom(conv: Conversation, myId: string): Room {
+  const student = conv.participants.find(p => p.role === 'student');
+  const staff   = conv.participants.find(p => p.role === 'counsellor')
+    ?? conv.participants.find(p => p._id !== student?._id);
+
+  // The Student record's name wins over the login's: the account may be named
+  // after whoever opened it, the record is named after the applicant.
+  const title = conv.studentId?.personal?.name
+    ?? student?.name
+    ?? getOther(conv, myId)?.name
+    ?? 'Conversation';
+
+  const members = [student, staff].filter(Boolean) as ConversationParticipant[];
+  const rest = conv.participants.filter(p => !members.some(m => m._id === p._id));
+
+  return { title, student, staff, members: [...members, ...rest] };
+}
+
+/** "Priya Nair & Sam Okafor" — who is in the room, in one line. */
+const roomMembers = (room: Room) => room.members.map(m => m.name).join('  ·  ');
 
 function getInitials(name: string) {
   return (name ?? '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -42,10 +84,10 @@ function shortPreview(text?: string) {
 
 /** One-line preview of any message (for reply quotes) */
 function msgPreview(msg: Message): string {
-  if (msg.type === 'file')             return `📎 ${msg.fileName ?? 'File'}`;
-  if (msg.type === 'document_request') return '📋 Documents requested';
-  if (msg.type === 'form_request')     return `📝 ${msg.meta?.title ?? 'Details requested'}`;
-  if (msg.type === 'form_response')    return '📝 Details submitted';
+  if (msg.type === 'file')             return msg.fileName ?? 'File';
+  if (msg.type === 'document_request') return 'Documents requested';
+  if (msg.type === 'form_request')     return msg.meta?.title ?? 'Details requested';
+  if (msg.type === 'form_response')    return 'Details submitted';
   return msg.text ?? '';
 }
 
@@ -79,6 +121,42 @@ function FileContent({ msg, isMe }: { msg: Message; isMe: boolean }) {
         <p className={`text-xs ${isMe ? 'text-white/70' : 'text-t3'}`}>Click to open</p>
       </div>
     </a>
+  );
+}
+
+/* ─── Room avatars ────────────────────────────────────────────────────────── */
+/** Two overlapping discs — the visual shorthand for "a room, not a person". */
+function RoomAvatars({ room, online, size = 40 }: { room: Room; online?: boolean; size?: number }) {
+  const [first, second] = room.members;
+  const small = Math.round(size * 0.66);
+
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size + small * 0.45, height: size }}>
+      <div
+        className="absolute left-0 top-0 rounded-full bg-accent/20 text-accent font-bold flex items-center justify-center"
+        style={{ width: size, height: size, fontSize: size * 0.32 }}
+      >
+        {first ? getInitials(first.name) : '?'}
+      </div>
+      {second && (
+        <div
+          className="absolute rounded-full bg-muted text-t2 font-bold flex items-center justify-center ring-2 ring-surface"
+          style={{
+            width: small, height: small, fontSize: small * 0.36,
+            left: size * 0.62, top: size - small,
+          }}
+          title={second.name}
+        >
+          {getInitials(second.name)}
+        </div>
+      )}
+      {online && (
+        <span
+          className="absolute rounded-full bg-emerald-500 ring-2 ring-surface"
+          style={{ width: 10, height: 10, left: size * 0.72, top: -1 }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -451,10 +529,12 @@ function ChatInner() {
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const filtered = conversations.filter(conv => {
     if (!search.trim()) return true;
-    const other = getOther(conv, myId);
-    return other?.name?.toLowerCase().includes(search.toLowerCase());
+    const room = getRoom(conv, myId);
+    const haystack = [room.title, ...room.members.map(m => m.name)].join(' ').toLowerCase();
+    return haystack.includes(search.toLowerCase());
   });
 
+  const activeRoom       = activeConv ? getRoom(activeConv, myId) : null;
   const otherParticipant = activeConv ? getOther(activeConv, myId) : null;
   const otherOnline      = otherParticipant ? onlineIds.has(otherParticipant._id) : false;
   const isClosed         = !!activeConv?.archived;
@@ -488,7 +568,7 @@ function ChatInner() {
             <ConvSkeleton />
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-16 px-6">
-              <p className="text-3xl mb-2">💬</p>
+              <InboxIcon className="w-7 h-7 text-t3/70 mb-3" />
               <p className="text-sm font-medium text-t2">No conversations yet</p>
               <p className="text-xs text-t3 mt-1 leading-relaxed">
                 Open a student's profile and click&nbsp;<strong>Chat</strong> to start a conversation.
@@ -496,6 +576,7 @@ function ChatInner() {
             </div>
           ) : (
             filtered.map(conv => {
+              const room     = getRoom(conv, myId);
               const other    = getOther(conv, myId);
               const isActive = activeConv?._id === conv._id;
               const lastText = conv.lastMessage?.text;
@@ -514,18 +595,12 @@ function ChatInner() {
                       : 'hover:bg-muted'
                   }`}
                 >
-                  <div className="relative flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-accent/20 text-accent text-sm font-bold flex items-center justify-center">
-                      {other ? getInitials(other.name) : '?'}
-                    </div>
-                    {online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-surface" />
-                    )}
-                  </div>
+                  <RoomAvatars room={room} online={online} size={40} />
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <p className={`text-sm font-semibold truncate ${isActive ? 'text-accent' : 'text-t1'}`}>
-                        {other?.name ?? 'Unknown'}
+                        {room.title}
                       </p>
                       {conv.archived ? (
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-t3 bg-muted border border-line rounded-full px-2 py-0.5 flex-shrink-0">Closed</span>
@@ -533,6 +608,11 @@ function ChatInner() {
                         <span className="text-[11px] text-t3 flex-shrink-0">{lastTime}</span>
                       )}
                     </div>
+                    {/* Who is in the room — the line that makes it a room and
+                        not just a thread with whoever is not me. */}
+                    <p className="text-[11px] text-t3 truncate mt-0.5">
+                      {room.staff ? `with ${room.staff.name}` : 'no counsellor assigned'}
+                    </p>
                     <p className="text-xs text-t3 truncate mt-0.5">
                       {shortPreview(lastText) || 'No messages yet'}
                     </p>
@@ -573,28 +653,39 @@ function ChatInner() {
                   <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd"/>
                 </svg>
               </button>
-              <div className="relative flex-shrink-0">
-                <div className="w-9 h-9 rounded-full bg-accent/20 text-accent text-sm font-bold flex items-center justify-center">
-                  {otherParticipant ? getInitials(otherParticipant.name) : '?'}
-                </div>
-                {otherOnline && (
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-surface" />
-                )}
-              </div>
+              {activeRoom && <RoomAvatars room={activeRoom} online={otherOnline} size={38} />}
+
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-t1 text-sm leading-tight">
-                  {otherParticipant?.name ?? 'Unknown'}
+                <p className="font-semibold text-t1 text-sm leading-tight truncate">
+                  {activeRoom?.title ?? 'Conversation'}
+                </p>
+                {/* Both names, always — the room is the pair, and an observer
+                    needs to see whose case they are reading. */}
+                <p className="text-[11px] im-sub truncate mt-0.5">
+                  {activeRoom ? roomMembers(activeRoom) : ''}
                 </p>
                 <p className="text-xs text-t3">
                   {isClosed
-                    ? <span className="im-sub">conversation closed</span>
+                    ? <span className="im-sub">room closed</span>
                     : otherTyping
                       ? <span className="text-accent">typing…</span>
                       : otherOnline
                         ? <span className="text-emerald-500">online</span>
-                        : (otherParticipant?.role === 'student' ? 'Student' : (otherParticipant?.role ?? ''))}
+                        : <span className="im-sub">offline</span>}
                 </p>
               </div>
+
+              {/* Role chips — who is who, without reading the names twice. */}
+              {activeRoom && (
+                <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                  {activeRoom.student && (
+                    <span className="chip chip-student" title={activeRoom.student.name}>Student</span>
+                  )}
+                  {activeRoom.staff && (
+                    <span className="chip chip-counsellor" title={activeRoom.staff.name}>Counsellor</span>
+                  )}
+                </div>
+              )}
               {/* Download-all-documents ZIP */}
               {studentRec && (
                 <button
@@ -624,7 +715,7 @@ function ChatInner() {
                 <MsgSkeleton />
               ) : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-16">
-                  <p className="text-4xl mb-3">👋</p>
+                  <ChatIcon className="w-8 h-8 im-sub mb-3" />
                   <p className="text-t2 font-medium">No messages yet</p>
                   <p className="text-t3 text-sm mt-1">Send the first message!</p>
                 </div>
@@ -729,15 +820,17 @@ function ChatInner() {
             {isClosed || readOnly ? (
               readOnly && !isClosed ? (
               <div className="flex-shrink-0 px-4 sm:px-5 py-4 im-chrome border-t">
-                <p className="text-sm im-sub text-center leading-relaxed">
-                  👁️ Read-only — you are viewing this conversation as an admin.
+                <p className="flex items-center justify-center gap-2 text-sm im-sub text-center leading-relaxed">
+                  <EyeIcon className="w-4 h-4 shrink-0" />
+                  Read-only — you are viewing this conversation as an admin.
                   Replying is left to the counsellor working the case.
                 </p>
               </div>
               ) : (
               <div className="flex-shrink-0 px-4 sm:px-5 py-4 im-chrome border-t">
-                <p className="text-sm im-sub text-center leading-relaxed">
-                  🔒 This conversation is closed — the student was reassigned to another counsellor.
+                <p className="flex items-center justify-center gap-2 text-sm im-sub text-center leading-relaxed">
+                  <LockIcon className="w-4 h-4 shrink-0" />
+                  This conversation is closed — the student was reassigned to another counsellor.
                   The history stays available.
                 </p>
               </div>
@@ -780,21 +873,19 @@ function ChatInner() {
                     plusOpen ? 'bg-accent text-white rotate-45' : 'text-t3 hover:text-t1 hover:bg-muted'
                   }`}
                 >
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
-                  </svg>
+                  <PlusIcon className="w-5 h-5" />
                 </button>
                 {plusOpen && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setPlusOpen(false)} />
-                    <div className="absolute bottom-12 left-0 z-40 w-56 bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden animate-pop-in">
+                    <div className="overlay-panel animate-popover-in absolute bottom-12 left-0 z-40 w-56 origin-bottom-left overflow-hidden rounded-2xl">
                       <button
                         type="button"
                         onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
                         disabled={uploading}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left"
                       >
-                        <span className="text-lg">📎</span>
+                        <PaperclipIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
                         <span><span className="font-semibold block">Send file</span><span className="text-xs text-t3">Image, PDF, DOC…</span></span>
                       </button>
                       {studentRec && (
@@ -803,7 +894,7 @@ function ChatInner() {
                           onClick={() => { setPlusOpen(false); setDocsModal(true); }}
                           className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left border-t border-line"
                         >
-                          <span className="text-lg">📋</span>
+                          <ClipboardIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
                           <span><span className="font-semibold block">Request documents</span><span className="text-xs text-t3">Student uploads to their profile</span></span>
                         </button>
                       )}
@@ -812,7 +903,7 @@ function ChatInner() {
                         onClick={() => { setPlusOpen(false); setFormModal(true); }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left border-t border-line"
                       >
-                        <span className="text-lg">📝</span>
+                        <DocumentTextIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
                         <span><span className="font-semibold block">Request details</span><span className="text-xs text-t3">In-chat form the student fills</span></span>
                       </button>
                     </div>

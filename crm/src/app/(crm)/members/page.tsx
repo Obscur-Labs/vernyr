@@ -314,12 +314,12 @@ function MemberSheet({
 
   return (
     <>
-      <div className="animate-fade-in fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={isNew ? 'Add member' : `Edit ${member!.name}`}
-        className="animate-slide-in-right fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-2xl flex-col border-l border-line bg-surface shadow-2xl"
+        className="overlay-panel animate-sheet-in fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-2xl flex-col rounded-none border-y-0 border-r-0 sm:rounded-l-3xl"
       >
         <div className="flex h-[var(--chrome-h)] shrink-0 items-center justify-between border-b border-line px-5">
           <h2 className="text-[17px] font-semibold text-t1">{isNew ? 'Add member' : member!.name}</h2>

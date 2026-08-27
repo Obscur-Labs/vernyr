@@ -1,10 +1,12 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { VernyrMark, Wordmark } from '@/components/auth/Insignia';
 import { Header } from '@/components/Header';
 import { CommandPalette, useCommandPalette } from '@/components/CommandPalette';
-import { sidebarFor, type NavItem } from '@/lib/navigation';
+import { sidebarFor, isSection, type NavItem, type NavLeaf } from '@/lib/navigation';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
 import { BreadcrumbProvider } from '@/context/BreadcrumbContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
@@ -15,16 +17,14 @@ import type { AccessSnapshot, Notification } from '@/types';
 import { apiOrigin } from '@/lib/config';
 
 const FOLD_KEY = 'crm_sidebar_folded';
+const OPEN_KEY = 'crm_sidebar_sections';
 
-const BellIcon = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden>
-    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-  </svg>
-);
+/** `/portal-accounts?role=student` -> `/portal-accounts`. */
+const pathOf = (href: string) => href.split('?')[0];
 
-/** One sidebar row. */
+/** One sidebar row — a leaf, or a whole section when the rail is folded. */
 function NavRow({
-  href, label, icon, active, folded, onNavigate, badge,
+  href, label, icon, active, folded, onNavigate,
 }: {
   href: string;
   label: string;
@@ -32,7 +32,6 @@ function NavRow({
   active: boolean;
   folded: boolean;
   onNavigate: () => void;
-  badge?: number;
 }) {
   return (
     <Link
@@ -40,27 +39,39 @@ function NavRow({
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       title={folded ? label : undefined}
-      className={`hig-press relative flex h-11 items-center rounded-xl text-[15px] font-medium ${
-        folded ? 'justify-center px-0' : 'gap-3 px-3'
-      } ${active ? 'bg-accent/15 text-accent' : 'text-t2 hover:bg-muted hover:text-t1'}`}
-    >
-      <span className={`relative flex shrink-0 items-center ${active ? 'text-accent' : 'text-t3'}`}>
-        {icon}
-        {folded && badge ? (
-          <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-surface" />
-        ) : null}
-      </span>
-
-      {!folded && (
-        <>
-          <span className="hig-fold-label flex-1 truncate">{label}</span>
-          {badge ? (
-            <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-accent">
-              {badge > 9 ? '9+' : badge}
-            </span>
-          ) : null}
-        </>
+      className={cn(
+        'hig-press relative flex h-11 items-center rounded-xl text-[15px] font-medium',
+        folded ? 'justify-center px-0' : 'gap-3 px-3',
+        active ? 'bg-accent/15 text-accent' : 'text-t2 hover:bg-muted hover:text-t1',
       )}
+    >
+      <span className={cn('flex shrink-0 items-center', active ? 'text-accent' : 'text-t3')}>{icon}</span>
+      {!folded && <span className="hig-fold-label flex-1 truncate">{label}</span>}
+    </Link>
+  );
+}
+
+/** A child row — inset, dot-marked, quieter than its parent. */
+function SubRow({ item, active, onNavigate }: { item: NavLeaf; active: boolean; onNavigate: () => void }) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'hig-press relative flex h-9 items-center gap-2.5 rounded-lg px-3 text-[14px]',
+        active ? 'font-semibold text-accent' : 'font-medium text-t2 hover:bg-muted hover:text-t1',
+      )}
+    >
+      <span
+        aria-hidden
+        className="h-1.5 w-1.5 shrink-0 rounded-full transition-opacity"
+        style={{
+          background: active ? 'var(--color-accent)' : 'var(--color-t3)',
+          opacity: active ? 1 : 0.45,
+        }}
+      />
+      <span className="truncate">{item.label}</span>
     </Link>
   );
 }
@@ -69,57 +80,119 @@ interface SidebarProps {
   items: NavItem[];
   pathname: string;
   folded: boolean;
-  unreadCount: number;
+  openSections: string[];
+  onOpenSections: (values: string[]) => void;
   onNavigate: () => void;
 }
 
-/** Defined at module scope, not inside `AppShell`. */
-function Sidebar({ items, pathname, folded, unreadCount, onNavigate }: SidebarProps) {
+/**
+ * The sidebar.
+ *
+ * Sections are a Radix accordion in `multiple` mode: more than one can stand
+ * open, Radix owns the height animation and the `aria-expanded`/`aria-controls`
+ * pairing, and the open set is lifted here so it can be persisted and so the
+ * section holding the current page can open itself.
+ *
+ * Folded, the rail is 68px and has no room for a disclosure, so each section
+ * collapses to a single link to its first page.
+ */
+function Sidebar({ items, pathname, folded, openSections, onOpenSections, onNavigate }: SidebarProps) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
     <div className="flex h-full flex-col">
-      {/* Brand — the same height as the toolbar, so the two share one baseline.
-          Expanded shows the wordmark; folded, the mark alone. */}
+      {/* Brand — the same height as the toolbar, so the two share one baseline. */}
       <div
-        className={`flex h-[var(--chrome-h)] shrink-0 items-center border-b border-line ${
-          folded ? 'justify-center px-0' : 'px-5'
-        }`}
+        className={cn(
+          'flex h-[var(--chrome-h)] shrink-0 items-center border-b border-line',
+          folded ? 'justify-center px-0' : 'px-5',
+        )}
       >
         <Link
           href="/dashboard"
-          aria-label="Vernyr — go to dashboard"
+          aria-label="Vernyr - go to dashboard"
           className="hig-press flex items-center rounded-lg text-t1"
         >
           {folded ? <VernyrMark className="h-7 w-7" /> : <Wordmark className="text-[19px]" />}
         </Link>
       </div>
 
-      <nav aria-label="Primary" className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-3 ${folded ? 'px-3' : 'px-3'}`}>
-        {items.map((item) => (
-          <NavRow
-            key={item.href}
-            href={item.href}
-            label={item.label}
-            icon={item.icon}
-            active={isActive(item.href)}
-            folded={folded}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </nav>
+      <nav aria-label="Primary" className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+        <Accordion
+          type="multiple"
+          value={folded ? [] : openSections}
+          onValueChange={onOpenSections}
+          className="space-y-1"
+        >
+          {items.map((item) => {
+            if (!isSection(item)) {
+              return (
+                <NavRow
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={isActive(item.href)}
+                  folded={folded}
+                  onNavigate={onNavigate}
+                />
+              );
+            }
 
-      <div className="shrink-0 border-t border-line px-3 py-3">
-        <NavRow
-          href="/notifications"
-          label="Notifications"
-          icon={<BellIcon className="h-5 w-5" />}
-          active={isActive('/notifications')}
-          folded={folded}
-          onNavigate={onNavigate}
-          badge={unreadCount}
-        />
-      </div>
+            const inSection = item.children.some(
+              (c) => pathname === pathOf(c.href) || pathname.startsWith(pathOf(c.href) + '/'),
+            );
+
+            if (folded) {
+              return (
+                <NavRow
+                  key={item.label}
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={inSection}
+                  folded
+                  onNavigate={onNavigate}
+                />
+              );
+            }
+
+            const open = openSections.includes(item.label);
+
+            return (
+              <AccordionItem key={item.label} value={item.label}>
+                <AccordionTrigger
+                  className={cn(
+                    'h-11 text-[15px] font-medium',
+                    // Closed but current: the row itself carries the highlight,
+                    // because the active child inside it is not visible.
+                    inSection && !open ? 'bg-accent/10 text-accent' : 'text-t2 hover:bg-muted hover:text-t1',
+                  )}
+                >
+                  <span className={cn('flex shrink-0 items-center', inSection ? 'text-accent' : 'text-t3')}>
+                    {item.icon}
+                  </span>
+                  <span className="hig-fold-label truncate">{item.label}</span>
+                </AccordionTrigger>
+
+                <AccordionContent>
+                  {/* The rail lines the children up under the parent's icon. */}
+                  <div className="ml-[22px] space-y-0.5 border-l border-line pl-2.5">
+                    {item.children.map((child) => (
+                      <SubRow
+                        key={child.href}
+                        item={child}
+                        active={pathname === pathOf(child.href)}
+                        onNavigate={onNavigate}
+                      />
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      </nav>
     </div>
   );
 }
@@ -137,10 +210,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Restore the fold after hydration. Reading localStorage during render would
-  // make the server and client markup disagree.
+  const visibleNav = useMemo(() => sidebarFor(access?.permissions), [access?.permissions]);
+
+  const [openSections, setOpenSections] = useState<string[]>([]);
+
+  // Restore the fold and the section state after hydration. Reading
+  // localStorage during render would make server and client markup disagree.
   useEffect(() => {
     setFolded(localStorage.getItem(FOLD_KEY) === '1');
+    try {
+      const stored = localStorage.getItem(OPEN_KEY);
+      const parsed: unknown = stored ? JSON.parse(stored) : null;
+      if (Array.isArray(parsed)) setOpenSections(parsed.filter((v): v is string => typeof v === 'string'));
+    } catch { /* a corrupt entry just means every section starts closed */ }
+  }, []);
+
+  // Whichever section holds the current page opens itself, so a deep link or a
+  // ⌘K jump never lands with its own section collapsed.
+  useEffect(() => {
+    const owner = visibleNav.find(
+      (item) => isSection(item) && item.children.some((c) => pathname === pathOf(c.href) || pathname.startsWith(pathOf(c.href) + '/')),
+    );
+    if (!owner) return;
+    setOpenSections((prev) => (prev.includes(owner.label) ? prev : [...prev, owner.label]));
+  }, [pathname, visibleNav]);
+
+  /** Radix hands back the whole open set; persist it as it is. */
+  const handleOpenSections = useCallback((values: string[]) => {
+    setOpenSections(values);
+    localStorage.setItem(OPEN_KEY, JSON.stringify(values));
   }, []);
 
   const toggleFold = useCallback(() => {
@@ -180,13 +278,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // just opened.
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
-  // Fetch notifications — re-runs on page navigation to keep the badge in sync
-  useEffect(() => {
-    if (!user) return;
+  const loadNotifications = useCallback(() => {
     api.get<Notification[]>('/notifications?limit=100')
       .then((r) => setNotifications(r.data))
       .catch(() => {});
-  }, [user, pathname]);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    loadNotifications();
+  }, [user, pathname, loadNotifications]);
 
   useEffect(() => {
     if (!user) return;
@@ -194,13 +295,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const socket = io(apiOrigin, { auth: { token } });
     socketRef.current = socket;
     socket.on('notification', (n: Notification) => {
-      setNotifications((prev) => [n, ...prev].slice(0, 20));
+      setNotifications((prev) => [n, ...prev.filter((p) => p._id !== n._id)]);
       toast(`New notification: ${n.title}`, 'info');
     });
     return () => { socket.disconnect(); };
   }, [user, toast]);
 
-  const visibleNav = sidebarFor(access?.permissions);
+  /** The header's panel acts on notifications; the shell owns the list. */
+  const actOnNotifications = useCallback(
+    async (action: 'read' | 'unread' | 'delete', ids: string[]) => {
+      if (!ids.length) return;
+      setNotifications((prev) => {
+        if (action === 'delete') return prev.filter((n) => !ids.includes(n._id));
+        return prev.map((n) => (ids.includes(n._id) ? { ...n, read: action === 'read' } : n));
+      });
+      try {
+        await api.post('/notifications/bulk', { action, ids });
+      } catch {
+        toast('Could not update notifications', 'error');
+        loadNotifications();
+      }
+    },
+    [toast, loadNotifications],
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-base">
@@ -213,7 +330,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           items={visibleNav}
           pathname={pathname}
           folded={folded}
-          unreadCount={unreadCount}
+          openSections={openSections}
+          onOpenSections={handleOpenSections}
           onNavigate={() => {}}
         />
       </aside>
@@ -222,9 +340,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div
         onClick={() => setMobileOpen(false)}
         aria-hidden
-        className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200 lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-md transition-opacity duration-300 lg:hidden ${
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
+        style={{ transitionTimingFunction: 'var(--ease-out)' }}
       />
       <aside
         className={`hig-sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line transition-transform duration-300 lg:hidden ${
@@ -237,7 +356,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           items={visibleNav}
           pathname={pathname}
           folded={false}
-          unreadCount={unreadCount}
+          openSections={openSections}
+          onOpenSections={handleOpenSections}
           onNavigate={() => setMobileOpen(false)}
         />
       </aside>
@@ -249,6 +369,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onOpenMenu={() => setMobileOpen(true)}
             onToggleFold={toggleFold}
             folded={folded}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onNotificationAction={actOnNotifications}
           />
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>

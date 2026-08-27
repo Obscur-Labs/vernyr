@@ -104,10 +104,10 @@ router.post('/conversation', authenticate, can('chat', 'create'), async (req: Au
 /** Human-readable preview for the conversation list */
 function previewFor(type: string | undefined, text?: string, meta?: Record<string, unknown>): string {
   switch (type) {
-    case 'form_request':  return `📝 ${(meta?.title as string) || 'Details requested'}`;
-    case 'form_response': return `📝 Details submitted`;
-    case 'document_request': return `📋 ${text || 'Documents requested'}`;
-    case 'file': return `📎 ${text || 'File'}`;
+    case 'form_request':  return (meta?.title as string) || 'Details requested';
+    case 'form_response': return 'Details submitted';
+    case 'document_request': return text || 'Documents requested';
+    case 'file': return text || 'File';
     default: return text || '';
   }
 }

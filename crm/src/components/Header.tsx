@@ -6,7 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { crumbsFor } from '@/lib/navigation';
 import { useBreadcrumb } from '@/context/BreadcrumbContext';
-import type { UserRole } from '@/types';
+import { NotificationBell, type NotificationAction } from '@/components/NotificationBell';
+import type { Notification, UserRole } from '@/types';
 
 const ROLE_CHIPS: Record<UserRole, string> = {
   admin:      'chip-admin',
@@ -54,9 +55,15 @@ interface Props {
   onOpenMenu: () => void;
   onToggleFold: () => void;
   folded: boolean;
+  notifications: Notification[];
+  unreadCount: number;
+  onNotificationAction: NotificationAction;
 }
 
-export function Header({ onOpenSearch, onOpenMenu, onToggleFold, folded }: Props) {
+export function Header({
+  onOpenSearch, onOpenMenu, onToggleFold, folded,
+  notifications, unreadCount, onNotificationAction,
+}: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
@@ -159,6 +166,12 @@ export function Header({ onOpenSearch, onOpenMenu, onToggleFold, folded }: Props
         </kbd>
       </button>
 
+      <NotificationBell
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onAction={onNotificationAction}
+      />
+
       {user && (
         <div ref={menuRef} className="relative ml-0.5">
           <button
@@ -183,7 +196,7 @@ export function Header({ onOpenSearch, onOpenMenu, onToggleFold, folded }: Props
           {menuOpen && (
             <div
               role="menu"
-              className="animate-scale-in absolute right-0 z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-2xl"
+              className="overlay-panel animate-popover-in absolute right-0 z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl p-1.5"
             >
               <div className="px-2.5 pb-2.5 pt-1.5">
                 <p className="truncate text-[15px] font-semibold text-t1">{user.name}</p>

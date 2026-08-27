@@ -146,8 +146,8 @@ export default function DocumentsPage() {
       {/* Review modal */}
       {reviewDoc && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setReviewDoc(null)} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[480px] bg-surface border border-line rounded-2xl p-6 shadow-2xl">
+          <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={() => setReviewDoc(null)} />
+          <div className="overlay-panel animate-overlay-in fixed left-1/2 top-1/2 z-50 w-[min(92vw,480px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl p-6">
             <h3 className="text-base font-semibold text-t1 mb-1">Review Document</h3>
             <p className="text-sm text-t2 mb-4">{reviewDoc.type.replace(/_/g,' ')} — {reviewDoc.currentVersion?.fileName}</p>
             {reviewDoc.currentVersion?.fileUrl && (

@@ -5,6 +5,7 @@ import { SkeletonTable } from '@/components/Skeleton';
 import { useToast } from '@/context/ToastContext';
 import { useAuthStore } from '@/stores/authStore';
 import type { Application, AppStatus } from '@/types';
+import { BuildingIcon } from '@/components/icons';
 
 const ALL_COLUMNS: { id: AppStatus; label: string; dot: string; badge: string }[] = [
   { id: 'drafting',          label: 'Drafting',          dot: 'bg-slate-400',   badge: 'bg-slate-500/15 text-slate-400' },
@@ -94,7 +95,7 @@ export default function ApplicationsPage() {
 
       {isUniUser && user && (
         <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-teal-500/5 border border-teal-500/20 rounded-xl">
-          <span className="text-teal-400 text-lg">🏛️</span>
+          <BuildingIcon className="w-[18px] h-[18px] text-teal-400" />
           <div>
             <p className="text-sm font-semibold text-teal-400">Partner Portal — {(user as unknown as { universityName?: string }).universityName ?? 'Your University'}</p>
             <p className="text-xs text-t3">You can view and update statuses for applications addressed to your institution.</p>

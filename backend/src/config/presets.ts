@@ -46,6 +46,8 @@ export const BUILT_IN_PRESETS: PresetDef[] = [
       visa: crud,
       chat: crud,
       notifications: { create: true, read: true, update: true, delete: true },
+      // Counsellors browse the catalogue when advising; curating it is admin work.
+      courses: read,
       // Counsellors issue portal logins for their own students.
       portal_accounts: { create: true, read: true, update: true },
       finance: none,
@@ -67,6 +69,7 @@ export const BUILT_IN_PRESETS: PresetDef[] = [
       students: read,
       applications: { read: true, update: true },
       notifications: { read: true, update: true, delete: true },
+      courses: read,
     },
     isSystem: true,
     scope: 'portal',
@@ -82,6 +85,8 @@ export const BUILT_IN_PRESETS: PresetDef[] = [
       // to the caller's own record — a module grant never widens that.
       students: { read: true, update: true },
       applications: read,
+      // The catalogue the portal's course picker will read from.
+      courses: read,
       documents: { create: true, read: true },
       visa: read,
       finance: read,

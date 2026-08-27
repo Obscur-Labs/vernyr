@@ -1,29 +1,33 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
+import { timeAgo } from '@/components/NotificationBell';
+import { Badge, Button, Card, EmptyState, PageHeader, SkeletonList } from '@/components/ui';
+import { BellIcon, CheckIcon, TrashIcon, notificationIcon } from '@/components/icons';
+import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
-const TYPE_ICON: Record<string, string> = {
-  document:    '📄',
-  application: '🏫',
-  visa:        '🛂',
-  payment:     '💳',
-  stage:       '🎯',
-  message:     '💬',
-  general:     '🔔',
-};
+/**
+ * The whole feed — where the header's panel hands off on "View all".
+ *
+ * Everything here is bulk-first: selection drives one toolbar, and the same
+ * three actions reach the server through one endpoint whether they came from a
+ * row's hover control or a hundred checked boxes.
+ */
+
+type BulkAction = 'read' | 'unread' | 'delete';
 
 export default function CRMNotificationsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const res = await api.get<Notification[]>('/notifications?limit=100');
       setNotifications(res.data);
@@ -32,48 +36,42 @@ export default function CRMNotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => {
-    fetchNotifications();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
 
-  const handleSelect = (id: string) => {
-    setSelectedIds(prev => {
+  const toggle = (id: string) =>
+    setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  };
 
-  const handleSelectAll = () => {
-    if (selectedIds.size === notifications.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(notifications.map(n => n._id)));
-    }
-  };
+  const toggleAll = () =>
+    setSelected((prev) =>
+      prev.size === notifications.length ? new Set() : new Set(notifications.map((n) => n._id)));
 
-  const performAction = async (action: 'read' | 'unread' | 'delete', specificIds?: string[]) => {
-    const ids = specificIds ?? Array.from(selectedIds);
-    if (ids.length === 0) return;
+  /** Optimistic, because the server only ever agrees — and reverts if it does not. */
+  const perform = async (action: BulkAction, specificIds?: string[]) => {
+    const ids = specificIds ?? [...selected];
+    if (!ids.length) return;
 
-    // Optimistic update
-    if (action === 'read') {
-      setNotifications(prev => prev.map(n => ids.includes(n._id) ? { ...n, read: true } : n));
-    } else if (action === 'unread') {
-      setNotifications(prev => prev.map(n => ids.includes(n._id) ? { ...n, read: false } : n));
-    } else if (action === 'delete') {
-      setNotifications(prev => prev.filter(n => !ids.includes(n._id)));
-      setSelectedIds(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+    setNotifications((prev) => action === 'delete'
+      ? prev.filter((n) => !ids.includes(n._id))
+      : prev.map((n) => (ids.includes(n._id) ? { ...n, read: action === 'read' } : n)));
+
+    if (action === 'delete') {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
     }
 
     try {
       await api.post('/notifications/bulk', { action, ids });
       if (!specificIds) {
-        setSelectedIds(new Set());
+        setSelected(new Set());
         toast(`Applied to ${ids.length} notification${ids.length > 1 ? 's' : ''}`);
       }
     } catch {
@@ -82,175 +80,137 @@ export default function CRMNotificationsPage() {
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unread = notifications.filter((n) => !n.read);
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-4xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-t1">Notifications</h1>
-          <p className="text-t3 text-sm mt-0.5">
-            {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
-          </p>
-        </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={() => performAction('read', notifications.filter(n => !n.read).map(n => n._id))}
-            className="text-sm font-medium text-accent hover:underline"
+    <div className="mx-auto max-w-4xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Notifications"
+        subtitle={unread.length > 0 ? `${unread.length} unread` : 'All caught up'}
+        actions={unread.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-accent"
+            onClick={() => perform('read', unread.map((n) => n._id))}
           >
             Mark all as read
-          </button>
+          </Button>
         )}
-      </div>
+      />
 
-      {/* Bulk Action Toolbar */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 bg-accent/10 border border-accent/20 rounded-xl px-4 py-3 shadow-sm">
-          <span className="text-sm font-semibold text-accent">{selectedIds.size} selected</span>
-          <div className="w-px h-4 bg-line mx-1" />
-          <button
-            onClick={() => performAction('read')}
-            className="flex items-center gap-1.5 text-xs font-medium text-t2 hover:text-accent transition-colors px-2 py-1 rounded-md hover:bg-accent/10"
-          >
-            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-              <path fillRule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clipRule="evenodd"/>
-            </svg>
-            Mark Read
-          </button>
-          <button
-            onClick={() => performAction('unread')}
-            className="flex items-center gap-1.5 text-xs font-medium text-t2 hover:text-accent transition-colors px-2 py-1 rounded-md hover:bg-accent/10"
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
-            </svg>
-            Mark Unread
-          </button>
-          <button
-            onClick={() => performAction('delete')}
-            className="flex items-center gap-1.5 text-xs font-medium text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded-md hover:bg-red-500/10"
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/>
-            </svg>
-            Delete
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-xs text-t3 hover:text-t1 transition-colors"
-          >
+      {selected.size > 0 && (
+        <Card padding="none" className="flex items-center gap-2 border-accent/20 bg-accent/10 px-4 py-2.5">
+          <span className="text-sm font-semibold text-accent">{selected.size} selected</span>
+          <span aria-hidden className="mx-1 h-4 w-px bg-line" />
+          <Button variant="ghost" size="sm" onClick={() => perform('read')}>
+            <CheckIcon className="h-3.5 w-3.5" />Mark read
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => perform('unread')}>
+            <BellIcon className="h-3.5 w-3.5" />Mark unread
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => perform('delete')}>
+            <TrashIcon className="h-3.5 w-3.5" />Delete
+          </Button>
+          <Button variant="ghost" size="sm" className="ml-auto text-t3" onClick={() => setSelected(new Set())}>
             Clear
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
-      {/* List */}
       {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-20 bg-surface border border-line rounded-2xl animate-pulse" />
-          ))}
-        </div>
+        <SkeletonList rows={5} height={80} />
       ) : notifications.length === 0 ? (
-        <div className="text-center py-20 bg-surface border border-line rounded-2xl">
-          <div className="text-5xl mb-4">🔔</div>
-          <p className="text-t1 font-semibold text-lg">No notifications</p>
-          <p className="text-t3 text-sm mt-1">You're all caught up!</p>
-        </div>
+        <EmptyState
+          icon={<BellIcon className="h-8 w-8" />}
+          title="No notifications"
+          description="Activity on your students, applications and payments lands here."
+        />
       ) : (
-        <div className="bg-surface border border-line rounded-2xl shadow-sm overflow-hidden">
-          {/* Column header */}
-          <div className="flex items-center gap-4 px-4 py-2.5 border-b border-line bg-muted/50">
+        <Card padding="none" className="overflow-hidden">
+          <div className="flex items-center gap-4 border-b border-line bg-muted/50 px-4 py-2.5">
             <input
               type="checkbox"
-              checked={selectedIds.size === notifications.length && notifications.length > 0}
-              onChange={handleSelectAll}
-              className="w-4 h-4 rounded border-line text-accent bg-transparent cursor-pointer accent-[var(--color-accent)]"
+              checked={selected.size === notifications.length && notifications.length > 0}
+              onChange={toggleAll}
+              aria-label="Select every notification"
+              className="h-4 w-4 cursor-pointer rounded border-line bg-transparent accent-[var(--color-accent)]"
             />
-            <span className="text-xs font-semibold text-t3 uppercase tracking-wider">
-              {selectedIds.size > 0 ? `${selectedIds.size} selected` : `${notifications.length} notifications`}
+            <span className="text-xs font-semibold uppercase tracking-wider text-t3">
+              {selected.size > 0 ? `${selected.size} selected` : `${notifications.length} notifications`}
             </span>
           </div>
 
-          <div className="divide-y divide-line">
-            {notifications.map(n => (
-              <div
-                key={n._id}
-                className={`group relative flex items-start gap-4 px-4 py-4 transition-colors ${!n.read ? 'bg-accent/5 hover:bg-accent/8' : 'hover:bg-muted/60'}`}
-              >
-                {/* Checkbox */}
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(n._id)}
-                  onChange={() => handleSelect(n._id)}
-                  onClick={e => e.stopPropagation()}
-                  className="w-4 h-4 rounded border-line text-accent bg-transparent cursor-pointer mt-1 flex-shrink-0 accent-[var(--color-accent)]"
-                />
-
-                {/* Icon */}
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 ${!n.read ? 'bg-accent/15' : 'bg-muted'}`}>
-                  {TYPE_ICON[n.type] ?? '🔔'}
-                </div>
-
-                {/* Content */}
-                <div
-                  className="flex-1 min-w-0 cursor-pointer pr-24"
-                  onClick={() => {
-                    if (!n.read) performAction('read', [n._id]);
-                    if (n.link) router.push(n.link);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-semibold ${n.read ? 'text-t2' : 'text-t1'}`}>{n.title}</p>
-                    {!n.read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />}
-                  </div>
-                  <p className="text-sm text-t3 mt-0.5 line-clamp-2">{n.body}</p>
-                  <p className="text-xs text-t3 mt-1.5 font-medium">
-                    {new Date(n.createdAt).toLocaleDateString('en-US', {
-                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-
-                {/* Hover action buttons */}
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/90 backdrop-blur-sm border border-line rounded-lg p-1 shadow-md">
-                  {n.read ? (
-                    <button
-                      title="Mark as unread"
-                      onClick={e => { e.stopPropagation(); performAction('unread', [n._id]); }}
-                      className="p-1.5 text-t3 hover:text-accent rounded-md hover:bg-accent/10 transition-colors"
-                    >
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
-                      </svg>
-                    </button>
-                  ) : (
-                    <button
-                      title="Mark as read"
-                      onClick={e => { e.stopPropagation(); performAction('read', [n._id]); }}
-                      className="p-1.5 text-t3 hover:text-accent rounded-md hover:bg-accent/10 transition-colors"
-                    >
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
-                      </svg>
-                    </button>
+          <ul className="divide-y divide-line">
+            {notifications.map((n) => {
+              const Glyph = notificationIcon(n.type);
+              return (
+                <li
+                  key={n._id}
+                  className={cn(
+                    'group relative flex items-start gap-4 px-4 py-4 transition-colors',
+                    n.read ? 'hover:bg-muted/60' : 'bg-accent/5 hover:bg-accent/10',
                   )}
-                  <div className="w-px h-4 bg-line" />
-                  <button
-                    title="Delete"
-                    onClick={e => { e.stopPropagation(); performAction('delete', [n._id]); }}
-                    className="p-1.5 text-t3 hover:text-red-400 rounded-md hover:bg-red-500/10 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(n._id)}
+                    onChange={() => toggle(n._id)}
+                    aria-label={`Select ${n.title}`}
+                    className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-line bg-transparent accent-[var(--color-accent)]"
+                  />
+
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                      n.read ? 'bg-muted text-t3' : 'bg-accent/15 text-accent',
+                    )}
                   >
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/>
-                    </svg>
+                    <Glyph className="h-[18px] w-[18px]" />
+                  </span>
+
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 pr-24 text-left"
+                    onClick={() => {
+                      if (!n.read) perform('read', [n._id]);
+                      if (n.link) router.push(n.link);
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={cn('text-sm font-semibold', n.read ? 'text-t2' : 'text-t1')}>
+                        {n.title}
+                      </span>
+                      {!n.read && <Badge tone="accent">New</Badge>}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 block text-sm text-t3">{n.body}</span>
+                    <span className="mt-1.5 block text-xs font-medium text-t3">{timeAgo(n.createdAt)}</span>
                   </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+
+                  <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-lg border border-line bg-surface/90 p-1 opacity-0 shadow-md backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    {n.read ? (
+                      <Button variant="ghost" size="icon" aria-label="Mark as unread" title="Mark as unread"
+                        onClick={() => perform('unread', [n._id])}>
+                        <BellIcon className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="icon" aria-label="Mark as read" title="Mark as read"
+                        onClick={() => perform('read', [n._id])}>
+                        <CheckIcon className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <span aria-hidden className="h-4 w-px bg-line" />
+                    <Button variant="danger" size="icon" aria-label="Delete" title="Delete"
+                      onClick={() => perform('delete', [n._id])}>
+                      <TrashIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
       )}
     </div>
   );

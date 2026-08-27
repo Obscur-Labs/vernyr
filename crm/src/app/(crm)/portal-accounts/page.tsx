@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { USERNAME_RE } from '@/lib/credentials';
 import { usePermission } from '@/stores/authStore';
@@ -27,14 +28,20 @@ const since = (iso?: string) => {
   return `${Math.round(mins / 1440)}d ago`;
 };
 
-export default function PortalAccountsPage() {
+function PortalAccountsInner() {
   const { toast } = useToast();
   const can = usePermission();
+  const params = useSearchParams();
 
   const [rows, setRows] = useState<PortalAccount[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<Filter>('all');
+  // The sidebar splits this page into "Student logins" and "University
+  // logins", which are the same screen with the filter pre-set.
+  const initialFilter = params.get('role');
+  const [filter, setFilter] = useState<Filter>(
+    initialFilter === 'student' || initialFilter === 'university' ? initialFilter : 'all',
+  );
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -51,6 +58,11 @@ export default function PortalAccountsPage() {
       .catch((err) => toast(errorText(err, 'Failed to load portal accounts'), 'error'))
       .finally(() => setLoading(false));
   }, [load, toast]);
+
+  useEffect(() => {
+    const role = params.get('role');
+    setFilter(role === 'student' || role === 'university' ? role : 'all');
+  }, [params]);
 
   useEffect(() => {
     if (!can('access', 'read')) return;
@@ -273,7 +285,7 @@ function IssueSheet({
 
   return (
     <>
-      <div className="animate-fade-in fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
@@ -388,5 +400,13 @@ function Field({ label, value, onChange, required, type = 'text', hint }: {
       />
       {hint && <p className="mt-1 text-[12px] leading-snug text-t3">{hint}</p>}
     </div>
+  );
+}
+
+export default function PortalAccountsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-t2">Loading portal accounts…</div>}>
+      <PortalAccountsInner />
+    </Suspense>
   );
 }

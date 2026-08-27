@@ -71,7 +71,7 @@ function AddStudentDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
 
   return (
     <>
-      <div className="animate-fade-in fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"

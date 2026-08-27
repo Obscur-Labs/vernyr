@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { StatCard } from '@/components/StatCard';
-import { SkeletonStat, SkeletonTable } from '@/components/Skeleton';
+import { Stat, StatSkeleton } from '@/components/ui/stat';
+import { ClockIcon, RefundIcon, TrendingUpIcon, WalletIcon } from '@/components/icons';
+import { SkeletonTable } from '@/components/Skeleton';
 import { useToast } from '@/context/ToastContext';
 import type { Payment, PaymentStatus, PaymentType } from '@/types';
 
@@ -75,13 +76,13 @@ export default function FinancePage() {
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {loading ? (
-          [...Array(4)].map((_, i) => <SkeletonStat key={i} />)
+          [...Array(4)].map((_, i) => <StatSkeleton key={i} />)
         ) : (
           <>
-            <StatCard label="Total Collected" value={`$${totalCollected.toLocaleString()}`} icon="💰" color="emerald" />
-            <StatCard label="Pending Payments" value={`$${totalPending.toLocaleString()}`} icon="⏳" color="amber" />
-            <StatCard label="This Month Revenue" value={`$${thisMonth.toLocaleString()}`} icon="📈" color="indigo" />
-            <StatCard label="Refunds" value={`$${totalRefunded.toLocaleString()}`} icon="↩️" color="blue" />
+            <Stat label="Total Collected" value={`$${totalCollected.toLocaleString()}`} icon={<WalletIcon />} accent="emerald" />
+            <Stat label="Pending Payments" value={`$${totalPending.toLocaleString()}`} icon={<ClockIcon />} accent="amber" />
+            <Stat label="This Month Revenue" value={`$${thisMonth.toLocaleString()}`} icon={<TrendingUpIcon />} accent="indigo" />
+            <Stat label="Refunds" value={`$${totalRefunded.toLocaleString()}`} icon={<RefundIcon />} accent="blue" />
           </>
         )}
       </div>
@@ -178,7 +179,7 @@ export default function FinancePage() {
       {/* Confirm mark paid modal */}
       {confirmPayId && (
         <>
-          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setConfirmPayId(null)} />
+          <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={() => setConfirmPayId(null)} />
           <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-80 bg-surface border border-line rounded-2xl p-6 shadow-2xl">
             <h3 className="text-base font-semibold text-t1 mb-2">Mark as Paid?</h3>
             <p className="text-sm text-t2 mb-5">This will record today as the payment date and update the status to paid.</p>

@@ -44,7 +44,7 @@ export type PermissionMap = Record<string, Partial<Record<Action, boolean>>>;
 export interface ModuleDef {
   key: string;
   label: string;
-  group: 'Pipeline' | 'Casework' | 'Money' | 'Communication' | 'Administration';
+  group: 'Pipeline' | 'Casework' | 'Catalogue' | 'Money' | 'Communication' | 'Administration';
   description: string;
   actions: Action[];
   actionLabels?: Partial<Record<Action, string>>;
@@ -286,4 +286,110 @@ export interface DashboardStats {
   pendingPaymentsTotal: number;
   leadsByStatus: Record<LeadStatus, number>;
   studentsByStage: Record<StudentStage, number>;
+}
+
+/* ── Course catalogue ──────────────────────────────────────────────────────
+   Country → university → course. Shapes mirror the backend models; `extras`
+   is the open bag that keeps a source column this schema does not name. */
+
+export const COURSE_LEVELS = [
+  'foundation', 'diploma', 'bachelors', 'masters', 'mba', 'phd', 'other',
+] as const;
+export type CourseLevel = (typeof COURSE_LEVELS)[number];
+
+export const COURSE_LEVEL_LABELS: Record<CourseLevel, string> = {
+  foundation: 'Foundation',
+  diploma: 'Diploma',
+  bachelors: "Bachelor's",
+  masters: "Master's",
+  mba: 'MBA',
+  phd: 'PhD',
+  other: 'Other',
+};
+
+export interface Money {
+  text?: string;
+  amount?: number;
+  currency?: string;
+  per?: 'year' | 'semester' | 'term' | 'month' | 'total' | 'unknown';
+}
+
+export interface ExamRequirement {
+  name: string;
+  minScore?: number;
+  note?: string;
+}
+
+export interface University {
+  _id: string;
+  name: string;
+  slug: string;
+  country: string;
+  city?: string;
+  website?: string;
+  type: 'public' | 'private' | 'unknown';
+  logoUrl?: string;
+  notes?: string;
+  source?: string;
+  isActive: boolean;
+  courseCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** Only present on the detail endpoint. */
+  courses?: Course[];
+}
+
+export interface Course {
+  _id: string;
+  university: string | Pick<University, '_id' | 'name' | 'country' | 'city' | 'website' | 'type'>;
+  universityName: string;
+  country: string;
+  name: string;
+  level: CourseLevel;
+  discipline?: string;
+  link?: string;
+  duration?: { text?: string; months?: number };
+  applicationFee?: Money;
+  tuition?: Money;
+  intakes: string[];
+  deadline?: { text?: string; date?: string };
+  exams: ExamRequirement[];
+  examText?: string;
+  gpa?: string;
+  location?: string;
+  notes?: string;
+  tags: string[];
+  extras?: Record<string, string>;
+  source?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CountrySummary {
+  country: string;
+  universities: number;
+  courses: number;
+  minTuition?: number;
+  maxTuition?: number;
+}
+
+export interface Facet { value: string; count: number }
+export interface CurrencyFacet extends Facet { min: number; max: number }
+
+export interface CourseFacets {
+  levels: Facet[];
+  countries: Facet[];
+  intakes: Facet[];
+  exams: Facet[];
+  disciplines: Facet[];
+  currencies: CurrencyFacet[];
+}
+
+export interface Paged<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pages: number;
+  limit?: number;
 }

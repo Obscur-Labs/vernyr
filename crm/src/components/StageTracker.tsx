@@ -1,17 +1,23 @@
 'use client';
+import {
+  BuildingIcon, ChatIcon, CheckIcon, ClipboardIcon, CreditCardIcon, DocumentTextIcon,
+  PassportIcon, PlaneIcon, UsersIcon, type IconProps,
+} from '@/components/icons';
 import type { StudentStage } from '@/types';
 
-const STAGES: { id: StudentStage; label: string; icon: string; description: string }[] = [
-  { id: 'inquiry',               label: 'Inquiry',               icon: '💬', description: 'Initial contact made' },
-  { id: 'counselling',           label: 'Counselling',           icon: '👨‍💼', description: 'Sessions in progress' },
-  { id: 'university_selection',  label: 'University Selection',  icon: '🏛️', description: 'Shortlisting universities' },
-  { id: 'application_submitted', label: 'Application Submitted', icon: '📝', description: 'Applications sent' },
-  { id: 'offer_letter',          label: 'Offer Letter',          icon: '📄', description: 'Offer received' },
-  { id: 'fee_payment',           label: 'Fee Payment',           icon: '💳', description: 'Fees paid' },
-  { id: 'cas_i20',               label: 'CAS / I-20',            icon: '📋', description: 'CAS or I-20 issued' },
-  { id: 'visa_filing',           label: 'Visa Filing',           icon: '🔖', description: 'Visa application filed' },
-  { id: 'visa_approved',         label: 'Visa Approved',         icon: '✅', description: 'Visa granted' },
-  { id: 'departure',             label: 'Departure',             icon: '✈️', description: 'Student departed' },
+type Glyph = (props: IconProps) => React.ReactElement;
+
+const STAGES: { id: StudentStage; label: string; Icon: Glyph; description: string }[] = [
+  { id: 'inquiry',               label: 'Inquiry',               Icon: ChatIcon,         description: 'Initial contact made' },
+  { id: 'counselling',           label: 'Counselling',           Icon: UsersIcon,        description: 'Sessions in progress' },
+  { id: 'university_selection',  label: 'University Selection',  Icon: BuildingIcon,     description: 'Shortlisting universities' },
+  { id: 'application_submitted', label: 'Application Submitted', Icon: DocumentTextIcon, description: 'Applications sent' },
+  { id: 'offer_letter',          label: 'Offer Letter',          Icon: ClipboardIcon,    description: 'Offer received' },
+  { id: 'fee_payment',           label: 'Fee Payment',           Icon: CreditCardIcon,   description: 'Fees paid' },
+  { id: 'cas_i20',               label: 'CAS / I-20',            Icon: DocumentTextIcon, description: 'CAS or I-20 issued' },
+  { id: 'visa_filing',           label: 'Visa Filing',           Icon: PassportIcon,     description: 'Visa application filed' },
+  { id: 'visa_approved',         label: 'Visa Approved',         Icon: CheckIcon,        description: 'Visa granted' },
+  { id: 'departure',             label: 'Departure',             Icon: PlaneIcon,        description: 'Student departed' },
 ];
 
 interface Props {
@@ -58,7 +64,9 @@ export function StageTracker({ currentStage, onChange, readonly }: Props) {
                   <path d="M4 10l4 4 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               ) : (
-                <span className={isFuture ? 'opacity-40' : ''}>{stage.icon}</span>
+                <span className={`${isCurrent ? 'text-indigo-400' : 'text-t3'} ${isFuture ? 'opacity-45' : ''}`}>
+                  <stage.Icon className="w-[18px] h-[18px]" />
+                </span>
               )}
             </button>
 

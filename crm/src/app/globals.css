@@ -570,3 +570,143 @@ body { font-family: var(--font-system); }
   --color-slate-400: #334155;
   --color-slate-500: #334155;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   OVERLAYS — modals, popovers, sheets
+   One vocabulary for everything that floats above the page. Each has a
+   matching exit so a dismissal is animated rather than cut: the component
+   holds the element mounted for the exit's duration, then unmounts.
+═══════════════════════════════════════════════════════════════ */
+@keyframes backdrop-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+
+@keyframes overlay-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.965); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes overlay-out {
+  from { opacity: 1; transform: translateY(0)   scale(1); }
+  to   { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+
+/* Popovers grow from the control that opened them, so they scale from an
+   edge rather than their own centre — set `transform-origin` at the call site. */
+@keyframes popover-in  { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes popover-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+
+/* A sheet slides from the edge it is docked to. */
+@keyframes sheet-in-right  { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes sheet-out-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(16px); } }
+
+.animate-backdrop-in  { animation: backdrop-in  var(--duration-normal) var(--ease-out) both; }
+.animate-backdrop-out { animation: backdrop-out 180ms var(--ease-default) both; }
+.animate-overlay-in   { animation: overlay-in   var(--duration-normal) var(--ease-spring) both; }
+.animate-overlay-out  { animation: overlay-out  180ms var(--ease-default) both; }
+.animate-popover-in   { animation: popover-in   var(--duration-fast) var(--ease-out) both; }
+.animate-popover-out  { animation: popover-out  150ms var(--ease-default) both; }
+.animate-sheet-in     { animation: sheet-in-right  var(--duration-normal) var(--ease-out) both; }
+.animate-sheet-out    { animation: sheet-out-right 180ms var(--ease-default) both; }
+
+/* The scrim. Heavier blur than the chrome uses — the page behind a modal is
+   out of reach, and should look it. `saturate` keeps the blur from going grey. */
+.overlay-scrim {
+  background: color-mix(in oklch, var(--color-base) 55%, transparent);
+  backdrop-filter: blur(28px) saturate(140%) brightness(0.72);
+  -webkit-backdrop-filter: blur(28px) saturate(140%) brightness(0.72);
+}
+:root.light .overlay-scrim {
+  background: color-mix(in oklch, #0c1040 26%, transparent);
+  backdrop-filter: blur(28px) saturate(120%) brightness(1.02);
+  -webkit-backdrop-filter: blur(28px) saturate(120%) brightness(1.02);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .overlay-scrim { background: color-mix(in oklch, var(--color-base) 88%, transparent); }
+}
+
+/* The floating panel itself — translucent so the blur reads through it. */
+.overlay-panel {
+  background: color-mix(in oklch, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid color-mix(in oklch, var(--color-line) 80%, transparent);
+  box-shadow:
+    0 32px 64px -12px rgb(0 0 0 / 0.42),
+    0 0 0 1px color-mix(in oklch, var(--color-t1) 5%, transparent) inset;
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .overlay-panel { background: var(--color-surface); }
+}
+
+/* ── Accordion ────────────────────────────────────────────────────────────
+   Radix measures the panel and publishes its height as a custom property,
+   which is the only way to animate to `auto`. The keyframes below are what
+   `@radix-ui/react-accordion` expects a design system to supply. */
+@keyframes accordion-down {
+  from { height: 0; opacity: 0; }
+  to   { height: var(--radix-accordion-content-height); opacity: 1; }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); opacity: 1; }
+  to   { height: 0; opacity: 0; }
+}
+.animate-accordion-down { animation: accordion-down var(--duration-normal) var(--ease-out); }
+.animate-accordion-up   { animation: accordion-up 180ms var(--ease-default); }
+
+/* ── Chart motion ─────────────────────────────────────────────────────────
+   Bars grow from their baseline, arcs sweep, lines draw themselves. */
+@keyframes bar-grow    { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes bar-grow-x  { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.chart-bar   { transform-origin: bottom; animation: bar-grow   0.6s var(--ease-out) both; }
+.chart-bar-x { transform-origin: left;   animation: bar-grow-x 0.6s var(--ease-out) both; }
+.chart-hit   { transition: opacity var(--duration-fast) var(--ease-default); }
+
+/* Recharts draws into an SVG that inherits nothing — these pin its furniture
+   to the theme rather than to its defaults. */
+.recharts-cartesian-axis-tick text { fill: var(--chart-axis); font-size: 11px; }
+.recharts-cartesian-grid line { stroke: var(--chart-grid); }
+.recharts-surface:focus, .recharts-wrapper:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-backdrop-in, .animate-backdrop-out, .animate-overlay-in, .animate-overlay-out,
+  .animate-popover-in, .animate-popover-out, .animate-sheet-in, .animate-sheet-out,
+  .animate-accordion-down, .animate-accordion-up,
+  .chart-bar, .chart-bar-x { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART PALETTE
+   A categorical ramp that holds its order in both themes. Dark gets the
+   400 tier (bright on a near-black ground), light the 600/700 tier, so a
+   series keeps its identity when the theme flips and every fill clears
+   contrast against the card behind it.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --chart-1:  #818cf8;  /* indigo  */
+  --chart-2:  #34d399;  /* emerald */
+  --chart-3:  #60a5fa;  /* blue    */
+  --chart-4:  #fbbf24;  /* amber   */
+  --chart-5:  #f472b6;  /* pink    */
+  --chart-6:  #22d3ee;  /* cyan    */
+  --chart-7:  #a78bfa;  /* violet  */
+  --chart-8:  #fb923c;  /* orange  */
+  --chart-9:  #4ade80;  /* green   */
+  --chart-10: #f87171;  /* red     */
+  --chart-11: #2dd4bf;  /* teal    */
+  --chart-12: #c084fc;  /* purple  */
+  --chart-grid: color-mix(in oklch, var(--color-line) 70%, transparent);
+  --chart-axis: var(--color-t3);
+}
+:root.light {
+  --chart-1:  #4f46e5;
+  --chart-2:  #059669;
+  --chart-3:  #2563eb;
+  --chart-4:  #b45309;
+  --chart-5:  #db2777;
+  --chart-6:  #0891b2;
+  --chart-7:  #7c3aed;
+  --chart-8:  #ea580c;
+  --chart-9:  #16a34a;
+  --chart-10: #dc2626;
+  --chart-11: #0d9488;
+  --chart-12: #9333ea;
+}

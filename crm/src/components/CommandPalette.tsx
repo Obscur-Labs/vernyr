@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { navFor, type NavItem } from '@/lib/navigation';
+import { navFor, type FlatNavItem } from '@/lib/navigation';
 
 /**
  * ⌘K / Ctrl+K jump-to-page. The list comes from the same registry the sidebar
@@ -30,10 +30,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         const label = item.label.toLowerCase();
         if (label.startsWith(q)) return { item, score: 0 };
         if (label.includes(q)) return { item, score: 1 };
-        if (item.keywords?.includes(q)) return { item, score: 2 };
+        if (item.section?.toLowerCase().includes(q)) return { item, score: 2 };
+        if (item.keywords?.includes(q)) return { item, score: 3 };
         return null;
       })
-      .filter((x): x is { item: NavItem; score: number } => x !== null)
+      .filter((x): x is { item: FlatNavItem; score: number } => x !== null)
       .sort((a, b) => a.score - b.score);
     return scored.map((s) => s.item);
   }, [query, available]);
@@ -50,7 +51,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   useEffect(() => { setActive(0); }, [query]);
 
-  const go = useCallback((item: NavItem) => {
+  const go = useCallback((item: FlatNavItem) => {
     onClose();
     router.push(item.href);
   }, [onClose, router]);
@@ -82,7 +83,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-sm"
+      className="overlay-scrim animate-backdrop-in fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh]"
       onClick={onClose}
       role="presentation"
     >
@@ -90,7 +91,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         role="dialog"
         aria-modal="true"
         aria-label="Search pages"
-        className="animate-scale-in w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+        className="overlay-panel animate-overlay-in w-full max-w-lg overflow-hidden rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-line px-4">
@@ -123,14 +124,28 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 data-active={i === active}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => go(item)}
-                className={`hig-press flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] ${
+                className={`hig-press flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[15px] ${
                   i === active ? 'bg-accent text-white' : 'text-t2'
                 }`}
               >
                 <span className={i === active ? 'text-white' : 'text-t3'}>{item.icon}</span>
-                <span className="flex-1 font-medium">{item.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline gap-1.5">
+                    {item.section && (
+                      <span className={`shrink-0 text-[12px] ${i === active ? 'text-white/70' : 'text-t3'}`}>
+                        {item.section} /
+                      </span>
+                    )}
+                    <span className="truncate font-medium">{item.label}</span>
+                  </span>
+                  {item.hint && (
+                    <span className={`block truncate text-[12px] ${i === active ? 'text-white/70' : 'text-t3'}`}>
+                      {item.hint}
+                    </span>
+                  )}
+                </span>
                 <span
-                  className={`text-[12px] ${i === active ? 'text-white/75' : 'text-t3'}`}
+                  className={`hidden shrink-0 text-[12px] sm:block ${i === active ? 'text-white/75' : 'text-t3'}`}
                   style={{ fontFamily: 'var(--font-mono)' }}
                 >
                   {item.href}

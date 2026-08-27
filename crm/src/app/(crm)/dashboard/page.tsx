@@ -2,163 +2,187 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { StatCard } from '@/components/StatCard';
-import { SkeletonStat } from '@/components/Skeleton';
+import { Stat, StatSkeleton } from '@/components/ui/stat';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/card';
 import { useToast } from '@/context/ToastContext';
-import type { DashboardStats, LeadStatus, StudentStage } from '@/types';
+import { usePermission } from '@/stores/authStore';
+import {
+  BarChart, ChartCard, ChartSkeleton, DonutChart, LineChart, StackedBar, fmtCompact,
+} from '@/components/charts';
+import {
+  LEAD_STATUS_COLORS, LEAD_STATUS_ORDER, STAGE_LABELS, STAGE_ORDER,
+  orderedBuckets, money, type OverviewReport,
+} from '@/lib/reports';
+import {
+  CreditCardIcon, DocumentTextIcon, GraduationIcon, PassportIcon, PlusIcon, TargetIcon,
+} from '@/components/icons';
+import type { DashboardStats } from '@/types';
 
-const LEAD_STATUSES: { id: LeadStatus; label: string; color: string }[] = [
-  { id: 'new',                 label: 'New',                 color: 'bg-indigo-500' },
-  { id: 'contacted',           label: 'Contacted',           color: 'bg-blue-500' },
-  { id: 'counselling',         label: 'Counselling',         color: 'bg-violet-500' },
-  { id: 'interested',          label: 'Interested',          color: 'bg-amber-500' },
-  { id: 'application_started', label: 'Application Started', color: 'bg-orange-500' },
-  { id: 'closed_won',          label: 'Closed Won',          color: 'bg-emerald-500' },
-  { id: 'closed_lost',         label: 'Closed Lost',         color: 'bg-red-500' },
-];
-
-const STUDENT_STAGES: { id: StudentStage; label: string }[] = [
-  { id: 'inquiry',               label: 'Inquiry' },
-  { id: 'counselling',           label: 'Counselling' },
-  { id: 'university_selection',  label: 'Uni Selection' },
-  { id: 'application_submitted', label: 'Applied' },
-  { id: 'offer_letter',          label: 'Offer' },
-  { id: 'fee_payment',           label: 'Fee Paid' },
-  { id: 'cas_i20',               label: 'CAS/I-20' },
-  { id: 'visa_filing',           label: 'Visa Filed' },
-  { id: 'visa_approved',         label: 'Visa OK' },
-  { id: 'departure',             label: 'Departed' },
-];
-
+/**
+ * The dashboard reads two endpoints: `/dashboard/stats` for the headline
+ * counts everyone can see, and `/reports/overview` for the trend lines, which
+ * only a caller holding `reports.read` may have. Everything below degrades to
+ * the first when the second is not available.
+ */
 export default function DashboardPage() {
-  const [stats, setStats]     = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [overview, setOverview] = useState<OverviewReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast }             = useToast();
-  const router                = useRouter();
+  const { toast } = useToast();
+  const router = useRouter();
+  const can = usePermission();
+  const maySeeReports = can('reports', 'read');
 
   useEffect(() => {
-    api.get('/dashboard/stats')
-      .then(r => setStats(r.data))
+    api.get<DashboardStats>('/dashboard/stats')
+      .then((r) => setStats(r.data))
       .catch(() => toast('Failed to load dashboard stats', 'error'))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const maxLeadCount    = stats ? Math.max(...Object.values(stats.leadsByStatus || {}), 1) : 1;
-  const maxStudentCount = stats ? Math.max(...Object.values(stats.studentsByStage || {}), 1) : 1;
+  useEffect(() => {
+    if (!maySeeReports) return;
+    api.get<OverviewReport>('/reports/overview?months=12')
+      .then((r) => setOverview(r.data))
+      .catch(() => {});
+  }, [maySeeReports]);
+
+  const leadSlices = orderedBuckets(
+    Object.entries(stats?.leadsByStatus ?? {}).map(([value, count]) => ({ value, count })),
+    LEAD_STATUS_ORDER,
+    LEAD_STATUS_COLORS,
+  );
+
+  const stageSlices = orderedBuckets(
+    Object.entries(stats?.studentsByStage ?? {}).map(([value, count]) => ({ value, count })),
+    STAGE_ORDER,
+    undefined,
+    STAGE_LABELS,
+  );
+
+  const revenueSplit = overview
+    ? [
+      { value: 'Collected', count: overview.totals.revenuePaid, color: 'var(--chart-2)' },
+      { value: 'Pending', count: overview.totals.revenuePending, color: 'var(--chart-4)' },
+      { value: 'Overdue', count: overview.totals.revenueOverdue, color: 'var(--chart-10)' },
+    ]
+    : [];
 
   return (
-    <div className="p-6 space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-t1">Dashboard</h1>
-          <p className="text-t2 text-sm mt-1">Overview of your study abroad pipeline</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/leads')}
-            className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-indigo-500 transition-colors"
-          >
-            + New Lead
-          </button>
-          <button
-            onClick={() => router.push('/students')}
-            className="px-4 py-2 rounded-xl bg-surface border border-line text-t1 text-sm font-semibold hover:bg-muted transition-colors"
-          >
-            + New Student
-          </button>
-        </div>
-      </div>
+    <div className="animate-fade-in space-y-8 p-6">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of your study abroad pipeline"
+        actions={
+          <>
+            <Button onClick={() => router.push('/leads')}>
+              <PlusIcon className="h-4 w-4" />New lead
+            </Button>
+            <Button variant="secondary" onClick={() => router.push('/students')}>
+              <PlusIcon className="h-4 w-4" />New student
+            </Button>
+          </>
+        }
+      />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+      {/* Headline counts */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {loading ? (
-          [...Array(5)].map((_, i) => <SkeletonStat key={i} />)
+          [...Array(5)].map((_, i) => <StatSkeleton key={i} />)
         ) : stats ? (
           <>
-            <StatCard label="Total Leads"        value={stats.totalLeads}       icon="🎯" color="indigo" />
-            <StatCard label="Total Students"     value={stats.totalStudents}    icon="🎓" color="emerald" />
-            <StatCard label="Applications"       value={stats.totalApplications}icon="📝" color="blue" />
-            <StatCard label="Visa Approvals"     value={stats.visaApprovals}    icon="✅" color="violet" />
-            <StatCard
+            <Stat label="Total Leads" value={stats.totalLeads} icon={<TargetIcon />} accent="indigo" spark={overview?.series.leads} />
+            <Stat label="Total Students" value={stats.totalStudents} icon={<GraduationIcon />} accent="emerald" spark={overview?.series.students} />
+            <Stat label="Applications" value={stats.totalApplications} icon={<DocumentTextIcon />} accent="blue" spark={overview?.series.applications} />
+            <Stat label="Visa Approvals" value={stats.visaApprovals} icon={<PassportIcon />} accent="violet" />
+            <Stat
               label="Pending Payments"
               value={`$${stats.pendingPaymentsTotal.toLocaleString()}`}
-              icon="💳"
-              color="amber"
+              icon={<CreditCardIcon />}
+              accent="amber"
+              spark={overview?.series.revenue}
             />
           </>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Lead pipeline */}
-        <div className="bg-surface border border-line rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-t1 mb-4">Lead Pipeline</h2>
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(7)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-24 h-3 bg-muted rounded animate-pulse" />
-                  <div className="flex-1 h-3 bg-muted rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          ) : stats ? (
-            <div className="space-y-3">
-              {LEAD_STATUSES.map(s => {
-                const count = stats.leadsByStatus[s.id] || 0;
-                const pct   = maxLeadCount > 0 ? (count / maxLeadCount) * 100 : 0;
-                return (
-                  <div key={s.id} className="flex items-center gap-3">
-                    <span className="text-xs text-t2 w-28 flex-shrink-0 text-right">{s.label}</span>
-                    <div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${s.color}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-semibold text-t1 w-6 text-right">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
+      {/* Twelve-month trend */}
+      {maySeeReports && (
+        <ChartCard
+          title="Twelve-month trend"
+          subtitle="New leads, students and applications, month by month"
+          action={
+            <Button variant="ghost" size="sm" onClick={() => router.push('/reports')} className="text-accent">
+              All reports
+            </Button>
+          }
+        >
+          {overview ? (
+            <LineChart
+              labels={overview.months}
+              series={[
+                { name: 'Leads', points: overview.series.leads, color: 'var(--chart-1)' },
+                { name: 'Students', points: overview.series.students, color: 'var(--chart-2)' },
+                { name: 'Applications', points: overview.series.applications, color: 'var(--chart-3)' },
+              ]}
+            />
+          ) : (
+            <ChartSkeleton height={240} />
+          )}
+        </ChartCard>
+      )}
 
-        {/* Student journey */}
-        <div className="bg-surface border border-line rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-t1 mb-4">Student Journey</h2>
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-24 h-3 bg-muted rounded animate-pulse" />
-                  <div className="flex-1 h-3 bg-muted rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          ) : stats ? (
-            <div className="space-y-3">
-              {STUDENT_STAGES.map(s => {
-                const count = stats.studentsByStage[s.id] || 0;
-                const pct   = maxStudentCount > 0 ? (count / maxStudentCount) * 100 : 0;
-                return (
-                  <div key={s.id} className="flex items-center gap-3">
-                    <span className="text-xs text-t2 w-28 flex-shrink-0 text-right">{s.label}</span>
-                    <div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-indigo-500 transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-semibold text-t1 w-6 text-right">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ChartCard title="Lead pipeline" subtitle="Where every enquiry currently sits">
+          {loading ? <ChartSkeleton height={220} /> : <DonutChart slices={leadSlices} centerLabel="Leads" />}
+        </ChartCard>
+
+        <ChartCard title="Student journey" subtitle="Headcount at each stage of the pipeline">
+          {loading ? <ChartSkeleton height={220} /> : <BarChart slices={stageSlices} monochrome height={240} />}
+        </ChartCard>
       </div>
+
+      {maySeeReports && overview && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <ChartCard
+            title="Revenue"
+            subtitle="Collected against what is still owed"
+            className="xl:col-span-1"
+          >
+            <p className="text-[28px] font-bold leading-none tracking-tight text-t1">
+              {money(overview.totals.revenuePaid)}
+            </p>
+            <p className="mt-1 text-[12px] text-t3">collected all time</p>
+            <div className="mt-4">
+              <StackedBar slices={revenueSplit} height={14} />
+            </div>
+            <ul className="mt-4 space-y-2">
+              {revenueSplit.map((s) => (
+                <li key={s.value} className="flex items-center gap-2.5 text-[13px]">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-[3px]" style={{ background: s.color }} />
+                  <span className="flex-1 text-t2">{s.value}</span>
+                  <span className="font-semibold tabular-nums text-t1">{money(s.count)}</span>
+                </li>
+              ))}
+            </ul>
+          </ChartCard>
+
+          <ChartCard
+            title="Monthly revenue"
+            subtitle="Payments received, by the month they cleared"
+            className="xl:col-span-2"
+          >
+            <LineChart
+              labels={overview.months}
+              series={[{ name: 'Collected', points: overview.series.revenue, color: 'var(--chart-2)' }]}
+              valueFormat={(n) => `$${fmtCompact(n)}`}
+              height={220}
+            />
+          </ChartCard>
+        </div>
+      )}
     </div>
   );
 }
