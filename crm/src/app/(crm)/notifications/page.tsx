@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
-import { timeAgo } from '@/components/NotificationBell';
+import { timeAgo } from '@/lib/format';
 import { Badge, Button, Card, EmptyState, PageHeader, SkeletonList } from '@/components/ui';
 import { BellIcon, CheckIcon, TrashIcon, notificationIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
@@ -188,7 +188,7 @@ export default function CRMNotificationsPage() {
                     <span className="mt-1.5 block text-xs font-medium text-t3">{timeAgo(n.createdAt)}</span>
                   </button>
 
-                  <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-lg border border-line bg-surface/90 p-1 opacity-0 shadow-md backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-lg border border-line bg-surface p-1 opacity-0 shadow-md transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                     {n.read ? (
                       <Button variant="ghost" size="icon" aria-label="Mark as unread" title="Mark as unread"
                         onClick={() => perform('unread', [n._id])}>

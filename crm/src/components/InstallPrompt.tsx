@@ -17,10 +17,30 @@ export function InstallPrompt({ appName }: { appName: string }) {
   const [deferred, setDeferred] = useState<InstallEvent | null>(null);
   const [iosHint, setIosHint] = useState(false);
 
+  /**
+   * The worker is a production concern only.
+   *
+   * In development it is actively harmful: the dev server reuses chunk
+   * filenames across rebuilds, so a cached copy of `foo_abc._.js` is served for
+   * a module whose contents have since changed. The page then hydrates against
+   * a module graph that no longer matches, which fails silently — no console
+   * error, just a screen that never finishes loading.
+   *
+   * Unregistering here also heals a browser that already has the old worker
+   * installed, which a code change alone would not reach.
+   */
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if (!('serviceWorker' in navigator)) return;
+
+    if (process.env.NODE_ENV !== 'production') {
+      navigator.serviceWorker.getRegistrations()
+        .then((rs) => Promise.all(rs.map((r) => r.unregister())))
+        .then(() => caches?.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))))
+        .catch(() => {});
+      return;
     }
+
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -60,7 +80,7 @@ export function InstallPrompt({ appName }: { appName: string }) {
   if (!deferred && !iosHint) return null;
 
   return (
-    <div className="animate-slide-in-right fixed bottom-4 left-4 right-4 z-[70] mx-auto max-w-sm rounded-2xl border border-line bg-surface p-4 shadow-2xl sm:left-auto">
+    <div className="overlay-panel animate-slide-in-right fixed bottom-4 left-4 right-4 z-[70] mx-auto max-w-sm rounded-2xl p-4 sm:left-auto">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent">
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>

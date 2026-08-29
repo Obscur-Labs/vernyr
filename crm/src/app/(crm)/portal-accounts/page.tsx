@@ -1,12 +1,20 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useId, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { USERNAME_RE } from '@/lib/credentials';
 import { usePermission } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import { SkeletonTable } from '@/components/Skeleton';
+import { timeAgo } from '@/lib/format';
+import {
+  Badge, Button, ConfirmModal, Field, Input, Modal, PageHeader,
+  SearchInput, Segmented, Select,
+} from '@/components/ui';
+import { Avatar, Table, TableEmpty, TD, TR } from '@/components/ui/table';
+import { PlusIcon } from '@/components/icons';
 import type { PortalAccount, Preset, Student } from '@/types';
 
 const errorText = (err: unknown, fallback: string) =>
@@ -14,19 +22,16 @@ const errorText = (err: unknown, fallback: string) =>
 
 type Filter = 'all' | 'student' | 'university';
 
-const initials = (n: string) => n.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase();
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'student', label: 'Students' },
+  { value: 'university', label: 'Universities' },
+];
+
+const COLUMNS = ['Account', 'Signs in as', 'Scope', 'Seat', 'Last seen', ''];
 
 const studentName = (a: PortalAccount) =>
   typeof a.studentId === 'object' && a.studentId ? a.studentId.personal?.name ?? '—' : '—';
-
-const since = (iso?: string) => {
-  if (!iso) return 'never';
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
-  return `${Math.round(mins / 1440)}d ago`;
-};
 
 function PortalAccountsInner() {
   const { toast } = useToast();
@@ -44,12 +49,15 @@ function PortalAccountsInner() {
   );
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
+  const [resetting, setResetting] = useState<PortalAccount | null>(null);
+  const [deactivating, setDeactivating] = useState<PortalAccount | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (filter !== 'all') params.set('role', filter);
-    if (q.trim()) params.set('q', q.trim());
-    const { data } = await api.get<PortalAccount[]>(`/portal-accounts?${params}`);
+    const search = new URLSearchParams();
+    if (filter !== 'all') search.set('role', filter);
+    if (q.trim()) search.set('q', q.trim());
+    const { data } = await api.get<PortalAccount[]>(`/portal-accounts?${search}`);
     setRows(data);
   }, [filter, q]);
 
@@ -72,182 +80,230 @@ function PortalAccountsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function resetPassword(a: PortalAccount) {
-    const password = window.prompt(`New password for ${a.name} (at least 6 characters):`);
-    if (!password) return;
+  async function deactivate() {
+    if (!deactivating) return;
+    setBusy(true);
     try {
-      const { data } = await api.patch<{ message: string }>(`/portal-accounts/${a._id}/password`, { password });
-      toast(data.message, 'success');
-    } catch (err) {
-      toast(errorText(err, 'Could not reset the password'), 'error');
-    }
-  }
-
-  async function deactivate(a: PortalAccount) {
-    if (!window.confirm(`Deactivate ${a.name}? They will no longer be able to sign in.`)) return;
-    try {
-      await api.delete(`/portal-accounts/${a._id}`);
-      setRows((prev) => prev.filter((r) => r._id !== a._id));
-      toast(`${a.name} deactivated`, 'success');
+      await api.delete(`/portal-accounts/${deactivating._id}`);
+      setRows((prev) => prev.filter((r) => r._id !== deactivating._id));
+      toast(`${deactivating.name} deactivated`, 'success');
+      setDeactivating(null);
     } catch (err) {
       toast(errorText(err, 'Could not deactivate'), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <div className="animate-fade-in p-6">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="max-w-2xl">
-          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-t1">Portal accounts</h1>
-          <p className="mt-1 text-[15px] leading-relaxed text-t2">
+    <div className="animate-fade-in space-y-5 p-6">
+      <PageHeader
+        title="Portal accounts"
+        subtitle={
+          <>
             Logins for the people outside the office — students and university partners. Staff
-            accounts live on <a href="/members" className="text-accent hover:underline">Members</a>.
-          </p>
-        </div>
-        {can('portal_accounts', 'create') && (
-          <button onClick={() => setCreating(true)} className="hig-btn hig-btn-primary hig-press">
-            Issue a login
-          </button>
+            accounts live on <Link href="/members" className="text-accent hover:underline">Members</Link>.
+          </>
+        }
+        actions={can('portal_accounts', 'create') && (
+          <Button onClick={() => setCreating(true)}>
+            <PlusIcon className="h-4 w-4" />Issue a login
+          </Button>
         )}
-      </div>
+      />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-full border border-line bg-card p-0.5">
-          {(['all', 'student', 'university'] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`hig-press rounded-full px-3.5 py-1.5 text-[13px] font-medium capitalize ${
-                filter === f ? 'bg-accent text-white' : 'text-t2 hover:text-t1'
-              }`}
-            >
-              {f === 'all' ? 'All' : f === 'student' ? 'Students' : 'Universities'}
-            </button>
-          ))}
-        </div>
-        <input
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Segmented label="Account kind" value={filter} onChange={setFilter} options={FILTERS} />
+        <SearchInput
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onValueChange={setQ}
           placeholder="Search name, username or institution…"
-          aria-label="Search portal accounts"
-          className="h-9 min-w-[16rem] flex-1 rounded-full border border-line bg-card px-4 text-[13px] text-t1 placeholder:text-t3 focus:border-accent focus:outline-none"
+          label="Search portal accounts"
+          className="min-w-[16rem] flex-1"
         />
       </div>
 
       {loading ? <SkeletonTable rows={5} /> : (
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
-              <thead>
-                <tr className="border-b border-line">
-                  {['Account', 'Signs in as', 'Scope', 'Seat', 'Last seen', ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wider text-t2">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((a) => (
-                  <tr key={a._id} className="border-b border-line transition-colors last:border-0 hover:bg-muted/50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[11px] font-bold text-accent">
-                          {initials(a.name)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-[15px] font-medium text-t1">{a.name}</p>
-                          <p className="text-[12px] capitalize text-t3">{a.role}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[14px] text-t2">{a.username ?? a.email ?? '—'}</td>
-                    <td className="px-4 py-3 text-[14px] text-t2">
-                      {a.role === 'student' ? studentName(a) : a.universityName ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[14px] text-t2">{a.presetName ?? a.role}</span>
-                      {a.hasOverrides && (
-                        <span className="ml-1.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
-                          Customised
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-[14px] text-t3">{since(a.lastSeenAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        {can('portal_accounts', 'update') && (
-                          <button
-                            onClick={() => resetPassword(a)}
-                            className="hig-press rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-t2 hover:bg-muted hover:text-t1"
-                          >
-                            Reset password
-                          </button>
-                        )}
-                        {can('portal_accounts', 'delete') && (
-                          <button
-                            onClick={() => deactivate(a)}
-                            className="hig-press danger-action rounded-lg px-2.5 py-1.5 text-[13px] font-medium"
-                          >
-                            Deactivate
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-[15px] text-t3">
-                      {q ? `Nothing matches “${q}”.` : 'No portal logins yet.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table columns={COLUMNS} minWidth={760}>
+          {rows.map((a) => (
+            <TR key={a._id}>
+              <TD>
+                <div className="flex items-center gap-2.5">
+                  <Avatar name={a.name} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-medium text-t1">{a.name}</p>
+                    <p className="text-[12px] capitalize text-t3">{a.role}</p>
+                  </div>
+                </div>
+              </TD>
+              <TD>{a.username ?? a.email ?? '—'}</TD>
+              <TD>{a.role === 'student' ? studentName(a) : a.universityName ?? '—'}</TD>
+              <TD>
+                <span className="text-[14px] text-t2">{a.presetName ?? a.role}</span>
+                {a.hasOverrides && <Badge tone="warning" className="ml-1.5">Customised</Badge>}
+              </TD>
+              <TD className="text-t3">{a.lastSeenAt ? timeAgo(a.lastSeenAt) : 'never'}</TD>
+              <TD>
+                <div className="flex justify-end gap-1">
+                  {can('portal_accounts', 'update') && (
+                    <Button variant="ghost" size="sm" onClick={() => setResetting(a)}>Reset password</Button>
+                  )}
+                  {can('portal_accounts', 'delete') && (
+                    <Button variant="danger" size="sm" onClick={() => setDeactivating(a)}>Deactivate</Button>
+                  )}
+                </div>
+              </TD>
+            </TR>
+          ))}
+          {rows.length === 0 && (
+            <TableEmpty columns={COLUMNS.length}>
+              {q ? `Nothing matches “${q}”.` : 'No portal logins yet.'}
+            </TableEmpty>
+          )}
+        </Table>
       )}
 
-      {creating && (
-        <IssueSheet
-          presets={presets}
-          onClose={() => setCreating(false)}
-          onIssued={async () => { await load(); setCreating(false); }}
-        />
-      )}
+      <IssueSheet
+        open={creating}
+        presets={presets}
+        onClose={() => setCreating(false)}
+        onIssued={async () => { await load(); setCreating(false); }}
+      />
+
+      <ResetPasswordModal
+        account={resetting}
+        onClose={() => setResetting(null)}
+      />
+
+      <ConfirmModal
+        open={!!deactivating}
+        onClose={() => setDeactivating(null)}
+        onConfirm={deactivate}
+        busy={busy}
+        title="Deactivate this login?"
+        confirmLabel="Deactivate"
+        body={
+          <>
+            <strong className="text-t1">{deactivating?.name}</strong> will no longer be able to sign
+            in to the portal. Their student record is untouched.
+          </>
+        }
+      />
     </div>
+  );
+}
+
+/* ── Reset a password ───────────────────────────────────────────────────── */
+
+/**
+ * `window.prompt` used to do this. It blocks the thread, ignores the theme,
+ * cannot validate a length, and shows the new password in plain text.
+ */
+function ResetPasswordModal({
+  account, onClose,
+}: {
+  account: PortalAccount | null;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { if (account) setPassword(''); }, [account]);
+
+  const tooShort = password.length > 0 && password.length < 6;
+
+  async function submit() {
+    if (!account) return;
+    if (password.length < 6) { toast('Password must be at least 6 characters', 'error'); return; }
+    setBusy(true);
+    try {
+      const { data } = await api.patch<{ message: string }>(
+        `/portal-accounts/${account._id}/password`, { password },
+      );
+      toast(data.message, 'success');
+      onClose();
+    } catch (err) {
+      toast(errorText(err, 'Could not reset the password'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={!!account}
+      onClose={onClose}
+      size="sm"
+      title="Reset password"
+      description={account ? `A new password for ${account.name}. Tell them what it is — it is not emailed.` : undefined}
+      dismissable={!busy}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={submit} disabled={busy || password.length < 6}>
+            {busy ? 'Setting…' : 'Set password'}
+          </Button>
+        </>
+      }
+    >
+      <Field
+        label="New password"
+        required
+        hint="At least 6 characters."
+        error={tooShort ? 'Too short — 6 characters minimum.' : null}
+      >
+        {(id) => (
+          <Input
+            id={id}
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            invalid={tooShort}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && password.length >= 6) submit(); }}
+          />
+        )}
+      </Field>
+    </Modal>
   );
 }
 
 /* ── Issue a login ──────────────────────────────────────────────────────── */
 
+const BLANK_FORM = {
+  name: '', username: '', email: '', password: '',
+  studentId: '', universityName: '', presetKey: '',
+};
+
 function IssueSheet({
-  presets, onClose, onIssued,
+  open, presets, onClose, onIssued,
 }: {
+  open: boolean;
   presets: Preset[];
   onClose: () => void;
   onIssued: () => Promise<void>;
 }) {
   const { toast } = useToast();
+  const formId = useId();
   const [role, setRole] = useState<'student' | 'university'>('student');
-  const [form, setForm] = useState({
-    name: '', username: '', email: '', password: '',
-    studentId: '', universityName: '', presetKey: '',
-  });
+  const [form, setForm] = useState(BLANK_FORM);
   const [students, setStudents] = useState<Student[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    if (!open) return;
+    setForm(BLANK_FORM);
+    setRole('student');
+  }, [open]);
 
   useEffect(() => {
-    if (role !== 'student' || students.length) return;
+    if (!open || role !== 'student' || students.length) return;
     api.get<Student[]>('/students').then((r) => setStudents(r.data)).catch(() => {});
-  }, [role, students.length]);
+  }, [open, role, students.length]);
+
+  const set = <K extends keyof typeof BLANK_FORM>(key: K, value: string) =>
+    setForm((f) => ({ ...f, [key]: value }));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -284,122 +340,104 @@ function IssueSheet({
   const picked = students.find((s) => s._id === form.studentId);
 
   return (
-    <>
-      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Issue a portal login"
-        className="animate-slide-in-right fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-lg flex-col border-l border-line bg-surface shadow-2xl"
-      >
-        <div className="flex h-[var(--chrome-h)] shrink-0 items-center justify-between border-b border-line px-5">
-          <h2 className="text-[17px] font-semibold text-t1">Issue a portal login</h2>
-          <button
-            type="button" onClick={onClose} aria-label="Close"
-            className="hig-press grid h-9 w-9 place-items-center rounded-lg text-t2 hover:bg-muted hover:text-t1"
+    <Modal
+      open={open}
+      onClose={onClose}
+      variant="sheet"
+      title="Issue a portal login"
+      description="A seat for someone outside the office."
+      dismissable={!saving}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button type="submit" form={formId} disabled={saving}>
+            {saving ? 'Issuing…' : 'Issue login'}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} className="space-y-4">
+        <Segmented
+          label="Account kind"
+          value={role}
+          onChange={setRole}
+          options={[
+            { value: 'student', label: 'Student' },
+            { value: 'university', label: 'University partner' },
+          ]}
+          className="w-full [&>button]:flex-1"
+        />
+
+        {role === 'student' ? (
+          <Field
+            label="Student record"
+            required
+            hint={picked ? `Stage: ${picked.stage.replace(/_/g, ' ')}` : undefined}
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-            <div className="flex rounded-full border border-line bg-card p-0.5">
-              {(['student', 'university'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`hig-press flex-1 rounded-full px-3 py-2 text-[13px] font-medium capitalize ${
-                    role === r ? 'bg-accent text-white' : 'text-t2 hover:text-t1'
-                  }`}
-                >
-                  {r === 'student' ? 'Student' : 'University partner'}
-                </button>
-              ))}
-            </div>
-
-            {role === 'student' ? (
-              <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-t2">Student record<span className="ml-0.5 text-t3">*</span></label>
-                <select
-                  value={form.studentId}
-                  onChange={(e) => {
-                    const s = students.find((x) => x._id === e.target.value);
-                    setForm({ ...form, studentId: e.target.value, name: form.name || s?.personal?.name || '' });
-                  }}
-                  className="min-h-[44px] w-full rounded-xl border border-line bg-card px-3 text-[15px] text-t1 focus:border-accent focus:outline-none"
-                >
-                  <option value="">Pick a student…</option>
-                  {students.map((s) => (
-                    <option key={s._id} value={s._id}>{s.personal?.name ?? s._id}</option>
-                  ))}
-                </select>
-                {picked && <p className="mt-1 text-[12px] text-t3">Stage: {picked.stage.replace(/_/g, ' ')}</p>}
-              </div>
-            ) : (
-              <Field label="Institution" required value={form.universityName}
-                onChange={(v) => setForm({ ...form, universityName: v })}
-                hint="Must match the name used in application records exactly." />
+            {(id) => (
+              <Select
+                id={id}
+                value={form.studentId}
+                onChange={(e) => {
+                  const s = students.find((x) => x._id === e.target.value);
+                  setForm((f) => ({
+                    ...f,
+                    studentId: e.target.value,
+                    name: f.name || s?.personal?.name || '',
+                  }));
+                }}
+              >
+                <option value="">Pick a student…</option>
+                {students.map((s) => (
+                  <option key={s._id} value={s._id}>{s.personal?.name ?? s._id}</option>
+                ))}
+              </Select>
             )}
-
-            <Field label="Display name" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field label="Username" required value={form.username}
-              onChange={(v) => setForm({ ...form, username: v.toLowerCase() })} hint="They sign in with this." />
-            <Field label="Password" required type="password" value={form.password}
-              onChange={(v) => setForm({ ...form, password: v })} hint="At least 6 characters." />
-            <Field label="Email" type="email" value={form.email}
-              onChange={(v) => setForm({ ...form, email: v })} hint="Optional — contact only." />
-
-            {presets.length > 0 && (
-              <div>
-                <label className="mb-1.5 block text-[13px] font-medium text-t2">Seat</label>
-                <select
-                  value={form.presetKey || role}
-                  onChange={(e) => setForm({ ...form, presetKey: e.target.value })}
-                  className="min-h-[44px] w-full rounded-xl border border-line bg-card px-3 text-[15px] text-t1 focus:border-accent focus:outline-none"
-                >
-                  {presets.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-                </select>
-              </div>
+          </Field>
+        ) : (
+          <Field label="Institution" required hint="Must match the name used in application records exactly.">
+            {(id) => (
+              <Input id={id} required value={form.universityName}
+                onChange={(e) => set('universityName', e.target.value)} />
             )}
-          </div>
+          </Field>
+        )}
 
-          <div className="flex shrink-0 gap-3 border-t border-line p-5">
-            <button type="submit" disabled={saving} className="hig-btn hig-btn-primary hig-press">
-              {saving ? 'Issuing…' : 'Issue login'}
-            </button>
-            <button type="button" onClick={onClose} className="hig-btn hig-press bg-muted text-t1 hover:bg-line">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </>
-  );
-}
+        <Field label="Display name" required>
+          {(id) => <Input id={id} required value={form.name} onChange={(e) => set('name', e.target.value)} />}
+        </Field>
 
-function Field({ label, value, onChange, required, type = 'text', hint }: {
-  label: string; value: string; onChange: (v: string) => void;
-  required?: boolean; type?: string; hint?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-[13px] font-medium text-t2">
-        {label}{required && <span className="ml-0.5 text-t3">*</span>}
-      </label>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        autoComplete={type === 'password' ? 'new-password' : 'off'}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-[44px] w-full rounded-xl border border-line bg-card px-3.5 text-[15px] text-t1 placeholder:text-t3 focus:border-accent focus:outline-none"
-      />
-      {hint && <p className="mt-1 text-[12px] leading-snug text-t3">{hint}</p>}
-    </div>
+        <Field label="Username" required hint="They sign in with this.">
+          {(id) => (
+            <Input id={id} required value={form.username}
+              onChange={(e) => set('username', e.target.value.toLowerCase())} />
+          )}
+        </Field>
+
+        <Field label="Password" required hint="At least 6 characters.">
+          {(id) => (
+            <Input id={id} type="password" required autoComplete="new-password"
+              value={form.password} onChange={(e) => set('password', e.target.value)} />
+          )}
+        </Field>
+
+        <Field label="Email" hint="Optional — contact only.">
+          {(id) => (
+            <Input id={id} type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
+          )}
+        </Field>
+
+        {presets.length > 0 && (
+          <Field label="Seat">
+            {(id) => (
+              <Select id={id} value={form.presetKey || role} onChange={(e) => set('presetKey', e.target.value)}>
+                {presets.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
+              </Select>
+            )}
+          </Field>
+        )}
+      </form>
+    </Modal>
   );
 }
 

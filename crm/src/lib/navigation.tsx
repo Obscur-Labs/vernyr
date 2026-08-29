@@ -24,7 +24,8 @@ export interface NavLeaf {
   keywords?: string;
   /** Shown under the label in the palette. */
   hint?: string;
-  icon: React.ReactNode;
+  /** Sections and top-level rows carry one; a child row is marked by the rail. */
+  icon?: React.ReactNode;
   /** Reachable from the header menu rather than the sidebar. */
   hidden?: boolean;
 }
@@ -39,13 +40,6 @@ export type NavItem = NavLeaf | NavSection;
 
 export const isSection = (item: NavItem): item is NavSection =>
   Array.isArray((item as NavSection).children) && (item as NavSection).children.length > 0;
-
-/** A child row is marked by a hairline dot rather than its own glyph. */
-const dot = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-5 h-5" aria-hidden>
-    <circle cx="12" cy="12" r="3.4" />
-  </svg>
-);
 
 const ICONS = {
   dashboard: <HomeIcon />,
@@ -116,7 +110,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'courses',
         keywords: 'programmes degrees masters bachelors search filter tuition intake',
         hint: 'Search and filter every course',
-        icon: dot,
       },
       {
         href: '/courses/universities',
@@ -124,7 +117,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'courses',
         keywords: 'institutions schools colleges partners',
         hint: 'Institutions and what they offer',
-        icon: dot,
       },
       {
         href: '/courses/countries',
@@ -132,7 +124,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'courses',
         keywords: 'destinations regions abroad',
         hint: 'Destinations at a glance',
-        icon: dot,
       },
     ],
   },
@@ -167,13 +158,13 @@ export const NAV_ITEMS: NavItem[] = [
     module: 'reports',
     icon: ICONS.reports,
     children: [
-      { href: '/reports', label: 'Overview', module: 'reports', hint: 'The whole pipeline in one view', keywords: 'summary totals trend', icon: dot },
-      { href: '/reports/finance', label: 'Finance', module: 'reports', hint: 'Revenue, ageing and outstanding', keywords: 'revenue money invoices payments ageing outstanding', icon: dot },
-      { href: '/reports/students', label: 'Students', module: 'reports', hint: 'Stages, counsellors and intake', keywords: 'stage counsellor caseload nationality ielts', icon: dot },
-      { href: '/reports/applications', label: 'Applications', module: 'reports', hint: 'Offers, countries and universities', keywords: 'offers acceptance rejection university country', icon: dot },
-      { href: '/reports/visas', label: 'Visas', module: 'reports', hint: 'Filings, decisions and approval rate', keywords: 'visa approval rejection biometrics filing', icon: dot },
-      { href: '/reports/leads', label: 'Leads', module: 'reports', hint: 'Sources and conversion', keywords: 'source conversion funnel enquiries', icon: dot },
-      { href: '/reports/catalogue', label: 'Catalogue', module: 'reports', hint: 'What the course catalogue holds', keywords: 'courses universities tuition coverage', icon: dot },
+      { href: '/reports', label: 'Overview', module: 'reports', hint: 'The whole pipeline in one view', keywords: 'summary totals trend' },
+      { href: '/reports/finance', label: 'Finance', module: 'reports', hint: 'Revenue, ageing and outstanding', keywords: 'revenue money invoices payments ageing outstanding' },
+      { href: '/reports/students', label: 'Students', module: 'reports', hint: 'Stages, counsellors and intake', keywords: 'stage counsellor caseload nationality ielts' },
+      { href: '/reports/applications', label: 'Applications', module: 'reports', hint: 'Offers, countries and universities', keywords: 'offers acceptance rejection university country' },
+      { href: '/reports/visas', label: 'Visas', module: 'reports', hint: 'Filings, decisions and approval rate', keywords: 'visa approval rejection biometrics filing' },
+      { href: '/reports/leads', label: 'Leads', module: 'reports', hint: 'Sources and conversion', keywords: 'source conversion funnel enquiries' },
+      { href: '/reports/catalogue', label: 'Catalogue', module: 'reports', hint: 'What the course catalogue holds', keywords: 'courses universities tuition coverage' },
     ],
   },
 
@@ -190,7 +181,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'members',
         keywords: 'team staff counsellors admins invite seats seat',
         hint: 'Staff who work in the CRM',
-        icon: dot,
       },
       {
         href: '/portal-accounts?role=student',
@@ -198,7 +188,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'portal_accounts',
         keywords: 'student portal credentials password issue access',
         hint: 'Portal seats for students',
-        icon: dot,
       },
       {
         href: '/portal-accounts?role=university',
@@ -206,7 +195,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'portal_accounts',
         keywords: 'university partner institution credentials password access',
         hint: 'Partner seats for institutions',
-        icon: dot,
       },
       {
         href: '/roles',
@@ -214,7 +202,6 @@ export const NAV_ITEMS: NavItem[] = [
         module: 'access',
         keywords: 'presets modules rbac privileges matrix permission',
         hint: 'Presets and the module matrix',
-        icon: dot,
       },
     ],
   },

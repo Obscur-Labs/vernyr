@@ -28,8 +28,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => (
-          <div key={t.id} className={`px-4 py-3 rounded-xl text-sm font-medium shadow-2xl border pointer-events-auto animate-toast-in max-w-xs ${COLOR[t.type]}`}>
-            {t.message}
+          // The tint sits on an opaque panel: on its own it is 15% colour over
+          // whatever the page happens to be showing, which reads as see-through.
+          <div
+            key={t.id}
+            className="overlay-panel animate-toast-in pointer-events-auto max-w-xs overflow-hidden rounded-xl"
+          >
+            <div className={`border-l-2 px-4 py-3 text-sm font-medium ${COLOR[t.type]}`}>
+              {t.message}
+            </div>
           </div>
         ))}
       </div>

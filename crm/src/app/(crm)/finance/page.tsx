@@ -180,7 +180,7 @@ export default function FinancePage() {
       {confirmPayId && (
         <>
           <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={() => setConfirmPayId(null)} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-80 bg-surface border border-line rounded-2xl p-6 shadow-2xl">
+          <div className="overlay-panel animate-overlay-in fixed left-1/2 top-1/2 z-50 w-[min(92vw,20rem)] -translate-x-1/2 -translate-y-1/2 rounded-3xl p-6">
             <h3 className="text-base font-semibold text-t1 mb-2">Mark as Paid?</h3>
             <p className="text-sm text-t2 mb-5">This will record today as the payment date and update the status to paid.</p>
             <div className="flex gap-3">

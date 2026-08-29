@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BellIcon, CloseIcon, notificationIcon } from '@/components/icons';
+import { timeAgo } from '@/lib/format';
 import type { Notification } from '@/types';
 
 /**
@@ -17,15 +18,6 @@ import type { Notification } from '@/types';
 const EXIT_MS = 150;
 const PREVIEW = 6;
 
-/** "just now", "12m", "3h", "5d" — a feed needs no more precision than that. */
-export function timeAgo(iso: string): string {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m`;
-  if (mins < 1440) return `${Math.round(mins / 60)}h`;
-  if (mins < 10080) return `${Math.round(mins / 1440)}d`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 export type NotificationAction = (action: 'read' | 'unread' | 'delete', ids: string[]) => void;
 

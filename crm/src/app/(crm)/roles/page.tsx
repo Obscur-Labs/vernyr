@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import api from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 import { useAuthStore, usePermission } from '@/stores/authStore';
@@ -8,6 +9,10 @@ import { PermissionMatrix } from '@/components/access/PermissionMatrix';
 import { Disclosure } from '@/components/access/Disclosure';
 import { expandPreset, heldModules, summarize } from '@/lib/access';
 import { SkeletonTable } from '@/components/Skeleton';
+import {
+  Badge, Button, Card, ConfirmModal, EmptyState, Field, Input, PageHeader,
+} from '@/components/ui';
+import { PlusIcon, ShieldIcon } from '@/components/icons';
 import type { AccessSnapshot, ModuleDef, PermissionMap, Preset } from '@/types';
 
 const errorText = (err: unknown, fallback: string) =>
@@ -36,6 +41,8 @@ export default function RolesPage() {
   const [draft, setDraft] = useState(blankDraft());
   const [matrix, setMatrix] = useState<PermissionMap>({});
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState<Preset | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const [m, p] = await Promise.all([
@@ -101,19 +108,20 @@ export default function RolesPage() {
     }
   }
 
-  async function remove(preset: Preset) {
-    const question = preset.isSystem
-      ? `Reset ${preset.name} to its built-in defaults?`
-      : `Delete the ${preset.name} preset?`;
-    if (!window.confirm(question)) return;
+  async function remove() {
+    if (!removing) return;
+    setBusy(true);
     try {
-      const { data } = await api.delete<{ message: string }>(`/access/presets/${preset.key}`);
+      const { data } = await api.delete<{ message: string }>(`/access/presets/${removing.key}`);
       const fresh = await load();
       await refreshOwnAccess();
-      if (!preset.isSystem) setSelected(fresh[0]?.key ?? null);
+      if (!removing.isSystem) setSelected(fresh[0]?.key ?? null);
       toast(data.message, 'success');
+      setRemoving(null);
     } catch (err) {
       toast(errorText(err, 'Could not delete'), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -122,26 +130,23 @@ export default function RolesPage() {
   if (loading) return <div className="p-6"><SkeletonTable rows={4} /></div>;
 
   return (
-    <div className="animate-fade-in p-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="max-w-2xl">
-          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-t1">Roles &amp; access</h1>
-          <p className="mt-1 text-[15px] leading-relaxed text-t2">
+    <div className="animate-fade-in space-y-6 p-6">
+      <PageHeader
+        title="Roles & permissions"
+        subtitle={
+          <>
             A preset is a named set of permissions. Every screen and every action in the app
             belongs to a module, and a preset says which of those a person holds. Assign one to
             each member on the{' '}
-            <a href="/members" className="text-accent hover:underline">Members</a> page.
-          </p>
-        </div>
-        {can('access', 'create') && (
-          <button
-            onClick={() => { setCreating(true); setDraft(blankDraft()); setMatrix({}); }}
-            className="hig-btn hig-btn-primary hig-press"
-          >
-            New preset
-          </button>
+            <Link href="/members" className="text-accent hover:underline">Members</Link> page.
+          </>
+        }
+        actions={can('access', 'create') && (
+          <Button onClick={() => { setCreating(true); setDraft(blankDraft()); setMatrix({}); }}>
+            <PlusIcon className="h-4 w-4" />New preset
+          </Button>
         )}
-      </div>
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         {/* ── Preset list ─────────────────────────────────────────────── */}
@@ -152,7 +157,9 @@ export default function RolesPage() {
             return (
               <button
                 key={preset.key}
+                type="button"
                 onClick={() => { setCreating(false); setSelected(preset.key); }}
+                aria-pressed={active}
                 className={`hig-press w-full rounded-2xl border p-4 text-left ${
                   active ? 'border-accent/50 bg-accent/[0.07]' : 'border-line bg-surface hover:bg-muted/60'
                 }`}
@@ -173,40 +180,54 @@ export default function RolesPage() {
           })}
 
           {creating && (
-            <div className="rounded-2xl border border-accent/50 bg-accent/[0.07] p-4">
+            <Card className="border-accent/50 bg-accent/[0.07]" padding="sm">
               <p className="text-[15px] font-semibold text-t1">New preset</p>
               <p className="mt-1 text-[13px] text-t2">Unsaved</p>
-            </div>
+            </Card>
           )}
         </aside>
 
         {/* ── Editor ──────────────────────────────────────────────────── */}
         <section className="min-w-0">
           {creating ? (
-            <div className="space-y-5 rounded-2xl border border-line bg-surface p-5">
+            <Card className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
-                  label="Name" required value={draft.name}
-                  onChange={(v) => setDraft({
-                    ...draft,
-                    name: v,
-                    // Suggest a key from the name until the key is edited by hand.
-                    key: draft.key || v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-                  })}
-                  placeholder="e.g. Senior counsellor"
-                />
-                <TextField
-                  label="Key" required value={draft.key}
-                  onChange={(v) => setDraft({ ...draft, key: v.toLowerCase() })}
-                  hint="Used in records. Lowercase, no spaces."
-                />
-                <div className="sm:col-span-2">
-                  <TextField
-                    label="Description" value={draft.description}
-                    onChange={(v) => setDraft({ ...draft, description: v })}
-                    placeholder="What this seat is for."
-                  />
-                </div>
+                <Field label="Name" required>
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={draft.name}
+                      placeholder="e.g. Senior counsellor"
+                      onChange={(e) => setDraft((d) => ({
+                        ...d,
+                        name: e.target.value,
+                        // Suggest a key from the name until the key is edited by hand.
+                        key: d.key || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+                      }))}
+                    />
+                  )}
+                </Field>
+
+                <Field label="Key" required hint="Used in records. Lowercase, no spaces.">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={draft.key}
+                      onChange={(e) => setDraft((d) => ({ ...d, key: e.target.value.toLowerCase() }))}
+                    />
+                  )}
+                </Field>
+
+                <Field label="Description" className="sm:col-span-2">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={draft.description}
+                      placeholder="What this seat is for."
+                      onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+                    />
+                  )}
+                </Field>
               </div>
 
               <Disclosure
@@ -218,37 +239,31 @@ export default function RolesPage() {
               </Disclosure>
 
               <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={save}
-                  disabled={saving || !draft.name.trim() || !draft.key.trim()}
-                  className="hig-btn hig-btn-primary hig-press"
-                >
+                <Button onClick={save} disabled={saving || !draft.name.trim() || !draft.key.trim()}>
                   {saving ? 'Creating…' : 'Create preset'}
-                </button>
-                <button onClick={() => setCreating(false)} className="hig-btn hig-press bg-muted text-t1 hover:bg-line">
-                  Cancel
-                </button>
+                </Button>
+                <Button variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
               </div>
-            </div>
+            </Card>
           ) : current ? (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-line bg-surface p-5">
+              <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="text-[20px] font-semibold text-t1">{current.name}</h2>
                     <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-t2">{current.description}</p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[12px] font-medium text-t2">
+                  <Badge className="shrink-0 px-2.5 py-1 text-[12px]">
                     {current.memberCount ?? 0} {current.memberCount === 1 ? 'member' : 'members'}
-                  </span>
+                  </Badge>
                 </div>
 
                 {/* What it grants, before anyone opens the grid. */}
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {heldModules(matrix, modules).map((m) => (
-                    <span key={m.key} className="rounded-full border border-line bg-card px-2.5 py-1 text-[12px] text-t2">
+                    <Badge key={m.key} tone="outline" className="bg-card px-2.5 py-1 text-[12px] text-t2">
                       {m.label}
-                    </span>
+                    </Badge>
                   ))}
                   {heldModules(matrix, modules).length === 0 && (
                     <span className="text-[13px] text-t3">This preset grants nothing yet.</span>
@@ -261,7 +276,7 @@ export default function RolesPage() {
                     reach this screen. Turning a verb off below still applies.
                   </p>
                 )}
-              </div>
+              </Card>
 
               <Disclosure
                 summary="Advanced settings"
@@ -277,22 +292,16 @@ export default function RolesPage() {
 
                   {!readOnly && (
                     <div className="flex flex-wrap gap-3">
-                      <button onClick={save} disabled={saving} className="hig-btn hig-btn-primary hig-press">
+                      <Button onClick={save} disabled={saving}>
                         {saving ? 'Saving…' : 'Save changes'}
-                      </button>
-                      <button
-                        onClick={() => setMatrix(expandPreset(current, modules))}
-                        className="hig-btn hig-press bg-muted text-t1 hover:bg-line"
-                      >
+                      </Button>
+                      <Button variant="outline" onClick={() => setMatrix(expandPreset(current, modules))}>
                         Discard
-                      </button>
+                      </Button>
                       {can('access', 'delete') && (
-                        <button
-                          onClick={() => remove(current)}
-                          className="hig-btn hig-press danger-action ml-auto"
-                        >
+                        <Button variant="danger" onClick={() => setRemoving(current)} className="ml-auto">
                           {current.isSystem ? 'Reset to default' : 'Delete preset'}
-                        </button>
+                        </Button>
                       )}
                     </div>
                   )}
@@ -300,34 +309,36 @@ export default function RolesPage() {
               </Disclosure>
             </div>
           ) : (
-            <p className="rounded-2xl border border-line bg-surface p-8 text-center text-[15px] text-t3">
-              Pick a preset to see what it grants.
-            </p>
+            <EmptyState
+              icon={<ShieldIcon className="h-7 w-7" />}
+              title="Pick a preset"
+              description="Choose one on the left to see what it grants."
+            />
           )}
         </section>
       </div>
-    </div>
-  );
-}
 
-function TextField({
-  label, value, onChange, required, placeholder, hint,
-}: {
-  label: string; value: string; onChange: (v: string) => void;
-  required?: boolean; placeholder?: string; hint?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-[13px] font-medium text-t2">
-        {label}{required && <span className="ml-0.5 text-t3">*</span>}
-      </label>
-      <input
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-[44px] w-full rounded-xl border border-line bg-card px-3.5 text-[15px] text-t1 placeholder:text-t3 focus:border-accent focus:outline-none"
+      <ConfirmModal
+        open={!!removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={remove}
+        busy={busy}
+        title={removing?.isSystem ? 'Reset this preset?' : 'Delete this preset?'}
+        confirmLabel={removing?.isSystem ? 'Reset to default' : 'Delete preset'}
+        body={removing?.isSystem ? (
+          <>
+            <strong className="text-t1">{removing.name}</strong> goes back to the built-in defined
+            in code. Anyone sitting in it moves with it.
+          </>
+        ) : (
+          <>
+            <strong className="text-t1">{removing?.name}</strong> will be deleted.
+            {removing?.memberCount
+              ? ` ${removing.memberCount} ${removing.memberCount === 1 ? 'account sits' : 'accounts sit'} in it and will fall back to their account type.`
+              : ' No accounts are using it.'}
+          </>
+        )}
       />
-      {hint && <p className="mt-1 text-[12px] text-t3">{hint}</p>}
     </div>
   );
 }

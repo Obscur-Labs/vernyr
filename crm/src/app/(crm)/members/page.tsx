@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import Link from 'next/link';
 import api from '@/lib/api';
 import { usesEmailLogin, loginHandle, USERNAME_RE } from '@/lib/credentials';
 import { useAuthStore, usePermission } from '@/stores/authStore';
@@ -9,6 +10,11 @@ import { SkeletonTable } from '@/components/Skeleton';
 import { PermissionMatrix } from '@/components/access/PermissionMatrix';
 import { Disclosure } from '@/components/access/Disclosure';
 import { diffFromPreset, expandPreset, mergePermissions, summarize } from '@/lib/access';
+import {
+  Badge, Button, ConfirmModal, Field, Input, Modal, PageHeader, Select,
+} from '@/components/ui';
+import { Avatar, Table, TableEmpty, TD, TR } from '@/components/ui/table';
+import { PlusIcon } from '@/components/icons';
 import type { ModuleDef, PermissionMap, Preset, User, UserRole } from '@/types';
 
 /** Account types. */
@@ -31,8 +37,7 @@ const BLANK: Draft = {
   role: 'counsellor', presetKey: 'counsellor', phone: '', universityName: '',
 };
 
-const initials = (name: string) =>
-  name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+const COLUMNS = ['Member', 'Sign-in', 'Seat', 'Phone', ''];
 
 export default function MembersPage() {
   const { user: me } = useAuthStore();
@@ -46,6 +51,8 @@ export default function MembersPage() {
 
   /** `null` = closed, `'new'` = the create sheet, otherwise the member's id. */
   const [editing, setEditing] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState<User | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await api.get<User[]>('/users');
@@ -60,9 +67,9 @@ export default function MembersPage() {
       // who may manage members but not roles still gets the rest of the page.
       can('access', 'read')
         ? Promise.all([
-            api.get<Preset[]>('/access/presets').then((r) => setPresets(r.data)),
-            api.get<ModuleDef[]>('/access/modules').then((r) => setModules(r.data)),
-          ])
+          api.get<Preset[]>('/access/presets').then((r) => setPresets(r.data)),
+          api.get<ModuleDef[]>('/access/modules').then((r) => setModules(r.data)),
+        ])
         : Promise.resolve(),
     ])
       .catch((err) => toast(errorText(err, 'Failed to load members'), 'error'))
@@ -73,124 +80,107 @@ export default function MembersPage() {
 
   const target = editing && editing !== 'new' ? members.find((m) => m._id === editing) ?? null : null;
 
-  async function deactivate(member: User) {
-    if (!window.confirm(`Deactivate ${member.name}? They will no longer be able to sign in.`)) return;
+  async function deactivate() {
+    if (!deactivating) return;
+    setBusy(true);
     try {
-      await api.delete(`/users/${member._id}`);
-      setMembers((prev) => prev.filter((u) => u._id !== member._id));
-      toast(`${member.name} deactivated`, 'success');
+      await api.delete(`/users/${deactivating._id}`);
+      setMembers((prev) => prev.filter((u) => u._id !== deactivating._id));
+      toast(`${deactivating.name} deactivated`, 'success');
+      setDeactivating(null);
     } catch (err) {
       toast(errorText(err, 'Failed to deactivate'), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <div className="animate-fade-in p-6">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="max-w-2xl">
-          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-t1">Members</h1>
-          <p className="mt-1 text-[15px] leading-relaxed text-t2">
+    <div className="animate-fade-in space-y-6 p-6">
+      <PageHeader
+        title="Members"
+        subtitle={
+          <>
             Staff and partner accounts. What each one can reach is decided by the preset in their
             seat — edit those on{' '}
-            <a href="/roles" className="text-accent hover:underline">Roles &amp; access</a>.
+            <Link href="/roles" className="text-accent hover:underline">Roles &amp; permissions</Link>.
             Student portal logins are issued from the student&rsquo;s own page, not here.
-          </p>
-        </div>
-        {can('members', 'create') && (
-          <button onClick={() => setEditing('new')} className="hig-btn hig-btn-primary hig-press">
-            Add member
-          </button>
+          </>
+        }
+        actions={can('members', 'create') && (
+          <Button onClick={() => setEditing('new')}>
+            <PlusIcon className="h-4 w-4" />Add member
+          </Button>
         )}
-      </div>
+      />
 
       {loading ? <SkeletonTable rows={5} /> : (
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
-              <thead>
-                <tr className="border-b border-line">
-                  {['Member', 'Sign-in', 'Seat', 'Phone', ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wider text-t2">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((u) => (
-                  <tr key={u._id} className="border-b border-line transition-colors last:border-0 hover:bg-muted/50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[11px] font-bold text-accent">
-                          {initials(u.name)}
-                        </span>
-                        <span className="text-[15px] font-medium text-t1">{u.name}</span>
-                        {u._id === me?._id && <span className="chip chip-admin">You</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[14px] text-t2">{loginHandle(u)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[14px] font-medium text-t1">{u.presetName ?? u.role}</span>
-                        {u.presetInherited && (
-                          <span
-                            title="No preset saved on this account yet — it follows the account type."
-                            className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-t2"
-                          >
-                            Inherited
-                          </span>
-                        )}
-                        {u.hasOverrides && (
-                          <span
-                            title="This account has permissions of its own on top of the preset."
-                            className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400"
-                          >
-                            Customised
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[14px] text-t2">{u.phone || '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        {can('members', 'update') && (
-                          <button
-                            onClick={() => setEditing(u._id)}
-                            className="hig-press rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-t2 hover:bg-muted hover:text-t1"
-                          >
-                            Edit
-                          </button>
-                        )}
-                        {can('members', 'delete') && u._id !== me?._id && (
-                          <button
-                            onClick={() => deactivate(u)}
-                            className="hig-press danger-action rounded-lg px-2.5 py-1.5 text-[13px] font-medium"
-                          >
-                            Deactivate
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {members.length === 0 && (
-                  <tr><td colSpan={5} className="py-12 text-center text-[15px] text-t3">No members yet.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table columns={COLUMNS}>
+          {members.map((u) => (
+            <TR key={u._id}>
+              <TD>
+                <div className="flex items-center gap-2.5">
+                  <Avatar name={u.name} />
+                  <span className="text-[15px] font-medium text-t1">{u.name}</span>
+                  {u._id === me?._id && <span className="chip chip-admin">You</span>}
+                </div>
+              </TD>
+              <TD>{loginHandle(u)}</TD>
+              <TD>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[14px] font-medium text-t1">{u.presetName ?? u.role}</span>
+                  {u.presetInherited && (
+                    <Badge title="No preset saved on this account yet — it follows the account type.">
+                      Inherited
+                    </Badge>
+                  )}
+                  {u.hasOverrides && (
+                    <Badge tone="warning" title="This account has permissions of its own on top of the preset.">
+                      Customised
+                    </Badge>
+                  )}
+                </div>
+              </TD>
+              <TD>{u.phone || '—'}</TD>
+              <TD>
+                <div className="flex justify-end gap-1">
+                  {can('members', 'update') && (
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(u._id)}>Edit</Button>
+                  )}
+                  {can('members', 'delete') && u._id !== me?._id && (
+                    <Button variant="danger" size="sm" onClick={() => setDeactivating(u)}>Deactivate</Button>
+                  )}
+                </div>
+              </TD>
+            </TR>
+          ))}
+          {members.length === 0 && <TableEmpty columns={COLUMNS.length}>No members yet.</TableEmpty>}
+        </Table>
       )}
 
-      {editing && (
-        <MemberSheet
-          member={target}
-          presets={presets}
-          modules={modules}
-          onClose={() => setEditing(null)}
-          onSaved={async () => { await load(); setEditing(null); }}
-        />
-      )}
+      <MemberSheet
+        open={!!editing}
+        member={target}
+        presets={presets}
+        modules={modules}
+        onClose={() => setEditing(null)}
+        onSaved={async () => { await load(); setEditing(null); }}
+      />
+
+      <ConfirmModal
+        open={!!deactivating}
+        onClose={() => setDeactivating(null)}
+        onConfirm={deactivate}
+        busy={busy}
+        title="Deactivate this member?"
+        confirmLabel="Deactivate"
+        body={
+          <>
+            <strong className="text-t1">{deactivating?.name}</strong> will no longer be able to sign
+            in. Their record and everything they touched stays where it is.
+          </>
+        }
+      />
     </div>
   );
 }
@@ -198,8 +188,9 @@ export default function MembersPage() {
 /* ── The create / edit sheet ────────────────────────────────────────────── */
 
 function MemberSheet({
-  member, presets, modules, onClose, onSaved,
+  open, member, presets, modules, onClose, onSaved,
 }: {
+  open: boolean;
   member: User | null;
   presets: Preset[];
   modules: ModuleDef[];
@@ -207,23 +198,29 @@ function MemberSheet({
   onSaved: () => Promise<void>;
 }) {
   const { toast } = useToast();
+  const formId = useId();
   const isNew = !member;
 
-  const [draft, setDraft] = useState<Draft>(() =>
-    member
-      ? {
-          name: member.name,
-          username: member.username ?? '',
-          email: member.email ?? '',
-          password: '',
-          role: member.role,
-          presetKey: member.presetKey ?? member.role,
-          phone: member.phone ?? '',
-          universityName: member.universityName ?? '',
-        }
-      : BLANK,
-  );
+  const [draft, setDraft] = useState<Draft>(BLANK);
   const [saving, setSaving] = useState(false);
+
+  // Reset on every open, so a closed sheet never reopens holding the last
+  // person's details.
+  useEffect(() => {
+    if (!open) return;
+    setDraft(member
+      ? {
+        name: member.name,
+        username: member.username ?? '',
+        email: member.email ?? '',
+        password: '',
+        role: member.role,
+        presetKey: member.presetKey ?? member.role,
+        phone: member.phone ?? '',
+        universityName: member.universityName ?? '',
+      }
+      : BLANK);
+  }, [open, member]);
 
   /** Seats offered for staff. A portal preset is never a choice on this screen. */
   const staffPresets = useMemo(
@@ -245,12 +242,8 @@ function MemberSheet({
   }, [presetPermissions, member]);
 
   const needsEmail = usesEmailLogin(draft.role);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -308,214 +301,189 @@ function MemberSheet({
   }
 
   const overrideCount = modules.length
-    ? Object.values(diffFromPreset(presetPermissions, matrix, modules)).reduce(
-        (n, verbs) => n + Object.keys(verbs).length, 0)
+    ? Object.values(diffFromPreset(presetPermissions, matrix, modules))
+      .reduce((n, verbs) => n + Object.keys(verbs).length, 0)
     : 0;
 
   return (
-    <>
-      <div className="overlay-scrim animate-backdrop-in fixed inset-0 z-40" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={isNew ? 'Add member' : `Edit ${member!.name}`}
-        className="overlay-panel animate-sheet-in fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-2xl flex-col rounded-none border-y-0 border-r-0 sm:rounded-l-3xl"
-      >
-        <div className="flex h-[var(--chrome-h)] shrink-0 items-center justify-between border-b border-line px-5">
-          <h2 className="text-[17px] font-semibold text-t1">{isNew ? 'Add member' : member!.name}</h2>
-          <button
-            type="button" onClick={onClose} aria-label="Close"
-            className="hig-press grid h-9 w-9 place-items-center rounded-lg text-t2 hover:bg-muted hover:text-t1"
+    <Modal
+      open={open}
+      onClose={onClose}
+      variant="sheet"
+      title={isNew ? 'Add member' : member?.name ?? ''}
+      description={isNew ? 'Staff and partner accounts only.' : undefined}
+      dismissable={!saving}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+          {/* The form lives in the body; `form=` is what lets a footer button
+              submit it without wrapping the modal's own chrome. */}
+          <Button type="submit" form={formId} disabled={saving}>
+            {saving ? 'Saving…' : isNew ? 'Add member' : 'Save changes'}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Full name" required>
+            {(id) => (
+              <Input id={id} required value={draft.name} onChange={(e) => set('name', e.target.value)} />
+            )}
+          </Field>
+
+          <Field
+            label="Account type"
+            hint={ACCOUNT_TYPES.find((t) => t.value === draft.role)?.note}
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Full name" required value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
-
+            {(id) => (
               <Select
-                label="Account type"
+                id={id}
                 value={draft.role}
-                onChange={(v) => {
-                  const role = v as UserRole;
+                onChange={(e) => {
+                  const role = e.target.value as UserRole;
                   // Keep the seat in step with the type unless one was chosen.
                   const suggested = presets.some((p) => p.key === role) ? role : draft.presetKey;
-                  setDraft({ ...draft, role, presetKey: isNew ? suggested : draft.presetKey });
+                  setDraft((d) => ({ ...d, role, presetKey: isNew ? suggested : d.presetKey }));
                 }}
-                options={ACCOUNT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-                hint={ACCOUNT_TYPES.find((t) => t.value === draft.role)?.note}
-              />
+              >
+                {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </Select>
+            )}
+          </Field>
 
-              {needsEmail ? (
-                <Field label="Email" required type="email" value={draft.email}
-                  onChange={(v) => setDraft({ ...draft, email: v })} hint="They sign in with this." />
-              ) : (
-                <Field label="Username" required value={draft.username}
-                  onChange={(v) => setDraft({ ...draft, username: v.toLowerCase() })}
-                  placeholder="e.g. sarah.thompson" hint="They sign in with this." />
+          {needsEmail ? (
+            <Field label="Email" required hint="They sign in with this.">
+              {(id) => (
+                <Input id={id} type="email" required value={draft.email}
+                  onChange={(e) => set('email', e.target.value)} />
               )}
-
-              {isNew ? (
-                <Field label="Password" required type="password" value={draft.password}
-                  onChange={(v) => setDraft({ ...draft, password: v })} hint="At least 6 characters." />
-              ) : (
-                !needsEmail && (
-                  <Field label="Email" type="email" value={draft.email}
-                    onChange={(v) => setDraft({ ...draft, email: v })} hint="Optional — contact only." />
-                )
+            </Field>
+          ) : (
+            <Field label="Username" required hint="They sign in with this.">
+              {(id) => (
+                <Input id={id} required value={draft.username} placeholder="e.g. sarah.thompson"
+                  onChange={(e) => set('username', e.target.value.toLowerCase())} />
               )}
+            </Field>
+          )}
 
-              {isNew && !needsEmail && (
-                <Field label="Email" type="email" value={draft.email}
-                  onChange={(v) => setDraft({ ...draft, email: v })} hint="Optional — contact only." />
+          {isNew ? (
+            <Field label="Password" required hint="At least 6 characters.">
+              {(id) => (
+                <Input id={id} type="password" required autoComplete="new-password"
+                  value={draft.password} onChange={(e) => set('password', e.target.value)} />
               )}
-
-              <Field label="Phone" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} hint="Optional." />
-
-              {draft.role === 'university' && (
-                <div className="sm:col-span-2">
-                  <Field label="University name" required value={draft.universityName}
-                    onChange={(v) => setDraft({ ...draft, universityName: v })}
-                    placeholder="e.g. University of Manchester"
-                    hint="Must match the name used in application records exactly." />
-                </div>
+            </Field>
+          ) : !needsEmail && (
+            <Field label="Email" hint="Optional — contact only.">
+              {(id) => (
+                <Input id={id} type="email" value={draft.email}
+                  onChange={(e) => set('email', e.target.value)} />
               )}
+            </Field>
+          )}
+
+          {isNew && !needsEmail && (
+            <Field label="Email" hint="Optional — contact only.">
+              {(id) => (
+                <Input id={id} type="email" value={draft.email}
+                  onChange={(e) => set('email', e.target.value)} />
+              )}
+            </Field>
+          )}
+
+          <Field label="Phone" hint="Optional.">
+            {(id) => <Input id={id} value={draft.phone} onChange={(e) => set('phone', e.target.value)} />}
+          </Field>
+
+          {draft.role === 'university' && (
+            <Field
+              label="University name"
+              required
+              hint="Must match the name used in application records exactly."
+              className="sm:col-span-2"
+            >
+              {(id) => (
+                <Input id={id} required value={draft.universityName}
+                  placeholder="e.g. University of Manchester"
+                  onChange={(e) => set('universityName', e.target.value)} />
+              )}
+            </Field>
+          )}
+        </div>
+
+        {/* ── The seat ─────────────────────────────────────────────── */}
+        {presets.length > 0 ? (
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-t1">Access</h3>
+              <p className="mt-0.5 text-[13px] text-t2">
+                Pick the preset this person sits in. Change the preset itself on Roles &amp;
+                permissions, and everyone in it moves together.
+              </p>
             </div>
 
-            {/* ── The seat ─────────────────────────────────────────────── */}
-            {presets.length > 0 ? (
-              <div className="space-y-3">
-                <div>
-                  <h3 className="text-[15px] font-semibold text-t1">Access</h3>
-                  <p className="mt-0.5 text-[13px] text-t2">
-                    Pick the preset this person sits in. Change the preset itself on Roles &amp; access,
-                    and everyone in it moves together.
-                  </p>
-                </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {staffPresets.map((p) => {
+                const active = p.key === draft.presetKey;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => set('presetKey', p.key)}
+                    aria-pressed={active}
+                    className={`hig-press rounded-xl border p-3 text-left ${
+                      active ? 'border-accent/50 bg-accent/[0.07]' : 'border-line bg-card hover:bg-muted/60'
+                    }`}
+                  >
+                    <span className="block text-[14px] font-semibold text-t1">{p.name}</span>
+                    <span className="mt-0.5 block text-[12px] text-t2">
+                      {modules.length ? summarize(expandPreset(p, modules), modules) : '—'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {staffPresets.map((p) => {
-                    const active = p.key === draft.presetKey;
-                    return (
-                      <button
-                        key={p.key}
-                        type="button"
-                        onClick={() => setDraft({ ...draft, presetKey: p.key })}
-                        className={`hig-press rounded-xl border p-3 text-left ${
-                          active ? 'border-accent/50 bg-accent/[0.07]' : 'border-line bg-card hover:bg-muted/60'
-                        }`}
-                      >
-                        <span className="block text-[14px] font-semibold text-t1">{p.name}</span>
-                        <span className="mt-0.5 block text-[12px] text-t2">
-                          {modules.length ? summarize(expandPreset(p, modules), modules) : '—'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {member?.presetInherited && (
-                  <p className="rounded-xl bg-muted px-3 py-2.5 text-[13px] leading-relaxed text-t2">
-                    This account has never had a preset saved — it currently follows its account
-                    type. Saving here writes the seat explicitly.
-                  </p>
-                )}
-
-                <Disclosure
-                  summary="Advanced settings"
-                  detail={
-                    overrideCount
-                      ? `${overrideCount} ${overrideCount === 1 ? 'permission differs' : 'permissions differ'} from ${preset?.name ?? 'the preset'}.`
-                      : `Grant or revoke individual actions for ${draft.name || 'this person'} only.`
-                  }
-                >
-                  <div className="space-y-4">
-                    <PermissionMatrix
-                      modules={modules}
-                      value={matrix}
-                      onChange={setMatrix}
-                      baseline={presetPermissions}
-                      baselineLabel={preset?.name ?? 'the preset'}
-                    />
-                    {overrideCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setMatrix(presetPermissions)}
-                        className="hig-btn hig-press bg-muted text-t1 hover:bg-line"
-                      >
-                        Reset to {preset?.name ?? 'the preset'}
-                      </button>
-                    )}
-                  </div>
-                </Disclosure>
-              </div>
-            ) : (
+            {member?.presetInherited && (
               <p className="rounded-xl bg-muted px-3 py-2.5 text-[13px] leading-relaxed text-t2">
-                You can edit this person&rsquo;s details, but changing their access needs
-                permission on Roles &amp; access.
+                This account has never had a preset saved — it currently follows its account
+                type. Saving here writes the seat explicitly.
               </p>
             )}
+
+            <Disclosure
+              summary="Advanced settings"
+              detail={
+                overrideCount
+                  ? `${overrideCount} ${overrideCount === 1 ? 'permission differs' : 'permissions differ'} from ${preset?.name ?? 'the preset'}.`
+                  : `Grant or revoke individual actions for ${draft.name || 'this person'} only.`
+              }
+            >
+              <div className="space-y-4">
+                <PermissionMatrix
+                  modules={modules}
+                  value={matrix}
+                  onChange={setMatrix}
+                  baseline={presetPermissions}
+                  baselineLabel={preset?.name ?? 'the preset'}
+                />
+                {overrideCount > 0 && (
+                  <Button variant="outline" onClick={() => setMatrix(presetPermissions)}>
+                    Reset to {preset?.name ?? 'the preset'}
+                  </Button>
+                )}
+              </div>
+            </Disclosure>
           </div>
-
-          <div className="flex shrink-0 gap-3 border-t border-line p-5">
-            <button type="submit" disabled={saving} className="hig-btn hig-btn-primary hig-press">
-              {saving ? 'Saving…' : isNew ? 'Add member' : 'Save changes'}
-            </button>
-            <button type="button" onClick={onClose} className="hig-btn hig-press bg-muted text-t1 hover:bg-line">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </>
-  );
-}
-
-/* ── Form primitives ────────────────────────────────────────────────────── */
-
-function Field({ label, value, onChange, required, type = 'text', placeholder, hint }: {
-  label: string; value: string; onChange: (v: string) => void;
-  required?: boolean; type?: string; placeholder?: string; hint?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-[13px] font-medium text-t2">
-        {label}{required && <span className="ml-0.5 text-t3">*</span>}
-      </label>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        placeholder={placeholder}
-        autoComplete={type === 'password' ? 'new-password' : 'off'}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-[44px] w-full rounded-xl border border-line bg-card px-3.5 text-[15px] text-t1 placeholder:text-t3 focus:border-accent focus:outline-none"
-      />
-      {hint && <p className="mt-1 text-[12px] leading-snug text-t3">{hint}</p>}
-    </div>
-  );
-}
-
-function Select({ label, value, onChange, options, hint }: {
-  label: string; value: string; onChange: (v: string) => void;
-  options: { value: string; label: string }[]; hint?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-[13px] font-medium text-t2">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-[44px] w-full rounded-xl border border-line bg-card px-3 text-[15px] text-t1 focus:border-accent focus:outline-none"
-      >
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      {hint && <p className="mt-1 text-[12px] leading-snug text-t3">{hint}</p>}
-    </div>
+        ) : (
+          <p className="rounded-xl bg-muted px-3 py-2.5 text-[13px] leading-relaxed text-t2">
+            You can edit this person&rsquo;s details, but changing their access needs
+            permission on Roles &amp; permissions.
+          </p>
+        )}
+      </form>
+    </Modal>
   );
 }

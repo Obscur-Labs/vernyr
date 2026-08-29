@@ -51,7 +51,17 @@ function NavRow({
   );
 }
 
-/** A child row — inset, dot-marked, quieter than its parent. */
+/**
+ * A child row.
+ *
+ * Each row carries its own 1px left border, so stacked with no gap they form
+ * one continuous rail — and the active row simply lights its own segment of it.
+ * A separate rail plus a floating dot left a 22px gutter between the two and
+ * gave the active row nothing but a colour change to distinguish it.
+ *
+ * The 21px of padding puts the label at 44px, which is exactly where the parent
+ * row's label starts (12px padding + 20px icon + 12px gap), so the two line up.
+ */
 function SubRow({ item, active, onNavigate }: { item: NavLeaf; active: boolean; onNavigate: () => void }) {
   return (
     <Link
@@ -59,18 +69,15 @@ function SubRow({ item, active, onNavigate }: { item: NavLeaf; active: boolean; 
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'hig-press relative flex h-9 items-center gap-2.5 rounded-lg px-3 text-[14px]',
-        active ? 'font-semibold text-accent' : 'font-medium text-t2 hover:bg-muted hover:text-t1',
+        // No `hig-press` here: its 0.97 press-scale would notch the rail these
+        // rows share. The colour transition below is the whole feedback.
+        'flex h-9 items-center rounded-r-lg border-l pl-[21px] pr-3 text-[14px]',
+        'transition-[background-color,border-color,color] duration-150',
+        active
+          ? 'border-accent bg-accent/10 font-semibold text-accent'
+          : 'border-line font-medium text-t2 hover:border-t3 hover:bg-muted hover:text-t1',
       )}
     >
-      <span
-        aria-hidden
-        className="h-1.5 w-1.5 shrink-0 rounded-full transition-opacity"
-        style={{
-          background: active ? 'var(--color-accent)' : 'var(--color-t3)',
-          opacity: active ? 1 : 0.45,
-        }}
-      />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -176,8 +183,10 @@ function Sidebar({ items, pathname, folded, openSections, onOpenSections, onNavi
                 </AccordionTrigger>
 
                 <AccordionContent>
-                  {/* The rail lines the children up under the parent's icon. */}
-                  <div className="ml-[22px] space-y-0.5 border-l border-line pl-2.5">
+                  {/* 22px is the centre of the parent's icon, so the rail the
+                      rows draw hangs directly beneath it. No gap between rows —
+                      that is what makes their borders read as one line. */}
+                  <div className="ml-[22px]">
                     {item.children.map((child) => (
                       <SubRow
                         key={child.href}
@@ -340,9 +349,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div
         onClick={() => setMobileOpen(false)}
         aria-hidden
-        className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-md transition-opacity duration-300 lg:hidden ${
-          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
+        className={cn(
+          'overlay-scrim fixed inset-0 z-40 transition-opacity duration-300 lg:hidden',
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
         style={{ transitionTimingFunction: 'var(--ease-out)' }}
       />
       <aside

@@ -5,6 +5,8 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import { usesEmailLogin } from '@/lib/credentials';
+import { Button, Card, Field, Input, PageHeader } from '@/components/ui';
+import { Avatar } from '@/components/ui/table';
 import type { User, UserRole } from '@/types';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -82,18 +84,13 @@ export default function ProfilePage() {
   if (!me) return null;
 
   return (
-    <div className="animate-fade-in p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-t1">Profile</h1>
-        <p className="mt-1 text-sm text-t2">Your account details and password.</p>
-      </div>
+    <div className="animate-fade-in space-y-6 p-6">
+      <PageHeader title="Profile" subtitle="Your account details and password." />
 
       <div className="max-w-lg space-y-6">
-        <div className="rounded-2xl border border-line bg-surface p-5">
+        <Card>
           <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20 text-sm font-bold text-accent">
-              {me.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-            </span>
+            <Avatar name={me.name} className="h-12 w-12 text-sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-t1">{me.name}</p>
               <p className="text-xs text-t2">
@@ -104,20 +101,34 @@ export default function ProfilePage() {
           </div>
 
           <form onSubmit={saveProfile} className="space-y-4">
-            <Field label="Full name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
+            <Field label="Full name" required>
+              {(id) => (
+                <Input id={id} required value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              )}
+            </Field>
+
             <Field
-              label="Email" type="email" value={form.email}
-              onChange={(v) => setForm({ ...form, email: v })}
+              label="Email"
               required={usesEmailLogin(me.role)}
               hint={usesEmailLogin(me.role) ? 'You sign in with this address.' : 'Optional — contact only.'}
-            />
-            <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} hint="Optional." />
-            <button
-              type="submit" disabled={savingProfile}
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
             >
+              {(id) => (
+                <Input id={id} type="email" required={usesEmailLogin(me.role)} value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              )}
+            </Field>
+
+            <Field label="Phone" hint="Optional.">
+              {(id) => (
+                <Input id={id} value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              )}
+            </Field>
+
+            <Button type="submit" disabled={savingProfile}>
               {savingProfile ? 'Saving…' : 'Save changes'}
-            </button>
+            </Button>
           </form>
 
           {me.username && (
@@ -125,49 +136,48 @@ export default function ProfilePage() {
               Your username can&rsquo;t be changed here — ask an admin to change it for you.
             </p>
           )}
-        </div>
+        </Card>
 
-        <div className="rounded-2xl border border-line bg-surface p-5">
+        <Card>
           <h2 className="mb-4 text-sm font-semibold text-t1">Change password</h2>
           <form onSubmit={changePassword} className="space-y-4">
-            <Field label="Current password" type="password" value={pw.current}
-              onChange={(v) => setPw({ ...pw, current: v })} required autoComplete="current-password" />
-            <Field label="New password" type="password" value={pw.next}
-              onChange={(v) => setPw({ ...pw, next: v })} required autoComplete="new-password"
-              hint={pw.next.length > 0 && pw.next.length < 6 ? `${pw.next.length}/6 characters` : 'At least 6 characters.'} />
-            <Field label="Confirm new password" type="password" value={pw.confirm}
-              onChange={(v) => setPw({ ...pw, confirm: v })} required autoComplete="new-password" />
-            <button
-              type="submit" disabled={savingPw}
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
-            >
-              {savingPw ? 'Updating…' : 'Update password'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
+            <Field label="Current password" required>
+              {(id) => (
+                <Input id={id} type="password" required autoComplete="current-password"
+                  value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
+              )}
+            </Field>
 
-function Field({ label, value, onChange, required, type = 'text', hint, autoComplete }: {
-  label: string; value: string; onChange: (v: string) => void;
-  required?: boolean; type?: string; hint?: string; autoComplete?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs text-t3">
-        {label}{required && <span className="ml-0.5 text-red-400">*</span>}
-      </label>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        autoComplete={autoComplete}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-line bg-card px-4 py-2.5 text-sm text-t1 focus:border-accent focus:outline-none"
-      />
-      {hint && <p className="mt-1 text-xs text-t3">{hint}</p>}
+            <Field
+              label="New password"
+              required
+              hint={pw.next.length > 0 && pw.next.length < 6 ? `${pw.next.length}/6 characters` : 'At least 6 characters.'}
+            >
+              {(id) => (
+                <Input id={id} type="password" required autoComplete="new-password"
+                  invalid={pw.next.length > 0 && pw.next.length < 6}
+                  value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+              )}
+            </Field>
+
+            <Field
+              label="Confirm new password"
+              required
+              error={pw.confirm.length > 0 && pw.confirm !== pw.next ? 'These do not match.' : null}
+            >
+              {(id) => (
+                <Input id={id} type="password" required autoComplete="new-password"
+                  invalid={pw.confirm.length > 0 && pw.confirm !== pw.next}
+                  value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} />
+              )}
+            </Field>
+
+            <Button type="submit" disabled={savingPw}>
+              {savingPw ? 'Updating…' : 'Update password'}
+            </Button>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

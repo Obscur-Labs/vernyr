@@ -17,10 +17,30 @@ export function InstallPrompt({ appName }: { appName: string }) {
   const [deferred, setDeferred] = useState<InstallEvent | null>(null);
   const [iosHint, setIosHint] = useState(false);
 
+  /**
+   * The worker is a production concern only.
+   *
+   * In development it is actively harmful: the dev server reuses chunk
+   * filenames across rebuilds, so a cached copy of `foo_abc._.js` is served for
+   * a module whose contents have since changed. The page then hydrates against
+   * a module graph that no longer matches, which fails silently — no console
+   * error, just a screen that never finishes loading.
+   *
+   * Unregistering here also heals a browser that already has the old worker
+   * installed, which a code change alone would not reach.
+   */
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if (!('serviceWorker' in navigator)) return;
+
+    if (process.env.NODE_ENV !== 'production') {
+      navigator.serviceWorker.getRegistrations()
+        .then((rs) => Promise.all(rs.map((r) => r.unregister())))
+        .then(() => caches?.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))))
+        .catch(() => {});
+      return;
     }
+
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, []);
 
   useEffect(() => {

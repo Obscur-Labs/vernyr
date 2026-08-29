@@ -65,12 +65,7 @@ export function PaletteWidget() {
     >
       {/* ── Expanded panel ────────────────────────────────────────────── */}
       {open && (
-        <div className="mr-2 rounded-2xl border border-line shadow-2xl p-4 w-56 animate-scale-in"
-          style={{
-            background: 'color-mix(in oklch, var(--color-card) 95%, transparent)',
-            backdropFilter: 'blur(20px)',
-          }}
-        >
+        <div className="overlay-panel animate-popover-in mr-2 w-56 origin-right rounded-2xl p-4">
           {/* Section: Mode */}
           <p className="text-[10px] font-semibold text-t3 uppercase tracking-widest mb-2.5">
             Mode

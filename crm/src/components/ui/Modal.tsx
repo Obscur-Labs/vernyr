@@ -134,9 +134,12 @@ export function Modal({
     ? (leaving ? 'animate-sheet-out' : 'animate-sheet-in')
     : (leaving ? 'animate-overlay-out' : 'animate-overlay-in');
 
+  // A sheet is docked to the edge and runs the full height; a centred dialog is
+  // capped so a long body scrolls inside it rather than off the screen. The cap
+  // used to apply to both, which stopped sheets short of the viewport edges.
   const panelPosition = isSheet
-    ? 'ml-auto h-full w-full sm:w-[min(560px,100%)] rounded-none sm:rounded-l-3xl'
-    : `w-full ${WIDTHS[size]} rounded-3xl`;
+    ? 'ml-auto h-full w-full border-y-0 border-r-0 sm:w-[min(560px,100%)] sm:rounded-l-3xl'
+    : `w-full ${WIDTHS[size]} max-h-[min(90vh,860px)] rounded-3xl`;
 
   return createPortal(
     <div
@@ -156,7 +159,7 @@ export function Modal({
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         className={cn(
-          'overlay-panel relative flex max-h-[min(90vh,860px)] flex-col overflow-hidden outline-none',
+          'overlay-panel relative flex flex-col overflow-hidden outline-none',
           panelPosition, panelMotion,
         )}
       >

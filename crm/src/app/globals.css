@@ -430,21 +430,6 @@ body { font-family: var(--font-system); }
   border-radius: var(--radius-sm);
 }
 
-/* ── Capsule controls ─────────────────────────────────────────────────────
-   Primary and secondary buttons, HIG proportions: 44pt tall, weight 600. */
-.hig-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 44px; padding: 0 20px;
-  border-radius: var(--radius-full);
-  font-size: var(--text-subhead); font-weight: 600;
-  white-space: nowrap;
-}
-.hig-btn-primary   { background: var(--color-accent); color: #fff; }
-.hig-btn-primary:hover:not(:disabled)   { filter: brightness(1.08); }
-.hig-btn-secondary { background: color-mix(in oklch, var(--color-accent) 12%, transparent); color: var(--color-accent); }
-.hig-btn-secondary:hover:not(:disabled) { background: color-mix(in oklch, var(--color-accent) 20%, transparent); }
-.hig-btn:disabled  { opacity: 0.4; cursor: not-allowed; }
-
 /* ── Grouped list ─────────────────────────────────────────────────────────
    Settings-style rows: inset separators, 44pt minimum row height. */
 .hig-group {
@@ -623,18 +608,25 @@ body { font-family: var(--font-system); }
   .overlay-scrim { background: color-mix(in oklch, var(--color-base) 88%, transparent); }
 }
 
-/* The floating panel itself — translucent so the blur reads through it. */
+/* The floating panel itself.
+   Opaque, deliberately. It was translucent with a backdrop-filter of its own,
+   which put the scrim's `brightness(0.72)` through the panel and made every
+   dialog read as washed-out glass. The blur belongs to the scrim; the thing you
+   are reading should be a solid surface. A panel-level `backdrop-filter` also
+   makes the panel a containing block for fixed-position descendants, which
+   quietly breaks anything portalled inside it. */
 .overlay-panel {
-  background: color-mix(in oklch, var(--color-surface) 92%, transparent);
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
-  border: 1px solid color-mix(in oklch, var(--color-line) 80%, transparent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
   box-shadow:
-    0 32px 64px -12px rgb(0 0 0 / 0.42),
-    0 0 0 1px color-mix(in oklch, var(--color-t1) 5%, transparent) inset;
+    0 24px 64px -16px rgb(0 0 0 / 0.55),
+    0 8px 20px -8px rgb(0 0 0 / 0.35),
+    0 0 0 1px color-mix(in oklch, var(--color-t1) 6%, transparent) inset;
 }
-@supports not (backdrop-filter: blur(1px)) {
-  .overlay-panel { background: var(--color-surface); }
+:root.light .overlay-panel {
+  box-shadow:
+    0 24px 64px -16px rgb(12 16 64 / 0.20),
+    0 8px 20px -8px rgb(12 16 64 / 0.12);
 }
 
 /* ── Accordion ────────────────────────────────────────────────────────────

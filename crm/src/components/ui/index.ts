@@ -16,3 +16,4 @@ export {
 export { Checkbox, Field, Input, SearchInput, Segmented, Select, Textarea } from './field';
 export { ConfirmModal, Modal, type ModalProps, type ModalSize } from './Modal';
 export { Stat, StatSkeleton, type StatProps } from './stat';
+export { Avatar, Table, TableEmpty, TableSkeleton, TD, TR } from './table';

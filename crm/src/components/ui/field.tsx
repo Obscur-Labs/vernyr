@@ -43,8 +43,11 @@ React.TextareaHTMLAttributes<HTMLTextAreaElement> & ControlVariants) => (
   <textarea rows={rows} className={cn(control({ size, invalid }), className)} {...props} />
 );
 
+// The DOM's own `size` is a number — of characters on an input, of visible rows
+// on a select — so it is omitted from both: intersecting it with this scale
+// would leave `never`, and every `size="sm"` would be a type error.
 export const Select = ({ className, size, invalid, ...props }:
-React.SelectHTMLAttributes<HTMLSelectElement> & ControlVariants) => (
+Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> & ControlVariants) => (
   <select className={cn(control({ size, invalid }), 'pr-8', className)} {...props} />
 );
 

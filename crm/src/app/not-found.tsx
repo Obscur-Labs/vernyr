@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { VernyrMark, Wordmark } from '@/components/auth/Insignia';
+import { Button, ButtonLink } from '@/components/ui';
 
 /**
  * Rendered for any unmatched route, and for `/dev` in a production build where
@@ -31,18 +31,8 @@ export default function NotFound() {
       </p>
 
       <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="hig-btn hig-press bg-muted text-t1 hover:bg-line"
-        >
-          Go back
-        </button>
-        <Link
-          href="/dashboard"
-          className="hig-btn hig-btn-primary hig-press"
-        >
-          Back to dashboard
-        </Link>
+        <Button variant="outline" onClick={() => router.back()}>Go back</Button>
+        <ButtonLink href="/dashboard">Back to dashboard</ButtonLink>
       </div>
     </main>
   );

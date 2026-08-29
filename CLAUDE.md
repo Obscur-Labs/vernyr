@@ -386,7 +386,18 @@ the class list.
 | `Badge` / `RoleBadge` / `LevelBadge` | tones are semantic, not colours |
 | `Modal` / `ConfirmModal` | see below |
 | `Stat` | one component behind the dashboard's tinted tiles and the reports' plain metrics |
+| `Table` / `TR` / `TD` / `TableEmpty` / `Avatar` | row rhythm, hairlines and the scroll container; sorting and selection stay with the page |
 | `Accordion` | Radix, used by the sidebar sections |
+
+Every screen goes through these, `/dev` included — the console having no auth
+is not a reason for it to have its own buttons. `window.confirm` and
+`window.prompt` appear nowhere in the CRM: they block the thread, ignore the
+theme and cannot say what is about to be lost, so `ConfirmModal` and a real
+form replace them.
+
+`lib/format.ts` holds `timeAgo` and `fullDate`. There were three `timeAgo`
+implementations before it, and they disagreed on when to give up and print a
+date.
 
 Icons are Lucide, aliased once in `components/icons.tsx` so the whole app
 shares a size and stroke and no page imports `lucide-react` directly. Swapping
@@ -444,6 +455,21 @@ Both Next apps install to a phone home screen from the browser.
 - `public/sw.js` — a minimal service worker. It exists to make the app
   installable and keep the shell reachable offline; it never caches `/api/`.
 - `components/InstallPrompt.tsx` registers the worker and shows the banner.
+
+  **The worker is registered in production builds only,** and in development it
+  actively unregisters itself and drops its caches. The dev server reuses chunk
+  filenames across rebuilds, so a cache-first worker serves a stale
+  `foo_abc._.js` for a module whose contents have changed; the page then
+  hydrates against a module graph that no longer matches and fails *silently* —
+  no console error, just a screen stuck on the loading spinner. Registering in
+  dev cost a day of exactly that.
+
+  `CACHE` is versioned (`VERSION` in `sw.js`) because `activate` deletes every
+  cache that is not the current one — a pinned name means a deploy never
+  invalidates anything. Cache-first is used only for `/_next/static/`, whose
+  URLs are content-addressed in a production build; assets are
+  stale-while-revalidate, navigations are network-first, and everything else is
+  left to the network.
   Android/Chrome uses `beforeinstallprompt`; iOS fires no such event, so Safari
   gets the Share → Add to Home Screen wording instead.
 - Icons are `public/icon-192.png` and `icon-512.png` (`any` + `maskable`).

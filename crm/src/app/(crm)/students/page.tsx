@@ -75,7 +75,7 @@ function AddStudentDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className="animate-slide-in-right fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl"
+        className="overlay-panel animate-sheet-in fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col rounded-none border-y-0 border-r-0 sm:rounded-l-3xl"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <h2 className="text-base font-semibold text-t1">Add New Student</h2>
