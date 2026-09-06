@@ -3,7 +3,7 @@ import Preset, { PRESET_KEY_RE } from '../models/Preset';
 import User from '../models/User';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { MODULES, sanitizePermissions, type PermissionMap } from '../config/modules';
-import { isBuiltIn, builtIn } from '../config/presets';
+import { isBuiltIn, builtIn, isLocked } from '../config/presets';
 import {
   listPresets,
   getPreset,
@@ -37,7 +37,7 @@ router.get('/modules', authenticate, can('access', 'read'), (_req: AuthRequest, 
 // GET /api/access/presets
 router.get('/presets', authenticate, can('access', 'read'), async (_req: AuthRequest, res: Response) => {
   try {
-    const presets = await listPresets();
+    const presets = (await listPresets()).filter((p) => !isLocked(p.key));
     const counts = await Promise.all(presets.map((p) => countUsersOnPreset(p.key)));
     res.json(presets.map((p, i) => ({ ...p, memberCount: counts[i] })));
   } catch (err) {
@@ -104,6 +104,10 @@ router.post('/presets', authenticate, can('access', 'create'), async (req: AuthR
 /** PUT /api/access/presets/:key — editing a built-in writes a shadowing row. */
 router.put('/presets/:key', authenticate, can('access', 'update'), async (req: AuthRequest, res: Response) => {
   const slug = String(req.params.key).trim().toLowerCase();
+  if (isLocked(slug)) {
+    res.status(403).json({ message: 'That seat is fixed and cannot be edited' });
+    return;
+  }
   const base = builtIn(slug);
   const existing = await Preset.findOne({ key: slug });
 
@@ -150,6 +154,10 @@ router.put('/presets/:key', authenticate, can('access', 'update'), async (req: A
 /** DELETE /api/access/presets/:key — built-in reverts to default, custom is removed. */
 router.delete('/presets/:key', authenticate, can('access', 'delete'), async (req: AuthRequest, res: Response) => {
   const slug = String(req.params.key).trim().toLowerCase();
+  if (isLocked(slug)) {
+    res.status(403).json({ message: 'That seat is fixed and cannot be changed' });
+    return;
+  }
   const row = await Preset.findOne({ key: slug });
 
   if (!row) {

@@ -102,6 +102,21 @@ const BUILT_IN_BY_KEY = new Map(BUILT_IN_PRESETS.map((p) => [p.key, p]));
 export const isBuiltIn = (key: string) => BUILT_IN_BY_KEY.has(key);
 export const builtIn = (key: string) => BUILT_IN_BY_KEY.get(key);
 
+/**
+ * Seats the access screen neither lists nor lets anyone edit, and that the
+ * account routes pin rather than accept from the client.
+ *
+ * - `student` is fixed by design. Every student route scopes rows to the
+ *   caller's own record, and the preset is the half of that gate which is
+ *   written down; widening it here would read as safe and not be.
+ * - `university` is parked until we decide what a partner may actually do.
+ *
+ * They still resolve normally — this hides and freezes them, it does not
+ * remove them.
+ */
+export const LOCKED_PRESET_KEYS = new Set(['student', 'university']);
+export const isLocked = (key: string) => LOCKED_PRESET_KEYS.has(key);
+
 /** Fallback seat for accounts with no `presetKey`. */
 export const DEFAULT_PRESET_FOR_ROLE: Record<string, string> = {
   admin: 'admin',

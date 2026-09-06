@@ -166,6 +166,17 @@ Editing a built-in preset writes a row in `presets` that **shadows** the code
 default; deleting that row restores it. Custom presets are rows with a key no
 built-in claims.
 
+**`LOCKED_PRESET_KEYS` — `student` and `university` — are outside all of that.**
+They still resolve exactly as before; they are simply not listed by
+`GET /api/access/presets`, and `PUT`/`DELETE` on either answers 403. The
+portal-accounts routes pin a locked role's seat too: `presetKey` and
+`permissions` sent by the client are ignored for a student or university
+login, on create and on update, so issuing or editing one can never widen it.
+The student seat is fixed because its routes scope rows to the caller's own
+record and the preset is the written-down half of that gate. University is
+parked until we decide what a partner may do — take it out of the set to bring
+it back.
+
 Routes ask exactly one question:
 
 ```ts

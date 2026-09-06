@@ -4,7 +4,7 @@ import Student from '../models/Student';
 import { USERNAME_RE } from '../models/accountFields';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { sanitizePermissions } from '../config/modules';
-import { DEFAULT_PRESET_FOR_ROLE } from '../config/presets';
+import { DEFAULT_PRESET_FOR_ROLE, isLocked } from '../config/presets';
 import { listPresets, invalidateUser } from '../services/access';
 import { credentialConflict } from '../services/accounts';
 import { logActivity } from '../utils/activityLog';
@@ -80,12 +80,15 @@ router.post('/', authenticate, can('portal_accounts', 'create'), async (req: Aut
       res.status(409).json({ message: 'That student already has a portal login' }); return;
     }
 
+    // A locked seat is pinned to its role: whatever preset or overrides the
+    // caller sent are ignored, so issuing a login can never widen the seat.
+    const pinned = isLocked(role);
     const account = await PortalAccount.create({
       name, username, email, password, role,
       studentId: role === 'student' ? studentId : undefined,
       universityName: role === 'university' ? universityName : undefined,
-      presetKey: presetKey || role,
-      ...(permissions ? { permissions: sanitizePermissions(permissions) } : {}),
+      presetKey: pinned ? role : (presetKey || role),
+      ...(!pinned && permissions ? { permissions: sanitizePermissions(permissions) } : {}),
     });
 
     // Keep the student record pointing back at its login.
@@ -112,6 +115,14 @@ router.put('/:id', authenticate, can('portal_accounts', 'update'), async (req: A
   try {
     const { password, ...update } = req.body ?? {};
     void password;   // password has its own endpoint
+
+    // The seat a locked role sits in is not editable, on this route either.
+    const current = await PortalAccount.findById(req.params.id).select('role').lean();
+    if (current && isLocked(current.role as string)) {
+      delete update.presetKey;
+      delete update.permissions;
+      delete update.role;
+    }
 
     if ('permissions' in update) update.permissions = sanitizePermissions(update.permissions);
 

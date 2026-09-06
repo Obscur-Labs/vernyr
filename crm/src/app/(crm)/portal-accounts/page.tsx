@@ -15,7 +15,7 @@ import {
 } from '@/components/ui';
 import { Avatar, Table, TableEmpty, TD, TR } from '@/components/ui/table';
 import { PlusIcon } from '@/components/icons';
-import type { PortalAccount, Preset, Student } from '@/types';
+import type { PortalAccount, Student } from '@/types';
 
 const errorText = (err: unknown, fallback: string) =>
   (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
@@ -39,7 +39,7 @@ function PortalAccountsInner() {
   const params = useSearchParams();
 
   const [rows, setRows] = useState<PortalAccount[]>([]);
-  const [presets, setPresets] = useState<Preset[]>([]);
+
   const [loading, setLoading] = useState(true);
   // The sidebar splits this page into "Student logins" and "University
   // logins", which are the same screen with the filter pre-set.
@@ -72,13 +72,6 @@ function PortalAccountsInner() {
     setFilter(role === 'student' || role === 'university' ? role : 'all');
   }, [params]);
 
-  useEffect(() => {
-    if (!can('access', 'read')) return;
-    api.get<Preset[]>('/access/presets')
-      .then((r) => setPresets(r.data.filter((p) => p.scope === 'portal')))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function deactivate() {
     if (!deactivating) return;
@@ -165,7 +158,6 @@ function PortalAccountsInner() {
 
       <IssueSheet
         open={creating}
-        presets={presets}
         onClose={() => setCreating(false)}
         onIssued={async () => { await load(); setCreating(false); }}
       />
@@ -273,14 +265,13 @@ function ResetPasswordModal({
 
 const BLANK_FORM = {
   name: '', username: '', email: '', password: '',
-  studentId: '', universityName: '', presetKey: '',
+  studentId: '', universityName: '',
 };
 
 function IssueSheet({
-  open, presets, onClose, onIssued,
+  open, onClose, onIssued,
 }: {
   open: boolean;
-  presets: Preset[];
   onClose: () => void;
   onIssued: () => Promise<void>;
 }) {
@@ -319,7 +310,6 @@ function IssueSheet({
       name: form.name.trim(),
       username: form.username.trim().toLowerCase(),
       password: form.password,
-      presetKey: form.presetKey || role,
     };
     if (form.email.trim()) payload.email = form.email.trim();
     if (role === 'student') payload.studentId = form.studentId;
@@ -427,15 +417,7 @@ function IssueSheet({
           )}
         </Field>
 
-        {presets.length > 0 && (
-          <Field label="Seat">
-            {(id) => (
-              <Select id={id} value={form.presetKey || role} onChange={(e) => set('presetKey', e.target.value)}>
-                {presets.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-              </Select>
-            )}
-          </Field>
-        )}
+
       </form>
     </Modal>
   );
