@@ -63,15 +63,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-base">
+    <main className="auth-paper min-h-screen">
       <div
         aria-hidden
-        className="engraving pointer-events-none absolute right-[-16rem] top-1/2 hidden w-[56rem] -translate-y-1/2 lg:block"
+        className="engraving pointer-events-none absolute right-[-16rem] top-1/2 z-0 hidden w-[56rem] -translate-y-1/2 lg:block"
       >
         <VernyrSeal className="h-auto w-full" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-10 sm:px-8">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-10 sm:px-8">
         <header className="flex items-center gap-2.5 text-t1">
           <VernyrMark className="h-9 w-9" />
           <Wordmark className="text-[19px]" />
@@ -79,10 +79,11 @@ export default function RegisterPage() {
 
         <div className="grid flex-1 items-center gap-14 py-12 lg:grid-cols-12 lg:gap-12">
           <section className="hidden lg:col-span-5 lg:block">
-            <h1 className="text-[2.3rem] font-semibold leading-[1.1] tracking-[-0.03em] text-t1 text-balance">
-              Start your file.
+            <p className="auth-eyebrow">New students</p>
+            <h1 className="auth-display mt-6 text-[2.9rem] text-balance">
+              Start <em>your file.</em>
             </h1>
-            <p className="mt-4 max-w-[42ch] text-[15px] leading-relaxed text-t2 text-pretty">
+            <p className="mt-6 max-w-[42ch] text-[15px] leading-relaxed text-t2 text-pretty">
               One place for your applications, documents and visa progress — and a direct line to
               the person handling them.
             </p>
@@ -103,11 +104,9 @@ export default function RegisterPage() {
           </section>
 
           <section className="lg:col-span-6 lg:col-start-7">
-            <div className="mx-auto w-full max-w-md rounded-2xl border border-line bg-surface p-7 sm:p-9">
-              <h2 className="text-[22px] font-semibold tracking-[-0.015em] text-t1">
-                Create your account
-              </h2>
-              <p className="mt-1.5 text-[14px] text-t2">Free, and takes about a minute.</p>
+            <div className="auth-plate mx-auto w-full max-w-md p-7 sm:p-9">
+              <h2 className="auth-display text-[2rem]">Create your account</h2>
+              <p className="mt-3 text-[14px] text-t2">Free, and takes about a minute.</p>
 
               <form onSubmit={handleRegister} className="mt-8 space-y-5">
                 <Field

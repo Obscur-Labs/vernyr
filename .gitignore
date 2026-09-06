@@ -6,6 +6,7 @@ node_modules/
 backend/dist/
 crm/.next/
 student/.next/
+website/.next/
 
 # Environment files
 backend/.env

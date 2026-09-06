@@ -1,5 +1,21 @@
 import type { Metadata, Viewport } from 'next';
+import { Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+
+/** The auth screens borrow the marketing site's editorial type. */
+const instrument = Instrument_Serif({
+  variable: '--font-instrument',
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
+const monoFace = JetBrains_Mono({
+  variable: '--font-mono-face',
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+});
 import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { InstallPrompt } from '@/components/InstallPrompt';
@@ -26,7 +42,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className="h-full">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${instrument.variable} ${monoFace.variable} h-full`}
+    >
       <body suppressHydrationWarning className="h-full antialiased bg-base text-t1">
         <ThemeProvider>
           <ToastProvider>

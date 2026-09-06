@@ -80,19 +80,19 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-base">
-      {/* Engraved field — a struck seal bleeding off the left edge */}
+    <main className="auth-paper min-h-screen">
+      {/* The struck seal, bleeding off the left edge. */}
       <div
         aria-hidden
-        className="engraving pointer-events-none absolute top-1/2 hidden -translate-y-1/2 lg:block"
-        style={{ left: '-15rem', width: '44rem' }}
+        className="engraving pointer-events-none absolute top-1/2 z-0 hidden -translate-y-1/2 lg:block"
+        style={{ left: '-16rem', width: '46rem' }}
       >
-        <VernyrSeal className="w-full h-auto" />
+        <VernyrSeal className="h-auto w-full" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 sm:px-10">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 sm:px-10">
         <header className="flex items-center gap-3 text-t1">
-          <VernyrMark className="w-9 h-9" />
+          <VernyrMark className="h-9 w-9" />
           <Wordmark className="text-[19px]" />
           <span aria-hidden className="h-4 w-px bg-line" />
           <span className="text-[13px] text-t2">Counsellor workspace</span>
@@ -101,10 +101,13 @@ export default function LoginPage() {
         <div className="grid flex-1 items-center gap-16 py-14 lg:grid-cols-12 lg:gap-10">
           {/* Brand column */}
           <section className="hidden lg:col-span-5 lg:block">
-            <h1 className="text-[2.6rem] font-semibold leading-[1.08] tracking-[-0.03em] text-t1 text-balance">
-              Every file, every deadline, every student.
+            <p className="auth-eyebrow">Staff sign-in</p>
+            <h1 className="auth-display mt-6 text-[3.1rem] text-balance">
+              Every file, every deadline,
+              <br />
+              <em>every student.</em>
             </h1>
-            <p className="mt-5 max-w-[46ch] text-[15px] leading-relaxed text-t2 text-pretty">
+            <p className="mt-6 max-w-[46ch] text-[15px] leading-relaxed text-t2 text-pretty">
               Vernyr keeps a consultancy&rsquo;s paperwork straight — so nothing slips between an
               enquiry and a boarding pass.
             </p>
@@ -115,7 +118,7 @@ export default function LoginPage() {
                   <svg
                     viewBox="0 0 24 24"
                     aria-hidden
-                    className="mt-0.5 w-[18px] h-[18px] shrink-0 text-accent"
+                    className="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.4"
@@ -135,9 +138,9 @@ export default function LoginPage() {
 
           {/* Sign-in plate */}
           <section className="lg:col-span-6 lg:col-start-7">
-            <div className="mx-auto w-full max-w-md rounded-2xl border border-line bg-surface p-7 sm:p-9">
-              <h2 className="text-[22px] font-semibold tracking-[-0.015em] text-t1">Sign in</h2>
-              <p className="mt-1.5 text-[14px] text-t2">
+            <div className="auth-plate mx-auto w-full max-w-md p-7 sm:p-9">
+              <h2 className="auth-display text-[2rem]">Sign in</h2>
+              <p className="mt-3 text-[14px] leading-relaxed text-t2">
                 Staff accounts are issued by your administrator. Administrators sign in with their
                 email address.
               </p>
@@ -171,8 +174,7 @@ export default function LoginPage() {
               </form>
 
               <p className="mt-7 border-t border-line pt-5 text-[13px] leading-relaxed text-t2">
-                Locked out or need an account? Ask a super admin to issue one from Settings →
-                Users.
+                Locked out or need an account? Ask an administrator to issue one from Members.
               </p>
             </div>
           </section>
@@ -180,7 +182,7 @@ export default function LoginPage() {
 
         <footer className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-t2">
           <span>© {new Date().getFullYear()} Vernyr</span>
-          <span className="tabular-nums">Study abroad operations</span>
+          <span className="auth-eyebrow">Study abroad operations</span>
         </footer>
       </div>
     </main>

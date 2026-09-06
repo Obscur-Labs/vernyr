@@ -4,36 +4,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-StudyCRM is a study-abroad management platform with three separate sub-projects:
+StudyCRM is a study-abroad management platform with four separate sub-projects:
 
 - **`backend/`** — Express + TypeScript API (port 5000)
 - **`crm/`** — Next.js 16 staff-facing CRM dashboard (port 3000)
 - **`student/`** — Next.js 16 student self-service portal (port 3001)
+- **`website/`** — Next.js 16 public marketing site (port 3002)
 
 ## Commands
 
 This is an **npm workspaces monorepo**. Run everything from the repo root — there is a
 single root `node_modules` and a single root `package-lock.json`. Do not run `npm install`
-inside `backend/`, `crm/`, or `student/`; that would recreate the per-app `node_modules`
-this layout exists to avoid.
+inside `backend/`, `crm/`, `student/` or `website/`; that would recreate the per-app
+`node_modules` this layout exists to avoid.
 
 ```bash
-npm install              # installs all three workspaces at once
+npm install              # installs all four workspaces at once
 
-npm run dev              # all three concurrently (colour-tagged output)
+npm run dev              # all four concurrently (colour-tagged output)
 npm run dev:backend      # ts-node with nodemon (hot reload), port 5000
 npm run dev:crm          # next dev, port 3000
 npm run dev:student      # next dev, port 3001
+npm run dev:website      # next dev, port 3002
 
-npm run build            # backend → crm → student, sequentially
+npm run build            # backend → crm → student → website, sequentially
 npm run build:backend    # tsc → backend/dist/
 npm run build:crm
 npm run build:student
+npm run build:website
 
-npm start                # all three production servers concurrently
+npm start                # all four production servers concurrently
 npm run start:backend    # node dist/index.js
 npm run start:crm
 npm run start:student
+npm run start:website
 
 npm run seed             # seed initial data via ts-node backend/src/seed.ts
 npm run typecheck        # tsc --noEmit across all three
@@ -43,8 +47,8 @@ npm run clean            # remove node_modules and build outputs
 The per-app scripts still exist in each workspace's `package.json`, so `cd crm && npm run dev`
 also works. The root scripts are just `npm run <script> -w <workspace>` wrappers.
 
-Both Next apps set `outputFileTracingRoot` to the repo root in `next.config.ts` — required
-because dependencies are hoisted above each app directory.
+All three Next apps set `outputFileTracingRoot` to the repo root in `next.config.ts` —
+required because dependencies are hoisted above each app directory.
 
 ## Environment Setup
 
@@ -498,3 +502,30 @@ Both Next apps install to a phone home screen from the browser.
 - Icons are `public/icon-192.png` and `icon-512.png` (`any` + `maskable`).
 
 Installability needs HTTPS in production; `localhost` is exempt.
+
+## Marketing site (`website/`)
+
+The public page at the apex, `vernyr.com`. Static — no API calls, no auth, no
+env file. Every outward link lives in `src/lib/site.ts`: the two product
+subdomains, the contact details, the Drive links for terms and privacy, and the
+catalogue counts quoted on the page. Change them there, nowhere else.
+
+The look comes from the `gradient-skin` skill in `.claude/skills/`, derived from
+the brand indigo `#3853DE`: big soft pools of colour bleeding in from the edges,
+cool on the left, warm on the right, with a white light-leak up the middle where
+the type sits. `.skin` in `globals.css` is that gradient; `.skin-soft` is the
+quieter wash the sections below the fold use. Regenerate with:
+
+```bash
+python .claude/skills/gradient-skin/scripts/skin.py \
+  --from-brand "#3853DE" --blank --seed 3 --format css
+```
+
+Type is Instrument Serif for display with a true italic second line, Inter for
+body, JetBrains Mono for the tracked-out eyebrows. Cards carry no border and no
+shadow — both fight the softness; `.panel` is a white wash plus a blur instead.
+The one bordered thing on the page is the badge.
+
+`Brand.tsx` re-declares the same traced mark geometry the apps use in
+`components/auth/Insignia.tsx`, and paints `wordmark.png` as an alpha mask over
+`currentColor`. If the mark is ever re-fitted, both copies move together.

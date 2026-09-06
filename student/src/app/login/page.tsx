@@ -40,25 +40,25 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-base">
+    <main className="auth-paper min-h-screen">
       <div
         aria-hidden
-        className="engraving pointer-events-none absolute left-1/2 top-1/2 w-[46rem] -translate-x-1/2 -translate-y-1/2 sm:w-[62rem]"
+        className="engraving pointer-events-none absolute left-1/2 top-1/2 z-0 w-[46rem] -translate-x-1/2 -translate-y-1/2 sm:w-[62rem]"
       >
         <VernyrSeal className="h-auto w-full" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
         <div className="flex items-center justify-center gap-2.5 text-t1">
           <VernyrMark className="h-9 w-9" />
           <Wordmark className="text-[19px]" />
         </div>
 
-        <div className="mt-9 rounded-2xl border border-line bg-surface p-7 sm:p-9">
-          <h1 className="text-[24px] font-semibold tracking-[-0.02em] text-t1 text-balance">
-            Welcome back
+        <div className="auth-plate mt-9 p-7 sm:p-9">
+          <h1 className="auth-display text-[2.2rem] text-balance">
+            Welcome <em>back.</em>
           </h1>
-          <p className="mt-1.5 text-[14px] text-t2">
+          <p className="mt-3 text-[14px] leading-relaxed text-t2">
             Pick up your application where you left it.
           </p>
 
@@ -94,7 +94,7 @@ export default function LoginPage() {
             New here?{' '}
             <Link
               href="/register"
-              className="font-semibold text-accent underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
+              className="rounded-sm font-semibold text-accent underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               Create an account
             </Link>
@@ -105,7 +105,7 @@ export default function LoginPage() {
           Stuck? Message your counsellor, or email{' '}
           <a
             href="mailto:support@vernyr.com"
-            className="text-t2 underline-offset-4 hover:underline hover:text-accent"
+            className="text-t2 underline-offset-4 hover:text-accent hover:underline"
           >
             support@vernyr.com
           </a>

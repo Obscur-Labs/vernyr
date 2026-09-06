@@ -1,11 +1,26 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist } from 'next/font/google';
+import { Geist, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { ToastProvider } from '@/context/ToastContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { InstallPrompt } from '@/components/InstallPrompt';
 
 const geist = Geist({ variable: '--font-geist', subsets: ['latin'] });
+
+/** The auth screens borrow the marketing site's editorial type. */
+const instrument = Instrument_Serif({
+  variable: '--font-instrument',
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
+const monoFace = JetBrains_Mono({
+  variable: '--font-mono-face',
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Vernyr',
@@ -27,7 +42,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geist.variable} h-full`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geist.variable} ${instrument.variable} ${monoFace.variable} h-full`}
+    >
       <body suppressHydrationWarning className="h-full bg-base text-t1 antialiased">
         <ThemeProvider>
           <ToastProvider>
