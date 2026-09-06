@@ -64,6 +64,15 @@ export function InstallPrompt({ appName }: { appName: string }) {
     return () => window.removeEventListener('beforeinstallprompt', onPrompt);
   }, []);
 
+  /**
+   * The offer is made once per browser. Writing the flag as the banner appears
+   * rather than when it is answered means ignoring it and reloading retires it
+   * too — otherwise every reload asks again, which is what staff were seeing.
+   */
+  useEffect(() => {
+    if (deferred || iosHint) localStorage.setItem(DISMISSED, '1');
+  }, [deferred, iosHint]);
+
   const dismiss = () => {
     localStorage.setItem(DISMISSED, '1');
     setDeferred(null);
