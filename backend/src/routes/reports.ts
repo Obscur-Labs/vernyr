@@ -190,7 +190,8 @@ router.get('/students', async (req: AuthRequest, res: Response) => {
       Student.aggregate([{ $group: { _id: '$stage', n: { $sum: 1 } } }]),
       Student.aggregate([{ $match: { createdAt: { $gte: start } } }, ...monthGroup('createdAt')]),
       Student.aggregate([
-        { $group: { _id: '$assignedCounsellor', n: { $sum: 1 } } },
+        { $unwind: '$counsellors' },
+        { $group: { _id: '$counsellors', n: { $sum: 1 } } },
         { $sort: { n: -1 } }, { $limit: 15 },
       ]),
       Student.aggregate([

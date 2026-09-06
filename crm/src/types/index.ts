@@ -186,7 +186,8 @@ export interface Conversation {
 export interface Student {
   _id: string;
   userId?: string;
-  assignedCounsellor?: User | null;
+  /** Everyone working the case. Populated on every read. */
+  counsellors?: User[];
   stage: StudentStage;
   personal: {
     name: string; email?: string; phone: string;

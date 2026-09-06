@@ -344,10 +344,10 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
         }).catch(() => {});
       }
     } else if (req.user!.role === 'student') {
-      // Free-will upload from the portal → tell the assigned counsellor
+      // Free-will upload from the portal → tell everyone working the case
       const student = await Student.findById(studentId);
-      if (student?.assignedCounsellor) {
-        notify([student.assignedCounsellor.toString()], {
+      if (student?.counsellors?.length) {
+        notify(student.counsellors.map(c => c.toString()), {
           type:  'document',
           title: '📤 New Document Uploaded',
           body:  `${req.user!.name} uploaded ${label || fileName}`,

@@ -174,7 +174,7 @@ const isObserver = !may(req, 'chat', 'create');   // inline branching
 ```
 
 `can()` only ever **denies**. Row-level scoping — a student seeing their own
-record, a counsellor seeing their own caseload, a university partner seeing their
+record, a university partner seeing their
 own applicants — still lives in the handlers, and holding a module permission
 never widens it. `authorize(...roles)` survives for the few checks that really
 are about the kind of account calling.
@@ -190,12 +190,24 @@ effect without signing out.
 sign-in style — never for authorization:
 
 - `admin` signs in with an email address; every other role uses a username.
-- `counsellor` is scoped to their own caseload.
+- `counsellor` sees every student. The book is shared: `Student.counsellors` is
+  a list, anyone on it is working the case, and a counsellor may add or remove
+  **themselves** on any record (`POST`/`DELETE /api/students/:id/counsellors`).
+  Only an admin puts someone *else* on a case. Whoever creates a student is
+  added to it automatically, so a record can never be enrolled into nobody's
+  hands. `GET /api/students?counsellor=me` is the "My students" filter.
 - `university` is scoped to applicants who applied to their institution, and is
   refused writes on student records regardless of preset.
 - `student` is bound to the one `Student` record its `studentId` points at, and
   may only set `personal`, `education`, `scores`, `passport` and `preferences`
   on it (`STUDENT_SELF_FIELDS` in `routes/students.ts`).
+
+```bash
+cd backend && npx ts-node src/scripts/backfillCounsellors.ts            # dry run
+cd backend && npx ts-node src/scripts/backfillCounsellors.ts --apply    # copies the old
+                                                                       # single assignedCounsellor
+                                                                       # into counsellors[]
+```
 
 ### CRM access surfaces
 
@@ -292,7 +304,7 @@ with zeros, because a line chart needs a point per month.
 
 ### Data Model Relationships
 ```
-User ──(role=student)──► Student
+User ──(role=student)──► Student          Student.counsellors[] ──► User
                             │
                 ┌───────────┼───────────┬──────────────┐
                 ▼           ▼           ▼              ▼

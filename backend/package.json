@@ -10,6 +10,7 @@
     "migrate:roles": "ts-node src/scripts/consolidateRoles.ts",
     "migrate:blank-credentials": "ts-node src/scripts/clearBlankCredentials.ts",
     "migrate:split-accounts": "ts-node src/scripts/splitPortalAccounts.ts",
+    "migrate:counsellors": "ts-node src/scripts/backfillCounsellors.ts",
     "import:courses": "ts-node src/scripts/importCourses.ts"
   },
   "dependencies": {

@@ -116,10 +116,6 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       setDocuments(dr.data);
       setVisa(vr.data[0] || null);
       setPayments(pr.data);
-      // Initialise counsellor picker with current assignment
-      const ac = sr.data.assignedCounsellor;
-      const currentId = ac ? (typeof ac === 'object' ? (ac as { _id: string })._id : ac as string) : '';
-      setSelectedCounsellor(currentId);
     }).catch(() => toast('Failed to load student data', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -220,27 +216,47 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
   };
 
   const canReviewDocs   = user && ['admin','counsellor'].includes(user.role);
-  const canAssignCounsellor = user?.role === 'admin';
+  // Admins put anyone on a case; a counsellor puts themselves on or off one.
+  const canAssignAnyone = user?.role === 'admin';
+  const canJoinCase     = user?.role === 'counsellor';
 
-  // Assign counsellor
   const [counsellors, setCounsellors]           = useState<{ _id: string; name: string }[]>([]);
   const [assigningCounsellor, setAssigningCounsellor] = useState(false);
   const [selectedCounsellor, setSelectedCounsellor]   = useState('');
 
+  const roster   = student?.counsellors ?? [];
+  const onCase   = !!user && roster.some(c => c._id === user._id);
+  const unlisted = counsellors.filter(c => !roster.some(r => r._id === c._id));
+
   useEffect(() => {
-    if (canAssignCounsellor) {
+    if (canAssignAnyone) {
       api.get('/users/counsellors').then(r => setCounsellors(r.data)).catch(() => {});
     }
-  }, [canAssignCounsellor]);
+  }, [canAssignAnyone]);
 
-  const handleAssignCounsellor = async () => {
+  const addCounsellor = async (counsellorId: string) => {
+    if (!counsellorId) return;
     setAssigningCounsellor(true);
     try {
-      const res = await api.patch(`/students/${id}/assign-counsellor`, { counsellorId: selectedCounsellor || null });
+      const res = await api.post(`/students/${id}/counsellors`, { counsellorId });
       setStudent(res.data);
-      toast(selectedCounsellor ? 'Counsellor assigned' : 'Counsellor removed', 'success');
+      setSelectedCounsellor('');
+      toast('Counsellor assigned', 'success');
     } catch {
       toast('Failed to assign counsellor', 'error');
+    } finally {
+      setAssigningCounsellor(false);
+    }
+  };
+
+  const removeCounsellor = async (counsellorId: string) => {
+    setAssigningCounsellor(true);
+    try {
+      const res = await api.delete(`/students/${id}/counsellors/${counsellorId}`);
+      setStudent(res.data);
+      toast('Counsellor removed', 'success');
+    } catch {
+      toast('Failed to remove counsellor', 'error');
     } finally {
       setAssigningCounsellor(false);
     }
@@ -308,11 +324,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               <h2 className="text-base font-bold text-t1">{student.personal?.name}</h2>
               <p className="text-xs text-t2 mt-0.5">{student.personal?.email || '—'}</p>
               <p className="text-xs text-t2">{student.personal?.phone}</p>
-              {student.assignedCounsellor && (
-                <p className="text-xs text-t3 mt-2">
-                  Counsellor: {typeof student.assignedCounsellor === 'string' ? student.assignedCounsellor : student.assignedCounsellor.name}
-                </p>
-              )}
+              <p className="text-xs text-t3 mt-2">
+                {roster.length
+                  ? `${roster.length > 1 ? 'Counsellors' : 'Counsellor'}: ${roster.map(c => c.name).join(', ')}`
+                  : 'No counsellor assigned'}
+              </p>
               {/* Chat button — needs a portal account; admins have no chat access */}
               {student.userId && user && user.role !== 'admin' && (
                 <Link
@@ -936,46 +952,69 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          {/* Assign / Reassign Counsellor */}
-          {canAssignCounsellor && (
+          {/* Counsellors on the case */}
+          {(canAssignAnyone || canJoinCase) && (
             <div className="bg-surface border border-line rounded-2xl p-5 space-y-3">
-              <h3 className="text-xs font-semibold text-t2 uppercase tracking-wider">Assign Counsellor</h3>
-              {student.assignedCounsellor ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
-                    {typeof student.assignedCounsellor === 'object'
-                      ? student.assignedCounsellor.name.split(' ').map((n: string) => n[0]).join('').slice(0,2).toUpperCase()
-                      : '?'}
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-t1">
-                      {typeof student.assignedCounsellor === 'object'
-                        ? (student.assignedCounsellor as { name: string }).name
-                        : student.assignedCounsellor}
-                    </p>
-                    <p className="text-xs text-t3">Current counsellor</p>
-                  </div>
-                </div>
+              <h3 className="text-xs font-semibold text-t2 uppercase tracking-wider">Counsellors</h3>
+              {roster.length ? (
+                <ul className="space-y-2">
+                  {roster.map(c => (
+                    <li key={c._id} className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
+                        {c.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-t1 truncate">{c.name}</p>
+                        {c._id === user?._id && <p className="text-xs text-t3">You</p>}
+                      </div>
+                      {(canAssignAnyone || c._id === user?._id) && (
+                        <button
+                          onClick={() => removeCounsellor(c._id)}
+                          disabled={assigningCounsellor}
+                          aria-label={`Remove ${c.name}`}
+                          className="hig-press grid h-7 w-7 place-items-center rounded-lg text-t3 hover:bg-muted hover:text-t1 disabled:opacity-60"
+                        >
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                          </svg>
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p className="text-xs text-t3">No counsellor assigned</p>
               )}
-              <div className="space-y-2">
-                <select
-                  value={selectedCounsellor}
-                  onChange={e => setSelectedCounsellor(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-card border border-line text-t1 text-sm focus:outline-none focus:border-accent"
-                >
-                  <option value="">— Unassign —</option>
-                  {counsellors.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                </select>
+
+              {canAssignAnyone && unlisted.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <select
+                    value={selectedCounsellor}
+                    onChange={e => setSelectedCounsellor(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-card border border-line text-t1 text-sm focus:outline-none focus:border-accent"
+                  >
+                    <option value="">— Add a counsellor —</option>
+                    {unlisted.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  </select>
+                  <button
+                    onClick={() => addCounsellor(selectedCounsellor)}
+                    disabled={assigningCounsellor || !selectedCounsellor}
+                    className="w-full py-2 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-indigo-500 disabled:opacity-60 transition-colors"
+                  >
+                    {assigningCounsellor ? 'Saving…' : 'Add to case'}
+                  </button>
+                </div>
+              )}
+
+              {canJoinCase && !onCase && (
                 <button
-                  onClick={handleAssignCounsellor}
+                  onClick={() => user && addCounsellor(user._id)}
                   disabled={assigningCounsellor}
                   className="w-full py-2 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-indigo-500 disabled:opacity-60 transition-colors"
                 >
-                  {assigningCounsellor ? 'Saving…' : student.assignedCounsellor ? 'Reassign' : 'Assign'}
+                  {assigningCounsellor ? 'Saving…' : 'Assign myself'}
                 </button>
-              </div>
+              )}
             </div>
           )}
 

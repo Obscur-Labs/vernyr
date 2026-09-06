@@ -70,7 +70,7 @@ router.put('/:id', authenticate, can('leads', 'update'), async (req: AuthRequest
           courses:      lead.intendedCourse  ? [lead.intendedCourse]  : [],
           intake:       lead.intakeSemester  || undefined,
         },
-        assignedCounsellor: counsellorId || undefined,
+        counsellors: counsellorId ? [counsellorId] : [],
         notes: lead.notes,
       });
 

@@ -94,16 +94,16 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Assigned counsellor */}
-        {!loading && student?.assignedCounsellor && (
-          <div className="bg-surface border border-line rounded-2xl p-4 flex items-center gap-4 animate-fade-in">
+        {/* Assigned counsellors */}
+        {!loading && student?.counsellors?.map(counsellor => (
+          <div key={counsellor._id} className="bg-surface border border-line rounded-2xl p-4 flex items-center gap-4 animate-fade-in">
             <div className="w-12 h-12 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg font-bold flex-shrink-0">
-              {student.assignedCounsellor.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+              {counsellor.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-t3 uppercase tracking-wider font-medium mb-0.5">Your Counsellor</p>
-              <p className="font-semibold text-t1 truncate">{student.assignedCounsellor.name}</p>
-              <p className="text-xs text-t3 truncate">{student.assignedCounsellor.email || ''}</p>
+              <p className="font-semibold text-t1 truncate">{counsellor.name}</p>
+              <p className="text-xs text-t3 truncate">{counsellor.email || ''}</p>
             </div>
             <Link
               href="/chat"
@@ -112,7 +112,7 @@ export default function HomePage() {
               Chat
             </Link>
           </div>
-        )}
+        ))}
 
         {/* Pending docs */}
         {!loading && pendingDocs.length > 0 && (

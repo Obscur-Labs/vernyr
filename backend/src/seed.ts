@@ -109,7 +109,7 @@ async function seed() {
   type StudentInput = {
     personal: { name: string; email: string; phone: string; dob?: string; gender?: string; nationality?: string; address?: string };
     stage: 'inquiry'|'counselling'|'university_selection'|'application_submitted'|'offer_letter'|'fee_payment'|'cas_i20'|'visa_filing'|'visa_approved'|'departure';
-    assignedCounsellor: mongoose.Types.ObjectId;
+    counsellors: mongoose.Types.ObjectId[];
     education: object;
     scores: object;
     passport: object;
@@ -129,7 +129,7 @@ async function seed() {
         address: '45 Garden Town, Lahore, Pakistan',
       },
       stage: 'visa_filing',
-      assignedCounsellor: counsellor1._id as mongoose.Types.ObjectId,
+      counsellors: [counsellor1._id as mongoose.Types.ObjectId],
       education: {
         highestLevel: 'undergraduate',
         board12: 'BISE Lahore',
@@ -158,7 +158,7 @@ async function seed() {
         address: 'B-12, Sector 62, Noida, India',
       },
       stage: 'offer_letter',
-      assignedCounsellor: counsellor2._id as mongoose.Types.ObjectId,
+      counsellors: [counsellor2._id as mongoose.Types.ObjectId],
       education: {
         highestLevel: 'undergraduate',
         graduationCollege: 'Delhi Technological University',
@@ -185,7 +185,7 @@ async function seed() {
         address: '88 Nanjing Road, Shanghai, China',
       },
       stage: 'counselling',
-      assignedCounsellor: counsellor3._id as mongoose.Types.ObjectId,
+      counsellors: [counsellor3._id as mongoose.Types.ObjectId],
       education: {
         highestLevel: '12th',
         board12: 'Shanghai Education Bureau',

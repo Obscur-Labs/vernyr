@@ -69,13 +69,13 @@ interface ScopingRule {
 
 const SCOPING_RULES: ScopingRule[] = [
   { area: 'Students', surface: 'GET /api/students',
-    rule: 'Students see only themselves, counsellors see their own assignments, university partners see their own applicants',
+    rule: 'Students see only themselves and university partners see their own applicants; counsellors see the whole book (?counsellor=me narrows it)',
     source: 'routes/students.ts — role branch in the list filter' },
   { area: 'Students', surface: 'GET/PUT/PATCH /api/students/:id',
     rule: 'A student may only reach the record their account is linked to',
     source: 'routes/students.ts — denyOtherStudentsRecord()' },
   { area: 'Students', surface: 'PUT/PATCH /api/students/:id',
-    rule: 'A student may only set personal, education, scores, passport and preferences — never stage or assignedCounsellor',
+    rule: 'A student may only set personal, education, scores, passport and preferences — never stage or counsellors',
     source: 'routes/students.ts — STUDENT_SELF_FIELDS' },
   { area: 'Students', surface: 'write ops /api/students',
     rule: 'University accounts are read-only regardless of preset',

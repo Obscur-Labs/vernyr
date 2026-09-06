@@ -4,7 +4,8 @@ export type StudentStage = 'inquiry' | 'counselling' | 'university_selection' | 
 
 export interface IStudent extends Document {
   userId?: mongoose.Types.ObjectId;
-  assignedCounsellor?: mongoose.Types.ObjectId;
+  /** Every counsellor working this case. Order is assignment order. */
+  counsellors: mongoose.Types.ObjectId[];
   stage: StudentStage;
   personal: {
     name: string;
@@ -40,7 +41,7 @@ export interface IStudent extends Document {
 
 const StudentSchema = new Schema<IStudent>({
   userId:            { type: Schema.Types.ObjectId, ref: 'User' },
-  assignedCounsellor:{ type: Schema.Types.ObjectId, ref: 'User' },
+  counsellors:       { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: [] },
   stage:             { type: String, enum: ['inquiry','counselling','university_selection','application_submitted','offer_letter','fee_payment','cas_i20','visa_filing','visa_approved','departure'], default: 'inquiry' },
   personal: {
     name:        { type: String, required: true },
@@ -63,5 +64,7 @@ const StudentSchema = new Schema<IStudent>({
   },
   notes: String,
 }, { timestamps: true });
+
+StudentSchema.index({ counsellors: 1 });
 
 export default mongoose.model<IStudent>('Student', StudentSchema);

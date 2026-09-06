@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useToast } from '@/context/ToastContext';
 import type { Student, StudentStage, User } from '@/types';
@@ -29,12 +30,14 @@ interface DrawerProps {
   onClose: () => void;
   onSave: (data: Partial<Student>) => void;
   counsellors: User[];
+  /** Counsellors only ever see their own caseload — the server assigns them. */
+  ownsCaseload: boolean;
 }
 
-function AddStudentDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
+function AddStudentDrawer({ open, onClose, onSave, counsellors, ownsCaseload }: DrawerProps) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', nationality: '',
-    assignedCounsellor: '', notes: '',
+    counsellorId: '', notes: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +47,8 @@ function AddStudentDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
     try {
       await onSave({
         personal: { name: form.name, email: form.email, phone: form.phone, nationality: form.nationality },
-        assignedCounsellor: form.assignedCounsellor ? ({ _id: form.assignedCounsellor } as unknown as User) : undefined,
+        // The server adds the creator when they are a counsellor.
+        counsellors: form.counsellorId ? [{ _id: form.counsellorId } as User] : [],
         notes: form.notes,
         stage: 'inquiry',
         education: {},
@@ -52,7 +56,7 @@ function AddStudentDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
         passport: {},
         preferences: { countries: [], universities: [], courses: [] },
       });
-      setForm({ name:'',email:'',phone:'',nationality:'',assignedCounsellor:'',notes:'' });
+      setForm({ name:'',email:'',phone:'',nationality:'',counsellorId:'',notes:'' });
     } finally {
       setSaving(false);
     }
@@ -110,14 +114,20 @@ function AddStudentDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
           ))}
           <div>
             <label className="block text-xs font-medium text-t2 mb-1">Assign Counsellor</label>
-            <select
-              value={form.assignedCounsellor}
-              onChange={e => setForm(p => ({ ...p, assignedCounsellor: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl bg-card border border-line text-t1 text-sm focus:outline-none focus:border-accent"
-            >
-              <option value="">Unassigned</option>
-              {counsellors.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-            </select>
+            {ownsCaseload ? (
+              <p className="w-full px-3 py-2 rounded-xl bg-muted border border-line text-t2 text-sm">
+                Assigned to you — others can join the case later.
+              </p>
+            ) : (
+              <select
+                value={form.counsellorId}
+                onChange={e => setForm(p => ({ ...p, counsellorId: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl bg-card border border-line text-t1 text-sm focus:outline-none focus:border-accent"
+              >
+                <option value="">Unassigned</option>
+                {counsellors.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-t2 mb-1">Notes</label>
@@ -147,25 +157,59 @@ export default function StudentsPage() {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
   const [filterStage, setFilterStage] = useState<StudentStage | ''>('');
+  const [scope, setScope]             = useState<'all' | 'mine'>('all');
   const [drawerOpen, setDrawerOpen]   = useState(false);
+  const [busyId, setBusyId]           = useState('');
   const { toast }                     = useToast();
   const router                        = useRouter();
+  const me                            = useAuthStore(s => s.user);
+  const isCounsellor                  = me?.role === 'counsellor';
+
+  const load = useCallback(async (which: 'all' | 'mine') => {
+    const { data } = await api.get('/students', { params: which === 'mine' ? { counsellor: 'me' } : {} });
+    setStudents(data);
+  }, []);
 
   useEffect(() => {
-    Promise.all([api.get('/students'), api.get('/users/counsellors')])
-      .then(([sr, cr]) => { setStudents(sr.data); setCounsellors(cr.data); })
+    // Separate catches: the counsellor list failing must not blank the table.
+    load(scope)
       .catch(() => toast('Failed to load students', 'error'))
       .finally(() => setLoading(false));
+  }, [scope, load]);
+
+  useEffect(() => {
+    api.get('/users/counsellors').then(r => setCounsellors(r.data)).catch(() => {});
   }, []);
 
   const handleAddStudent = async (data: Partial<Student>) => {
     try {
-      const res = await api.post('/students', data);
-      setStudents(prev => [res.data, ...prev]);
+      await api.post('/students', data);
+      // Re-read rather than prepend, so the row shown is the row the list
+      // actually returns — a record outside the caller's scope stays out.
+      await load(scope);
       setDrawerOpen(false);
       toast('Student added successfully', 'success');
     } catch {
       toast('Failed to add student', 'error');
+    }
+  };
+
+  /** Self-assign straight from the row — a counsellor picking up a case. */
+  const toggleMe = async (s: Student) => {
+    if (!me) return;
+    const mine = (s.counsellors ?? []).some(c => c._id === me._id);
+    setBusyId(s._id);
+    try {
+      const { data } = mine
+        ? await api.delete(`/students/${s._id}/counsellors/${me._id}`)
+        : await api.post(`/students/${s._id}/counsellors`, { counsellorId: me._id });
+      setStudents(prev => prev.map(x => (x._id === s._id ? data : x)));
+      toast(mine ? 'You left this case' : 'You joined this case', 'success');
+      if (scope === 'mine') await load(scope);
+    } catch {
+      toast('Could not change the assignment', 'error');
+    } finally {
+      setBusyId('');
     }
   };
 
@@ -182,9 +226,26 @@ export default function StudentsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-t1">Students</h1>
-          <p className="text-t2 text-sm mt-1">{students.length} students enrolled</p>
+          <p className="text-t2 text-sm mt-1">
+            {students.length} {scope === 'mine' ? 'assigned to you' : 'students enrolled'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
+          {isCounsellor && (
+            <div className="flex rounded-xl bg-surface border border-line p-0.5">
+              {(['all', 'mine'] as const).map(v => (
+                <button
+                  key={v}
+                  onClick={() => { setLoading(true); setScope(v); }}
+                  className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-colors ${
+                    scope === v ? 'bg-accent text-white' : 'text-t2 hover:text-t1'
+                  }`}
+                >
+                  {v === 'all' ? 'All students' : 'My students'}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="relative">
             <input
               value={search}
@@ -220,9 +281,10 @@ export default function StudentsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-line">
-                {['Student','Email','Stage','Counsellor','Countries','Created'].map(h => (
+                {['Student','Email','Stage','Counsellors','Countries','Created'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-t2 px-4 py-3 uppercase tracking-wider">{h}</th>
                 ))}
+                {isCounsellor && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
@@ -246,15 +308,45 @@ export default function StudentsPage() {
                       {s.stage.replace(/_/g,' ')}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-t2">
-                    {s.assignedCounsellor ? (typeof s.assignedCounsellor === 'string' ? s.assignedCounsellor : s.assignedCounsellor.name) : '—'}
+                  <td className="px-4 py-3">
+                    {s.counsellors?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {s.counsellors.map(c => (
+                          <span
+                            key={c._id}
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              c._id === me?._id ? 'bg-accent/15 text-accent' : 'bg-muted text-t2'
+                            }`}
+                          >
+                            {c.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : <span className="text-sm text-t3">Unassigned</span>}
                   </td>
                   <td className="px-4 py-3 text-sm text-t2">{s.preferences?.countries?.join(', ') || '—'}</td>
                   <td className="px-4 py-3 text-xs text-t3">{new Date(s.createdAt).toLocaleDateString()}</td>
+                  {isCounsellor && (
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={e => { e.stopPropagation(); toggleMe(s); }}
+                        disabled={busyId === s._id}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60 ${
+                          (s.counsellors ?? []).some(c => c._id === me?._id)
+                            ? 'bg-muted text-t2 hover:text-t1'
+                            : 'bg-accent/15 text-accent hover:bg-accent/25'
+                        }`}
+                      >
+                        {busyId === s._id ? '…' : (s.counsellors ?? []).some(c => c._id === me?._id) ? 'Leave' : 'Assign me'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-t3 text-sm">No students found</td></tr>
+                <tr><td colSpan={isCounsellor ? 7 : 6} className="text-center py-12 text-t3 text-sm">
+                  {scope === 'mine' ? 'No students assigned to you yet' : 'No students found'}
+                </td></tr>
               )}
             </tbody>
           </table>
@@ -266,6 +358,7 @@ export default function StudentsPage() {
         onClose={() => setDrawerOpen(false)}
         onSave={handleAddStudent}
         counsellors={counsellors}
+        ownsCaseload={isCounsellor}
       />
     </div>
   );

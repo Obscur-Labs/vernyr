@@ -82,7 +82,7 @@ export default function ChatPage() {
   const [activeRoom, setActiveRoom]     = useState<Room | null>(null);
   const [view, setView]                 = useState<'list' | 'thread'>('list');
   const [messages, setMessages]         = useState<Message[]>([]);
-  const [counsellor, setCounsellor]     = useState<{ _id: string; name: string } | null>(null);
+  const [counsellors, setCounsellors]   = useState<{ _id: string; name: string }[]>([]);
   const [input, setInput]               = useState('');
   const [loading, setLoading]           = useState(true);
   const [msgLoading, setMsgLoading]     = useState(false);
@@ -120,14 +120,17 @@ export default function ChatPage() {
     if (!studentId) return;
     try {
       const sRes = await api.get<Student>(`/students/${studentId}`);
-      const c = sRes.data.assignedCounsellor ?? null;
-      setCounsellor(c);
+      const assigned = sRes.data.counsellors ?? [];
+      setCounsellors(assigned);
 
       let list = (await api.get<Room[]>('/messages/conversations')).data;
 
-      // Make sure the room with the current counsellor exists
-      if (c && !list.some(r => !r.archived && r.participants.some(p => p._id === c._id))) {
-        await api.post('/messages/conversation', { participantId: c._id });
+      // Make sure a room exists with each counsellor working the case
+      const missing = assigned.filter(
+        c => !list.some(r => !r.archived && r.participants.some(p => p._id === c._id)),
+      );
+      if (missing.length) {
+        for (const c of missing) await api.post('/messages/conversation', { participantId: c._id });
         list = (await api.get<Room[]>('/messages/conversations')).data;
       }
 
@@ -196,7 +199,7 @@ export default function ChatPage() {
       if (userId !== myId) setOtherTyping(t);
     });
 
-    // Counsellor reassignment — refresh rooms so the new counsellor appears
+    // Roster change — refresh rooms so a new counsellor appears
     socket.on('conversations_changed', () => { loadRooms(false); });
 
     socket.on('conversation_archived', ({ conversationId }: { conversationId: string }) => {
@@ -385,7 +388,7 @@ export default function ChatPage() {
                 sortedRooms.map(room => {
                   const p      = otherOf(room);
                   const online = p ? onlineIds.has(p._id) : false;
-                  const isCurrent = !room.archived && counsellor && p?._id === counsellor._id;
+                  const isCurrent = !room.archived && counsellors.some(c => c._id === p?._id);
                   return (
                     <button
                       key={room._id}
@@ -456,7 +459,7 @@ export default function ChatPage() {
                       ? <span className="text-[#0a84ff]">typing…</span>
                       : otherOnline
                         ? <span className="text-emerald-500">online</span>
-                        : (counsellor && other?._id === counsellor._id ? 'Your Counsellor' : 'Previous Counsellor')}
+                        : (counsellors.some(c => c._id === other?._id) ? 'Your Counsellor' : 'Previous Counsellor')}
                 </p>
               </div>
             </div>
@@ -577,7 +580,7 @@ export default function ChatPage() {
             {isClosed ? (
               <div className="flex-shrink-0 px-4 sm:px-6 py-4 im-chrome border-t">
                 <p className="text-sm im-sub text-center leading-relaxed">
-                  🔒 This conversation is closed — you have a new counsellor now.
+                  🔒 This conversation is closed — that counsellor is no longer on your case.
                   You can still read the history here.
                 </p>
               </div>

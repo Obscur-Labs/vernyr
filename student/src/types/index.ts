@@ -50,7 +50,8 @@ export interface Counsellor {
 export interface Student {
   _id: string;
   userId?: string;
-  assignedCounsellor?: Counsellor | null;
+  /** Everyone working the case. Populated on every read. */
+  counsellors?: Counsellor[];
   stage: StudentStage;
   personal: {
     name: string; email?: string; phone: string;
