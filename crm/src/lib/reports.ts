@@ -202,7 +202,21 @@ export function orderedBuckets(
 export const colorize = (rows: Facet[] | undefined, colors: Record<string, string>) =>
   (rows ?? []).map((r) => ({ ...r, color: colors[r.value] }));
 
-export const money = (n: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', {
+/**
+ * The agency's own money is rupees. `currency` is still a parameter because a
+ * payment row carries its own — a university refund can land in pounds — and
+ * en-IN groups by lakh/crore, which is what the numbers are read in.
+ */
+const oneDp = (v: number) => v.toFixed(1).replace(/\.0$/, '');
+
+/** Revenue on a chart axis, in the units rupees are actually spoken in. */
+export const moneyCompact = (n: number) =>
+  Math.abs(n) >= 10_000_000 ? `₹${oneDp(n / 10_000_000)}Cr`
+    : Math.abs(n) >= 100_000 ? `₹${oneDp(n / 100_000)}L`
+      : Math.abs(n) >= 1_000 ? `₹${oneDp(n / 1_000)}k`
+        : `₹${Math.round(n)}`;
+
+export const money = (n: number, currency = 'INR') =>
+  new Intl.NumberFormat('en-IN', {
     style: 'currency', currency, maximumFractionDigits: 0,
   }).format(n);

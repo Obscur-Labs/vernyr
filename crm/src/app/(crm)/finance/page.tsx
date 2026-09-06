@@ -5,6 +5,7 @@ import { Stat, StatSkeleton } from '@/components/ui/stat';
 import { ClockIcon, RefundIcon, TrendingUpIcon, WalletIcon } from '@/components/icons';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useToast } from '@/context/ToastContext';
+import { money } from '@/lib/reports';
 import type { Payment, PaymentStatus, PaymentType } from '@/types';
 
 const STATUS_COLORS: Record<PaymentStatus, string> = {
@@ -79,10 +80,10 @@ export default function FinancePage() {
           [...Array(4)].map((_, i) => <StatSkeleton key={i} />)
         ) : (
           <>
-            <Stat label="Total Collected" value={`$${totalCollected.toLocaleString()}`} icon={<WalletIcon />} accent="emerald" />
-            <Stat label="Pending Payments" value={`$${totalPending.toLocaleString()}`} icon={<ClockIcon />} accent="amber" />
-            <Stat label="This Month Revenue" value={`$${thisMonth.toLocaleString()}`} icon={<TrendingUpIcon />} accent="indigo" />
-            <Stat label="Refunds" value={`$${totalRefunded.toLocaleString()}`} icon={<RefundIcon />} accent="blue" />
+            <Stat label="Total Collected" value={money(totalCollected)} icon={<WalletIcon />} accent="emerald" />
+            <Stat label="Pending Payments" value={money(totalPending)} icon={<ClockIcon />} accent="amber" />
+            <Stat label="This Month Revenue" value={money(thisMonth)} icon={<TrendingUpIcon />} accent="indigo" />
+            <Stat label="Refunds" value={money(totalRefunded)} icon={<RefundIcon />} accent="blue" />
           </>
         )}
       </div>
@@ -119,7 +120,7 @@ export default function FinancePage() {
                     <td className="px-4 py-3 text-sm font-medium text-t1">{getStudentName(p)}</td>
                     <td className="px-4 py-3 text-xs text-t2">{p.type.replace(/_/g,' ')}</td>
                     <td className="px-4 py-3 text-sm text-t2 max-w-[120px] truncate">{p.description}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-t1">{p.currency} {p.amount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-t1">{money(p.amount, p.currency)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[p.status]}`}>
                         {p.status}

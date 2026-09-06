@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import {
-  ChartCard, DonutChart, HBarChart, LineChart, fmtCompact,
+  ChartCard, DonutChart, HBarChart, LineChart,
 } from '@/components/charts';
 import { Metric, ReportShell, useReport, type Range } from '@/components/reports/ReportShell';
-import { PAYMENT_STATUS_COLORS, colorize, money, type FinanceReport } from '@/lib/reports';
+import { PAYMENT_STATUS_COLORS, colorize, money, moneyCompact, type FinanceReport } from '@/lib/reports';
 
 const STATUS_TONE: Record<string, string> = {
   paid: 'text-emerald-400',
@@ -51,7 +51,7 @@ export default function FinanceReportPage() {
                 { name: 'Billed', points: data.series.billed, color: 'var(--chart-1)' },
                 { name: 'Collected', points: data.series.revenue, color: 'var(--chart-2)' },
               ]}
-              valueFormat={(n) => `$${fmtCompact(n)}`}
+              valueFormat={(n) => moneyCompact(n)}
             />
           </ChartCard>
 
@@ -60,7 +60,7 @@ export default function FinanceReportPage() {
               <DonutChart
                 slices={colorize(data.byStatus, PAYMENT_STATUS_COLORS)}
                 centerLabel="Total billed"
-                centerValue={`$${fmtCompact(data.byStatus.reduce((n, s) => n + s.count, 0))}`}
+                centerValue={moneyCompact(data.byStatus.reduce((n, s) => n + s.count, 0))}
               />
             </ChartCard>
 

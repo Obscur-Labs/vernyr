@@ -25,7 +25,7 @@ const PaymentSchema = new Schema<IPayment>({
   type:          { type: String, enum: ['application_fee','university_fee','visa_fee','service_fee','courier_fee','other'], required: true },
   description:   { type: String, required: true },
   amount:        { type: Number, required: true },
-  currency:      { type: String, default: 'USD' },
+  currency:      { type: String, default: 'INR' },
   status:        { type: String, enum: ['pending','paid','overdue','refunded','waived'], default: 'pending' },
   dueDate:       Date,
   paidDate:      Date,

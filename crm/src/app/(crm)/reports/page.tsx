@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  BarChart, ChartCard, DonutChart, LineChart, fmtCompact, fmtNumber,
+  BarChart, ChartCard, DonutChart, LineChart, fmtNumber,
 } from '@/components/charts';
 import { Metric, ReportShell, useReport, type Range } from '@/components/reports/ReportShell';
 import {
@@ -11,7 +11,7 @@ import {
 } from '@/components/icons';
 import {
   APP_STATUS_COLORS, LEAD_STATUS_COLORS, LEAD_STATUS_ORDER,
-  STAGE_LABELS, STAGE_ORDER, colorize, money, orderedBuckets, type OverviewReport,
+  STAGE_LABELS, STAGE_ORDER, colorize, money, moneyCompact, orderedBuckets, type OverviewReport,
 } from '@/lib/reports';
 
 /** The section's front page — everything at once, each card a way into a report. */
@@ -92,7 +92,7 @@ export default function ReportsOverviewPage() {
             <LineChart
               labels={data.months}
               series={[{ name: 'Collected', points: data.series.revenue, color: 'var(--chart-2)' }]}
-              valueFormat={(n) => `$${fmtCompact(n)}`}
+              valueFormat={(n) => moneyCompact(n)}
               height={220}
             />
           </ChartCard>

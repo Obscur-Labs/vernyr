@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import { suggestUsername } from '@/lib/credentials';
 import { useBreadcrumbTail } from '@/context/BreadcrumbContext';
 import { fileHref } from '@/lib/media';
+import { money } from '@/lib/reports';
 import { apiUrl } from '@/lib/config';
 import { StageTracker } from '@/components/StageTracker';
 import { useToast } from '@/context/ToastContext';
@@ -68,7 +69,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
   const [showAddApp, setShowAddApp]     = useState(false);
   const [appForm, setAppForm]           = useState({ university:'', course:'', country:'', intake:'', level:'postgraduate', tuitionFee:'', currency:'GBP' });
   const [showAddPayment, setShowAddPayment] = useState(false);
-  const [paymentForm, setPaymentForm]   = useState({ type:'service_fee', description:'', amount:'', currency:'USD', dueDate:'' });
+  const [paymentForm, setPaymentForm]   = useState({ type:'service_fee', description:'', amount:'', currency:'INR', dueDate:'' });
   const [notes, setNotes]               = useState('');
   const [savingNotes, setSavingNotes]   = useState(false);
   const [reviewDoc, setReviewDoc]       = useState<Doc | null>(null);
@@ -186,7 +187,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
       const res = await api.post('/payments', { ...paymentForm, studentId: id, amount: Number(paymentForm.amount) });
       setPayments(prev => [res.data, ...prev]);
       setShowAddPayment(false);
-      setPaymentForm({ type:'service_fee',description:'',amount:'',currency:'USD',dueDate:'' });
+      setPaymentForm({ type:'service_fee',description:'',amount:'',currency:'INR',dueDate:'' });
       toast('Payment added', 'success');
     } catch {
       toast('Failed to add payment', 'error');
@@ -853,7 +854,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                       <tr key={p._id} className="border-b border-line last:border-0">
                         <td className="px-4 py-3 text-xs text-t2">{p.type.replace(/_/g,' ')}</td>
                         <td className="px-4 py-3 text-sm text-t1 max-w-[100px] truncate">{p.description}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-t1">{p.currency} {p.amount.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-t1">{money(p.amount, p.currency)}</td>
                         <td className="px-4 py-3 text-xs text-t3">{p.dueDate ? new Date(p.dueDate).toLocaleDateString() : '—'}</td>
                         <td className="px-4 py-3">
                           <span className={`text-xs px-2 py-1 rounded-full font-medium ${PAYMENT_STATUS_COLORS[p.status]}`}>

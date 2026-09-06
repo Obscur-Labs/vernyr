@@ -34,7 +34,7 @@ const TYPE_ICON: Record<PaymentType, string> = {
 };
 
 function formatCurrency(amount: number, currency: string) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }
 
 export default function PaymentsPage() {
@@ -75,13 +75,13 @@ export default function PaymentsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-4">
                 <p className="text-emerald-400 text-xl font-bold">
-                  {formatCurrency(totalPaid, payments.find(p => p.status === 'paid')?.currency ?? 'USD')}
+                  {formatCurrency(totalPaid, payments.find(p => p.status === 'paid')?.currency ?? 'INR')}
                 </p>
                 <p className="text-xs text-t3 mt-0.5 uppercase tracking-wider font-medium">Total Paid</p>
               </div>
               <div className={`${overdueCount > 0 ? 'bg-red-500/5 border-red-500/15' : 'bg-amber-500/5 border-amber-500/15'} rounded-2xl p-4 border`}>
                 <p className={`text-xl font-bold ${overdueCount > 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                  {formatCurrency(totalPending, payments.find(p => p.status === 'pending')?.currency ?? 'USD')}
+                  {formatCurrency(totalPending, payments.find(p => p.status === 'pending')?.currency ?? 'INR')}
                 </p>
                 <p className="text-xs text-t3 mt-0.5 uppercase tracking-wider font-medium">
                   Due {overdueCount > 0 && <span className="text-red-400">({overdueCount} overdue)</span>}

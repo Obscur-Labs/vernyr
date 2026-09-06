@@ -8,11 +8,11 @@ import { PageHeader } from '@/components/ui/card';
 import { useToast } from '@/context/ToastContext';
 import { usePermission } from '@/stores/authStore';
 import {
-  BarChart, ChartCard, ChartSkeleton, DonutChart, LineChart, StackedBar, fmtCompact,
+  BarChart, ChartCard, ChartSkeleton, DonutChart, LineChart, StackedBar,
 } from '@/components/charts';
 import {
   LEAD_STATUS_COLORS, LEAD_STATUS_ORDER, STAGE_LABELS, STAGE_ORDER,
-  orderedBuckets, money, type OverviewReport,
+  orderedBuckets, money, moneyCompact, type OverviewReport,
 } from '@/lib/reports';
 import {
   CreditCardIcon, DocumentTextIcon, GraduationIcon, PassportIcon, PlusIcon, TargetIcon,
@@ -99,7 +99,7 @@ export default function DashboardPage() {
             <Stat label="Visa Approvals" value={stats.visaApprovals} icon={<PassportIcon />} accent="violet" />
             <Stat
               label="Pending Payments"
-              value={`$${stats.pendingPaymentsTotal.toLocaleString()}`}
+              value={money(stats.pendingPaymentsTotal)}
               icon={<CreditCardIcon />}
               accent="amber"
               spark={overview?.series.revenue}
@@ -177,7 +177,7 @@ export default function DashboardPage() {
             <LineChart
               labels={overview.months}
               series={[{ name: 'Collected', points: overview.series.revenue, color: 'var(--chart-2)' }]}
-              valueFormat={(n) => `$${fmtCompact(n)}`}
+              valueFormat={(n) => moneyCompact(n)}
               height={220}
             />
           </ChartCard>
