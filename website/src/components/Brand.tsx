@@ -92,9 +92,18 @@ export function Wordmark({ className = '' }: { className?: string }) {
 /** Mark and wordmark locked to one baseline. */
 export function Logo({ className = '', size = 22 }: { className?: string; size?: number }) {
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className}`}>
+    <span
+      className={`inline-flex items-center gap-2.5 ${className}`}
+      aria-label="Vernyr"
+      role="img"
+    >
       <VernyrMark className="shrink-0" style={{ width: size, height: size }} />
-      <Wordmark className="text-ink" />
+      <span
+        aria-hidden="true"
+        className="font-display text-[1.22em] leading-none tracking-[-0.045em] text-ink"
+      >
+        Vernyr
+      </span>
     </span>
   );
 }
