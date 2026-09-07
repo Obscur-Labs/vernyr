@@ -3,17 +3,14 @@
 import { useId } from 'react';
 
 /**
- * The Vernyr mark, same traced geometry as the apps: two round-capped strokes
- * meeting in a v with the dot set off to the upper right. The strokes butt at
- * (.9, 37.5) where the arc bottoms out — their round caps face opposite ways
- * and together form the stroke's circular section, so the seam is invisible
- * and each half carries its own gradient.
+ * A compact, hand-drawn V: one continuous weighted stroke gives the mark a
+ * calm editorial silhouette, while the offset teal dot adds the signature
+ * point of energy used throughout the site palette.
  */
 const V = {
-  left: 'M-42.9 -35.5L-9.6 31.1A11.3 11.3 0 0 0 .9 37.5',
-  right: 'M.9 37.5A11.3 11.3 0 0 0 10.8 30.7L27.9 -2.5',
-  dot: { cx: 42.4, cy: -37.6, r: 13.6 },
-  weight: 26,
+  path: 'M-43 -35L-10.5 29.8A12 12 0 0 0 0 36.2A12 12 0 0 0 10.5 29.8L28 -4',
+  dot: { cx: 42.5, cy: -37, r: 13.5 },
+  weight: 25,
 };
 
 const VIEWBOX = '-56 -51.5 112 102';
@@ -33,25 +30,18 @@ export function VernyrMark({
   style?: React.CSSProperties;
 }) {
   const uid = useId();
-  const leftId = `vl-${uid}`;
-  const rightId = `vr-${uid}`;
+  const gradientId = `vm-${uid}`;
 
   return (
     <svg viewBox={VIEWBOX} role="img" aria-label="Vernyr" className={className} style={style} fill="none">
       <defs>
-        <linearGradient id={leftId} gradientUnits="userSpaceOnUse" x1="-42.9" y1="-35.5" x2="-9.6" y2="31.1">
+        <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="-43" y1="-35" x2="28" y2="-4">
           <stop stopColor={BRAND.violet} />
-          <stop offset="1" stopColor={BRAND.indigo} />
-        </linearGradient>
-        <linearGradient id={rightId} gradientUnits="userSpaceOnUse" x1="10.8" y1="30.7" x2="27.9" y2="-2.5">
-          <stop stopColor={BRAND.indigo} />
+          <stop offset="0.52" stopColor={BRAND.indigo} />
           <stop offset="1" stopColor={BRAND.blue} />
         </linearGradient>
       </defs>
-      <g strokeWidth={V.weight} strokeLinecap="round">
-        <path d={V.left} stroke={`url(#${leftId})`} />
-        <path d={V.right} stroke={`url(#${rightId})`} />
-      </g>
+      <path d={V.path} stroke={`url(#${gradientId})`} strokeWidth={V.weight} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={V.dot.cx} cy={V.dot.cy} r={V.dot.r} fill={BRAND.teal} />
     </svg>
   );
