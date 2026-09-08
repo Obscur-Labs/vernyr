@@ -1,6 +1,7 @@
 import { env } from "./config/env";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import path from "path";
 import fs from "fs";
 import http from "http";
@@ -24,6 +25,7 @@ import reportRoutes from "./routes/reports";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
+import { apiLimiter } from "./middleware/rateLimit";
 import { isCloudinaryConfigured } from "./config/cloudinary";
 
 const app = express();
@@ -33,9 +35,22 @@ const io = new Server(server, {
 });
 
 // Middleware
+app.disable("x-powered-by");
+// Behind Render's proxy, so req.ip must come from X-Forwarded-For or every
+// caller shares the load balancer's address and the rate limits are useless.
+app.set("trust proxy", 1);
+app.use(helmet({
+  // The API serves JSON and Cloudinary-hosted files; it renders no HTML of its
+  // own, so CSP has nothing to protect here and CORP would block the frontends.
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 app.use(cors({ origin: env.allowedOrigins, credentials: true }));
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// 10 MB was the body cap for JSON too, which let one request allocate 10 MB of
+// parsed objects. Uploads are multipart and carry their own limit.
+app.use(express.json({ limit: "256kb" }));
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
+app.use("/api", apiLimiter);
 
 // New uploads go to Cloudinary. This only keeps files that were written to
 // disk before that migration reachable, and is skipped when there are none.

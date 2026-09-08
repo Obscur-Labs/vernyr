@@ -102,7 +102,7 @@ export default function VisaPage() {
               <div key={visa._id} className="bg-surface border border-line rounded-2xl p-5 hover:border-accent/40 transition-colors">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-accent/20 text-accent text-sm font-bold flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-accent/20 text-accent-ink text-sm font-bold flex items-center justify-center">
                       {getStudentName(visa).split(' ').map(n => n[0]).join('').slice(0,2)}
                     </div>
                     <div>

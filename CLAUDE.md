@@ -199,6 +199,70 @@ any user or preset write) rather than trusting the token's claims, so a
 deactivated account is refused on its next request and a permission change takes
 effect without signing out.
 
+### Row scoping — `services/scope.ts`
+
+**A module grant answers *whether*; it never answers *whose*.** The student
+preset holds read on documents, applications, visas and finance so the portal
+has something to draw. For a while that was the only gate those routes had, and
+the `studentId` in a query string decided whose passport scan came back.
+
+Every route serving a portal seat goes through one of three helpers:
+
+- `scopeToOwnStudent(req, filter)` — pins a list filter to the caller's own
+  record. Returns false when they are scoped to nothing, and the route answers
+  with an empty list rather than the whole collection.
+- `ownsStudentRow(req, studentId)` — the single-row guard, before a read or a
+  write touches it.
+- `isPortalStudent(req)` — for the writes that are staff decisions whatever a
+  custom preset grants: document verification, fee records, visa stages.
+
+Staff callers pass all three unchanged, so adding one to a route costs nothing
+on the CRM side. The rules are mirrored in `SCOPING_RULES` in `routes/dev.ts`,
+which is what `/dev` renders — change a handler, change that list.
+
+### Chat membership
+
+`can('chat','create')` says a caller may send; it never said *where*.
+`openThreadFor(req, res, conversationId)` in `routes/messages.ts` is the
+membership check every write goes through, and `canOpenWith()` decides who a
+thread may be opened with — a portal account only ever talks to staff, never to
+another portal account.
+
+The same question is asked on the socket. `mayJoin()` in `socket/index.ts`
+authorises every `join_room`: `user:<id>` is the holder's alone, and any other
+room is a conversation the caller must participate in or observe. **The socket
+itself now requires a valid token to connect at all** — an unauthenticated
+socket used to be accepted and simply miss its personal room, which left every
+other room joinable by anyone who could guess an id. The legacy `send_message`
+relay is gone with it: it rebroadcast whatever a client handed it, under a
+sender identity the server never checked.
+
+### Request hardening
+
+- `helmet` for security headers, `x-powered-by` disabled, `trust proxy` set so
+  `req.ip` is the caller and not Render's load balancer.
+- `express-rate-limit` in `middleware/rateLimit.ts`. `loginLimiter` is keyed on
+  IP **plus the credential being tried**, so hammering one account does not lock
+  every other user out from that address; `signupLimiter` caps self-registration;
+  `apiLimiter` is the backstop.
+- JSON bodies are capped at 256 kb. Uploads are multipart and carry their own
+  10 MB limit.
+- **A caught error never reaches the client.** `serverError(res, err)` in
+  `utils/httpError.ts` logs it and answers with a bare message — a Mongoose
+  validation error carries the whole document, a driver error the connection
+  string, and every one of them a stack trace.
+- `scalar(req.query.x)` in `utils/query.ts` before any query value lands in a
+  filter. `?studentId[$ne]=` arrives as an object, and a filter built from one
+  stops meaning what it says.
+
+```bash
+npm run test:security      # 23 checks; needs a local mongod, drops its own scratch db
+```
+
+`backend/scripts/security-smoke.js` is the regression suite. Every check in it
+stands for a hole that was open in this codebase, so a failure is a return of
+one, not a style disagreement.
+
 ### Roles
 
 `User.role` still exists and still matters, but only for **data scoping** and
@@ -390,7 +454,25 @@ that permissions cannot express. Update those when you change a handler's scopin
 ### CRM Frontend Structure
 - App Router with a `(crm)` route group for authenticated pages
 - Global providers in `app/layout.tsx`: `ThemeProvider` → `ToastProvider`
-- Tailwind CSS v4 with a custom design token vocabulary: `bg-base`, `bg-surface`, `bg-card`, `bg-muted`, `border-line`, `text-t1/t2/t3`, `bg-accent` — defined in global CSS, not `tailwind.config`
+- Tailwind CSS v4 with a custom design token vocabulary: `bg-base`, `bg-surface`, `bg-card`, `bg-muted`, `border-line`, `text-t1/t2/t3`, `bg-accent`, `text-accent-ink` — defined in global CSS, not `tailwind.config`
+
+**The accent is two tokens.** `--color-accent` is the *fill* — button and chip
+backgrounds, with white text on top. `--color-accent-ink` is the accent used as
+*ink* — `text-accent-ink`, icons, the focus ring, the active-nav bar. On the
+light theme both are the brand indigo `#3853DE`; on dark the fill stays
+`#3853DE` and the ink lifts to `#7e8fea`.
+
+They are split because on the dark ground no single value can do both jobs:
+white text needs the accent dark enough to sit on (luminance ≤ 0.183) and
+accent text needs it light enough to read against a card (luminance ≥ 0.236),
+and those windows do not overlap. Use `bg-accent` for a surface you put white
+on, `text-accent-ink` for anything you read. **Never `text-accent`** — it does
+not exist, and reaching for it means the fill is being used as ink.
+
+The CRM ships one colour. It used to offer six switchable palettes behind a
+docked tray; the tray is gone, light/dark moved into the header toolbar, and
+`data-palette` is no longer written. `#3853DE` is the same indigo the marketing
+site and the auth screens carry.
 - `useToast()` from `ToastContext` for all user-facing feedback
 - `useAuthStore` from `stores/authStore.ts` for auth state
 - All API calls go through the configured Axios instance at `lib/api.ts`
@@ -432,6 +514,43 @@ which glyph means "university" is a one-line change there. Emoji are not used
 as icons — they bring their own palette, ignore the theme and render
 differently on every platform. Country flags are the exception: those identify
 a place rather than decorate a control.
+
+#### The Apple HIG layer
+
+`globals.css` ends with the HIG layer: the San Francisco stack, the iOS type
+scale, the 8pt grid, concentric radii, Apple's easing curves and the
+translucent chrome materials. **It governs form, rhythm and motion — never
+hue.** The palettes above it stay the brand's own, which is why a HIG change
+does not disturb the five themes or the light/dark pairs.
+
+Two rules the components depend on:
+
+- **Type comes off the scale.** 11 / 12 / 13 / 15 / 17 / 20 / 22 / 28 / 34, and
+  nothing between. The semantic classes — `.hig-title1`, `.hig-headline`,
+  `.hig-subhead`, `.hig-footnote`, `.hig-caption`, `.hig-label` — name the role
+  so a component says what a line *is* rather than how many pixels it is.
+  `text-[14px]` and `text-[11.5px]` are the shape of the old drift; there
+  should be none left.
+
+- **44pt is the minimum target.** `.hig-control` sets the height for anything
+  a finger lands on. Where a control should stay visually smaller — a 36pt
+  toolbar glyph, a 32pt filter in a dense row — `.hig-touch` grows only the
+  area that receives the tap, using an `::after` overlay so the border and
+  background do not move with it. `.hig-touch-tight` is the 40pt variant, for
+  a row of adjacent targets that would otherwise overlap and steal each
+  other's taps.
+
+  The one exemption is an inline affordance inside an already-clickable row:
+  an overlay there covers the row itself. Those are given more room instead.
+
+**Tailwind's own type steps are redefined onto the scale** in the `@theme`
+block at the end of the file — `text-sm` is 13 (footnote), `text-base` is 15
+(subhead), `text-2xl` is 22 (title2). The app sizes most of its text with
+those names, so redefining the step moves ~370 call sites at once. This is the
+same move the light-theme colour ramp makes, for the same reason: rewriting
+every class by hand would be a worse change with more ways to go wrong. **Do
+not "correct" these back to Tailwind's defaults** — that silently pulls half
+the app off the grid again.
 
 #### Overlays
 

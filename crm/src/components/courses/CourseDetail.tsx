@@ -64,7 +64,7 @@ export function CourseDetail({
         <DetailRow label="University">
           <Link
             href={`/courses/universities?q=${encodeURIComponent(course.universityName)}`}
-            className="text-accent hover:underline"
+            className="text-accent-ink hover:underline"
           >
             {course.universityName}
           </Link>
@@ -86,7 +86,7 @@ export function CourseDetail({
         {course.notes && <DetailRow label="Notes">{course.notes}</DetailRow>}
         {course.link && (
           <DetailRow label="Link">
-            <a href={course.link} target="_blank" rel="noreferrer" className="break-all text-accent hover:underline">
+            <a href={course.link} target="_blank" rel="noreferrer" className="break-all text-accent-ink hover:underline">
               {course.link}
             </a>
           </DetailRow>
@@ -107,7 +107,7 @@ export function CourseDetail({
       )}
 
       {course.source && (
-        <p className="mt-4 text-[11.5px] text-t3">
+        <p className="mt-4 text-[12px] text-t3">
           Imported from <span style={{ fontFamily: 'var(--font-mono)' }}>{course.source}</span>
         </p>
       )}

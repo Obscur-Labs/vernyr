@@ -319,7 +319,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           {/* Student card */}
           <div className="bg-surface border border-line rounded-2xl p-5">
             <div className="flex flex-col items-center text-center mb-5">
-              <div className="w-16 h-16 rounded-full bg-accent/20 text-accent text-xl font-bold flex items-center justify-center mb-3">
+              <div className="w-16 h-16 rounded-full bg-accent/20 text-accent-ink text-xl font-bold flex items-center justify-center mb-3">
                 {student.personal?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
               </div>
               <h2 className="text-base font-bold text-t1">{student.personal?.name}</h2>
@@ -334,7 +334,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               {student.userId && user && user.role !== 'admin' && (
                 <Link
                   href={`/chat?with=${student.userId}`}
-                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-accent/15 text-accent text-xs font-semibold hover:bg-accent/25 transition-colors"
+                  className="hig-press hig-control mt-3 inline-flex items-center gap-1.5 rounded-xl bg-accent/15 px-4 text-sm font-semibold text-accent-ink hover:bg-accent/25"
                 >
                   <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                     <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd"/>
@@ -385,11 +385,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-t1">Personal Information</h3>
                 {!editProfile ? (
-                  <button onClick={() => setEditProfile(true)} className="text-xs text-accent hover:underline">Edit</button>
+                  <button onClick={() => setEditProfile(true)} className="text-xs text-accent-ink hover:underline">Edit</button>
                 ) : (
                   <div className="flex gap-2">
                     <button onClick={() => setEditProfile(false)} className="text-xs text-t2 hover:text-t1">Cancel</button>
-                    <button onClick={handleSaveProfile} disabled={saving} className="text-xs text-accent hover:underline disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+                    <button onClick={handleSaveProfile} disabled={saving} className="text-xs text-accent-ink hover:underline disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
                   </div>
                 )}
               </div>
@@ -605,7 +605,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                   <button
                     onClick={handleDownloadZip}
                     disabled={zipBusy}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-line text-t2 hover:text-accent hover:border-accent/40 text-xs font-semibold transition disabled:opacity-40"
+                    className="hig-press hig-touch flex h-9 items-center gap-1.5 px-3 rounded-xl border border-line text-t2 hover:text-accent-ink hover:border-accent/40 text-xs font-semibold transition disabled:opacity-40"
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                       <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/>
@@ -632,7 +632,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                         href={fileHref(doc.currentVersion?.fileUrl)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-accent hover:underline"
+                        className="text-xs text-accent-ink hover:underline"
                       >
                         View File
                       </a>
@@ -871,7 +871,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                             </button>
                           )}
                           {p.receiptUrl && (
-                            <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline ml-2">Receipt</a>
+                            <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-accent-ink hover:underline ml-2">Receipt</a>
                           )}
                         </td>
                       </tr>
@@ -961,7 +961,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 <ul className="space-y-2">
                   {roster.map(c => (
                     <li key={c._id} className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-accent/20 text-accent-ink text-xs font-bold flex items-center justify-center flex-shrink-0">
                         {c.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1027,7 +1027,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                 {!portalCreated && !showPortalForm && (
                   <button
                     onClick={() => { setPortalUsername(suggestUsername(student.personal?.name ?? '')); setShowPortalForm(true); }}
-                    className="text-xs text-accent hover:underline"
+                    className="text-xs text-accent-ink hover:underline"
                   >
                     + Create Account
                   </button>
@@ -1068,11 +1068,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" disabled={creatingPortal}
-                      className="flex-1 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold disabled:opacity-50 hover:bg-indigo-500 transition-colors">
+                      className="hig-press hig-control flex-1 rounded-xl bg-accent text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">
                       {creatingPortal ? 'Creating…' : 'Create'}
                     </button>
                     <button type="button" onClick={() => setShowPortalForm(false)}
-                      className="flex-1 py-1.5 rounded-lg bg-muted text-t2 text-xs font-semibold hover:bg-line transition-colors">
+                      className="hig-press hig-control flex-1 rounded-xl bg-muted text-sm font-semibold text-t2 hover:bg-line">
                       Cancel
                     </button>
                   </div>

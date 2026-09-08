@@ -36,7 +36,8 @@
     "clean": "rimraf node_modules backend/node_modules crm/node_modules student/node_modules backend/dist crm/.next student/.next",
     "migrate:split-accounts": "npm run migrate:split-accounts -w backend",
     "migrate:counsellors": "npm run migrate:counsellors -w backend",
-    "import:courses": "npm run import:courses -w backend"
+    "import:courses": "npm run import:courses -w backend",
+    "test:security": "npm run test:security -w backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

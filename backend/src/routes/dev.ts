@@ -9,6 +9,7 @@ import { isCloudinaryConfigured } from '../config/cloudinary';
 import PortalAccount from '../models/PortalAccount';
 import { MODULES } from '../config/modules';
 import { listPresets, countUsersOnPreset, effectivePermissions } from '../services/access';
+import { serverError } from '../utils/httpError';
 
 /**
  * Unauthenticated developer console API.
@@ -95,6 +96,39 @@ const SCOPING_RULES: ScopingRule[] = [
   { area: 'Members', surface: 'PUT /api/users/:id',
     rule: 'Yourself, or anyone if you hold members.update; role, isActive, presetKey and permissions are never self-settable',
     source: 'routes/users.ts — PRIVILEGED_FIELDS' },
+  { area: 'Documents', surface: 'GET /api/documents, /:id, /requests',
+    rule: 'A student sees only their own documents; the studentId in the query string cannot widen that',
+    source: 'services/scope.ts — scopeToOwnStudent() / ownsStudentRow()' },
+  { area: 'Documents', surface: 'POST /api/documents/upload, POST /api/documents',
+    rule: 'A student may only attach a file to their own record',
+    source: 'routes/documents.ts — ownsStudentRow()' },
+  { area: 'Documents', surface: 'PUT /api/documents/:id, PUT /:id/status',
+    rule: 'Verification and edits are staff decisions — never the uploader’s',
+    source: 'routes/documents.ts — isPortalStudent()' },
+  { area: 'Finance', surface: 'GET /api/payments, /:id',
+    rule: 'A student sees only their own fee records; every write is staff-only',
+    source: 'routes/payments.ts — scopeToOwnStudent()' },
+  { area: 'Visa', surface: 'GET /api/visas, /:id',
+    rule: 'A student sees only their own tracker; every write is staff-only',
+    source: 'routes/visas.ts — scopeToOwnStudent()' },
+  { area: 'Applications', surface: 'GET /api/applications, /:id',
+    rule: 'A student sees only their own applications; university partners only their institution’s',
+    source: 'routes/applications.ts — scopeToOwnStudent()' },
+  { area: 'Chat', surface: 'every write under /api/messages',
+    rule: 'The caller must be a participant of the thread — chat.create says whether, never where',
+    source: 'routes/messages.ts — openThreadFor()' },
+  { area: 'Chat', surface: 'POST /api/messages/conversation, /conversations',
+    rule: 'A portal account may only open a thread with staff, never with another portal account',
+    source: 'routes/messages.ts — canOpenWith()' },
+  { area: 'Chat', surface: 'socket join_room',
+    rule: 'A room is joined only by a participant or an observer; user:<id> is the holder’s alone',
+    source: 'socket/index.ts — mayJoin()' },
+  { area: 'Members', surface: 'POST /api/users, PUT /api/users/:id, POST /api/auth/register',
+    rule: 'Granting the admin seat additionally needs access.update; credentials stay unique across both collections',
+    source: 'routes/users.ts — guardSeatEscalation(), credentialConflict()' },
+  { area: 'Portal accounts', surface: 'PUT /api/portal-accounts/:id',
+    rule: 'studentId is never repointed from a request body — it is the row-level half of the student gate',
+    source: 'routes/portalAccounts.ts' },
   { area: 'Auth', surface: 'every authenticated route',
     rule: 'A deactivated account is refused on the next request, not when its token expires',
     source: 'middleware/auth.ts — authenticate()' },
@@ -131,7 +165,7 @@ router.get('/rbac', async (_req, res: Response) => {
       scoping: SCOPING_RULES,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -173,7 +207,7 @@ router.get('/overview', async (_req, res: Response) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -197,7 +231,7 @@ router.get('/collections/:name', async (req: Request, res: Response): Promise<vo
 
     res.json({ collection: req.params.name, limit, docs });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -228,7 +262,7 @@ router.get('/users', async (req: Request, res: Response) => {
       a.role === b.role ? a.name.localeCompare(b.name) : a.role.localeCompare(b.role));
     res.json(users);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -264,7 +298,7 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     });
     res.status(201).json(user);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -350,7 +384,7 @@ router.patch('/users/:id/password', async (req: Request, res: Response): Promise
     });
     res.json({ ok: true, login: user.username ?? user.email });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -366,7 +400,7 @@ router.delete('/users/:id', async (req: Request, res: Response): Promise<void> =
     });
     res.json({ ok: true, deleted: user });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -390,7 +424,7 @@ router.post('/users/:id/impersonate', async (req: Request, res: Response): Promi
     });
     res.json({ token, user, studentId: 'studentId' in user ? String(user.studentId ?? '') || null : null });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -420,7 +454,7 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
     ]);
     res.json({ entries, total, limit });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -434,7 +468,7 @@ router.delete('/activity', async (req: Request, res: Response): Promise<void> =>
     });
     res.json({ ok: true, deleted: deletedCount });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

@@ -81,7 +81,7 @@ export default function FinanceReportPage() {
 
           <ChartCard title="Largest outstanding balances" subtitle="The ten biggest unpaid records">
             {data.topOutstanding.length === 0 ? (
-              <p className="py-8 text-center text-[14px] text-t3">Nothing is outstanding.</p>
+              <p className="py-8 text-center text-[15px] text-t3">Nothing is outstanding.</p>
             ) : (
               <div className="-mx-2 overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-[13px]">

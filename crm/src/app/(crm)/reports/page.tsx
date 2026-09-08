@@ -106,12 +106,12 @@ export default function ReportsOverviewPage() {
                   href={s.href}
                   className="hig-press group flex items-start gap-3.5 rounded-2xl border border-line bg-surface p-4 hover:border-accent/40"
                 >
-                  <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent">
+                  <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent-ink">
                     <s.Icon className="h-[19px] w-[19px]" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[15px] font-semibold text-t1 group-hover:text-accent">{s.label}</span>
-                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-t3">{s.hint}</span>
+                    <span className="block text-[15px] font-semibold text-t1 group-hover:text-accent-ink">{s.label}</span>
+                    <span className="mt-0.5 block text-[13px] leading-relaxed text-t3">{s.hint}</span>
                   </span>
                 </Link>
               ))}

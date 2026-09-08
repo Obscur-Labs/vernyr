@@ -9,9 +9,54 @@ import { uploadBuffer, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { isUserViewing } from '../socket';
 import { notify } from '../utils/notify';
-import { attachAccounts, lastSeenOf } from '../services/accounts';
+import { attachAccounts, findAccountById, lastSeenOf } from '../services/accounts';
+import { ownsStudentRow } from '../services/scope';
+import { serverError } from '../utils/httpError';
 
 const router = Router();
+
+/**
+ * Membership check, run before anything is written into a thread.
+ *
+ * `can('chat','create')` says the caller may send messages; it never said
+ * *where*. Every write route below took a conversation id from the client and
+ * checked only that the row existed, so a signed-in student could post into,
+ * and read the replies of, any conversation whose id they could guess.
+ *
+ * Returns true when the caller may write to it, and answers the request itself
+ * otherwise.
+ */
+async function openThreadFor(
+  req: AuthRequest,
+  res: Response,
+  conversationId: unknown,
+): Promise<boolean> {
+  if (!mongoose.isValidObjectId(String(conversationId ?? ''))) {
+    res.status(400).json({ message: 'A valid conversationId is required' });
+    return false;
+  }
+  const conv = await Conversation.findById(String(conversationId)).select('archived participants');
+  if (!conv) { res.status(404).json({ message: 'Conversation not found' }); return false; }
+  if (conv.archived) { res.status(403).json({ message: 'This conversation is closed' }); return false; }
+  if (!conv.participants.some((p) => p.toString() === req.user!.id)) {
+    res.status(403).json({ message: 'Not a participant of this conversation' });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Who a caller may open a thread with. Chat is between a student and the staff
+ * working their case — a student opening one with another student was never
+ * intended, and nothing stopped it.
+ */
+async function canOpenWith(req: AuthRequest, participantId: string): Promise<boolean> {
+  if (!mongoose.isValidObjectId(participantId) || participantId === req.user!.id) return false;
+  const other = await findAccountById(participantId);
+  if (!other?.isActive) return false;
+  // A portal account only ever talks to staff, never to another portal account.
+  return !(req.principal!.kind === 'portal' && other.kind === 'portal');
+}
 
 /**
  * Chat is between a student and the counsellor working their case. An observer
@@ -69,24 +114,36 @@ router.get('/conversations', authenticate, async (req: AuthRequest, res: Respons
       unread: isChatObserver(req) ? 0 : unreadById.get(c._id.toString()) ?? 0,
     })));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 router.post('/conversations', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response) => {
   try {
-    const conversation = await Conversation.create(req.body);
+    // The caller is always one of the two, whatever the body claimed.
+    const listed: unknown[] = Array.isArray(req.body?.participants) ? req.body.participants : [];
+    const other = String(listed.find((x) => String(x) !== req.user!.id) ?? '');
+    if (!(await canOpenWith(req, other))) {
+      res.status(403).json({ message: 'You cannot start a conversation with that account' }); return;
+    }
+    const conversation = await Conversation.create({
+      participants: [req.user!.id, other],
+      studentId: req.body?.studentId,
+    });
     res.status(201).json(conversation);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 /** Find or create a 1-on-1 conversation between the caller and a participant */
 router.post('/conversation', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response) => {
-  const { participantId } = req.body;
+  const participantId = String(req.body?.participantId ?? '');
   const myId = req.user!.id;
   try {
+    if (!(await canOpenWith(req, participantId))) {
+      res.status(403).json({ message: 'You cannot start a conversation with that account' }); return;
+    }
     let conv = await Conversation.findOne({
       participants: { $all: [myId, participantId], $size: 2 },
     });
@@ -95,7 +152,7 @@ router.post('/conversation', authenticate, can('chat', 'create'), async (req: Au
     }
     res.json(conv);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -115,9 +172,7 @@ function previewFor(type: string | undefined, text?: string, meta?: Record<strin
 router.post('/send', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response): Promise<void> => {
   const { conversationId, text, type = 'text', meta, replyTo } = req.body;
   try {
-    const convCheck = await Conversation.findById(conversationId).select('archived');
-    if (!convCheck) { res.status(404).json({ message: 'Conversation not found' }); return; }
-    if (convCheck.archived) { res.status(403).json({ message: 'This conversation is closed' }); return; }
+    if (!(await openThreadFor(req, res, conversationId))) return;
 
     const message = await Message.create({
       conversationId,
@@ -158,7 +213,7 @@ router.post('/send', authenticate, can('chat', 'create'), async (req: AuthReques
 
     res.status(201).json(message);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -174,12 +229,7 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
   const { conversationId, studentId, voice, duration, replyTo } = req.body as Record<string, string>;
   if (!conversationId) { res.status(400).json({ message: 'conversationId is required' }); return; }
 
-  const convCheck = await Conversation.findById(conversationId).select('archived participants');
-  if (!convCheck) { res.status(404).json({ message: 'Conversation not found' }); return; }
-  if (convCheck.archived) { res.status(403).json({ message: 'This conversation is closed' }); return; }
-  if (!convCheck.participants.some(p => p.toString() === req.user!.id)) {
-    res.status(403).json({ message: 'Not a participant of this conversation' }); return;
-  }
+  if (!(await openThreadFor(req, res, conversationId))) return;
 
   const fileName = req.file.originalname;
   const isVoice  = voice === 'true';
@@ -191,7 +241,8 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
       isVoice ? mediaFolders.chatVoice(conversationId) : mediaFolders.chatFiles(conversationId),
     );
   } catch (err) {
-    res.status(502).json({ message: 'Upload to storage failed', error: err }); return;
+    console.error('Cloudinary upload failed:', err);
+    res.status(502).json({ message: 'Upload to storage failed' }); return;
   }
   const fileUrl = asset.url;
 
@@ -220,7 +271,9 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
     });
 
     // If a studentId was provided (student uploading their own doc), also create a Document record
-    if (studentId && !isVoice) {
+    // The Document record a chat upload also creates must land on the sender's
+    // own student record, never on one named in the form field.
+    if (studentId && !isVoice && await ownsStudentRow(req, studentId)) {
       const DocumentModel = (await import('../models/Document')).default;
       const now     = new Date();
       const version = {
@@ -277,7 +330,7 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
 
     res.status(201).json(message);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -296,12 +349,11 @@ router.post('/form-response', authenticate, can('chat', 'create'), async (req: A
     res.status(400).json({ message: 'conversationId, formMessageId and answers are required' }); return;
   }
   try {
-    const convCheck = await Conversation.findById(conversationId).select('archived');
-    if (!convCheck) { res.status(404).json({ message: 'Conversation not found' }); return; }
-    if (convCheck.archived) { res.status(403).json({ message: 'This conversation is closed' }); return; }
+    if (!(await openThreadFor(req, res, conversationId))) return;
 
     const formMsg = await Message.findById(formMessageId);
-    if (!formMsg || formMsg.type !== 'form_request') {
+    // The form has to belong to the thread it is being answered in.
+    if (!formMsg || formMsg.type !== 'form_request' || formMsg.conversationId.toString() !== String(conversationId)) {
       res.status(404).json({ message: 'Form request not found' }); return;
     }
     const formMeta = (formMsg.meta ?? {}) as { title?: string; answered?: boolean };
@@ -345,7 +397,7 @@ router.post('/form-response', authenticate, can('chat', 'create'), async (req: A
 
     res.status(201).json(response);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -353,6 +405,9 @@ router.post('/form-response', authenticate, can('chat', 'create'), async (req: A
 /** POST /api/messages/:conversationId/read — mark everything in the conversation read */
 router.post('/:conversationId/read', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response) => {
   try {
+    if (!(await isParticipant(req.params.conversationId, req.user!.id))) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
     await Message.updateMany(
       { conversationId: req.params.conversationId, readBy: { $ne: req.user!.id } },
       { $addToSet: { readBy: req.user!.id } },
@@ -364,7 +419,7 @@ router.post('/:conversationId/read', authenticate, can('chat', 'update'), async 
     });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -398,13 +453,18 @@ function sanitize(msg: unknown): Record<string, unknown> {
 /** GET /api/messages/last-seen/:userId — presence detail for chat headers */
 router.get('/last-seen/:userId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Presence is only visible for someone the caller shares a thread with.
+    const shared = isChatObserver(req) || await Conversation.exists({
+      participants: { $all: [req.user!.id, req.params.userId] },
+    });
+    if (!shared) { res.status(403).json({ message: 'Access denied' }); return; }
     const { isUserOnline } = await import('../socket');
     res.json({
       online: isUserOnline(req.params.userId),
       lastSeenAt: await lastSeenOf(req.params.userId),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -425,7 +485,7 @@ router.get('/search/:conversationId', authenticate, async (req: AuthRequest, res
     }).sort('-createdAt').limit(50);
     res.json(matches);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -447,7 +507,7 @@ router.put('/message/:id', authenticate, can('chat', 'update'), async (req: Auth
     if (io) io.to(msg.conversationId.toString()).emit('message_updated', sanitize(msg));
     res.json(sanitize(msg));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -471,7 +531,7 @@ router.delete('/message/:id', authenticate, can('chat', 'delete'), async (req: A
     }
     res.json({ ok: true, scope });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -498,7 +558,7 @@ router.post('/message/:id/react', authenticate, can('chat', 'update'), async (re
     if (io) io.to(msg.conversationId.toString()).emit('message_updated', sanitize(msg));
     res.json(sanitize(msg));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -527,21 +587,24 @@ router.get('/:conversationId', authenticate, async (req: AuthRequest, res: Respo
 
     res.json(page.reverse().map(m => sanitize(m)));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 /** Generic send — used by CRM counsellor chat */
 router.post('/:conversationId', authenticate, can('chat', 'create'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const convCheck = await Conversation.findById(req.params.conversationId).select('archived');
-    if (!convCheck) { res.status(404).json({ message: 'Conversation not found' }); return; }
-    if (convCheck.archived) { res.status(403).json({ message: 'This conversation is closed' }); return; }
+    if (!(await openThreadFor(req, res, req.params.conversationId))) return;
 
+    // Spreading the body let a caller set readBy, reactions, senderName and
+    // deletedForEveryone. Only the fields a message is actually composed of.
+    const { text, type, meta, replyTo, fileUrl, fileName } = req.body ?? {};
     const message = await Message.create({
-      ...req.body,
       conversationId: req.params.conversationId,
       senderId:       req.user!.id,
+      senderName:     req.user!.name,
+      type, text, meta, replyTo, fileUrl, fileName,
+      readBy: [req.user!.id],
     });
 
     await Conversation.findByIdAndUpdate(req.params.conversationId, {
@@ -560,7 +623,7 @@ router.post('/:conversationId', authenticate, can('chat', 'create'), async (req:
 
     res.status(201).json(populated);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

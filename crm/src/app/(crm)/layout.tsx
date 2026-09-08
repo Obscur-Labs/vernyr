@@ -2,7 +2,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { PaletteWidget } from '@/components/PaletteWidget';
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -12,10 +11,5 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     if (!token) router.replace('/login');
   }, [router]);
 
-  return (
-    <>
-      <AppShell>{children}</AppShell>
-      <PaletteWidget />
-    </>
-  );
+  return <AppShell>{children}</AppShell>;
 }

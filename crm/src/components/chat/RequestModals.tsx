@@ -60,7 +60,7 @@ export function RequestDocsModal({
             onClick={() => toggle(type)}
             className={`px-3 py-2 rounded-xl border text-sm text-left transition ${
               selected.has(type)
-                ? 'border-accent bg-accent/10 text-accent font-semibold'
+                ? 'border-accent bg-accent/10 text-accent-ink font-semibold'
                 : 'border-line bg-card text-t2 hover:border-accent/40'
             }`}
           >
@@ -158,7 +158,7 @@ export function RequestFormModal({
         ))}
         <button
           onClick={() => setFields(prev => [...prev, ''])}
-          className="text-sm text-accent font-semibold hover:underline"
+          className="text-sm text-accent-ink font-semibold hover:underline"
         >
           + Add question
         </button>

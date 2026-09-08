@@ -31,7 +31,7 @@ export function Table({
                 <th
                   key={label || `col-${i}`}
                   className={cn(
-                    'px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wider text-t2',
+                    'hig-label px-4 py-3 text-left text-t2',
                     !label && 'sr-only-header',
                   )}
                 >
@@ -57,14 +57,16 @@ export function TR({ className, ...props }: React.HTMLAttributes<HTMLTableRowEle
 }
 
 export function TD({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn('px-4 py-3 text-[14px] text-t2', className)} {...props} />;
+  // 44pt rows: a table row is a target too — it is routinely the thing that
+  // opens a record, and on a touchscreen it was a 41pt one.
+  return <td className={cn('h-11 px-4 py-2.5 hig-footnote text-t2', className)} {...props} />;
 }
 
 /** The row that stands in for a table with nothing in it. */
 export function TableEmpty({ columns, children }: { columns: number; children: React.ReactNode }) {
   return (
     <tr>
-      <td colSpan={columns} className="py-12 text-center text-[15px] text-t3">
+      <td colSpan={columns} className="hig-subhead py-12 text-center text-t3">
         {children}
       </td>
     </tr>
@@ -101,7 +103,7 @@ export function Avatar({ name, className }: { name: string; className?: string }
     <span
       aria-hidden
       className={cn(
-        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[11px] font-bold text-accent',
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 hig-caption2 font-bold text-accent-ink',
         className,
       )}
     >

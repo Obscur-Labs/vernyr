@@ -95,7 +95,7 @@ function PortalAccountsInner() {
         subtitle={
           <>
             Logins for the people outside the office — students and university partners. Staff
-            accounts live on <Link href="/members" className="text-accent hover:underline">Members</Link>.
+            accounts live on <Link href="/members" className="text-accent-ink hover:underline">Members</Link>.
           </>
         }
         actions={can('portal_accounts', 'create') && (
@@ -132,7 +132,7 @@ function PortalAccountsInner() {
               <TD>{a.username ?? a.email ?? '—'}</TD>
               <TD>{a.role === 'student' ? studentName(a) : a.universityName ?? '—'}</TD>
               <TD>
-                <span className="text-[14px] text-t2">{a.presetName ?? a.role}</span>
+                <span className="text-[15px] text-t2">{a.presetName ?? a.role}</span>
                 {a.hasOverrides && <Badge tone="warning" className="ml-1.5">Customised</Badge>}
               </TD>
               <TD className="text-t3">{a.lastSeenAt ? timeAgo(a.lastSeenAt) : 'never'}</TD>

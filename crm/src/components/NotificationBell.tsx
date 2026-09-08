@@ -91,7 +91,7 @@ export function NotificationBell({
           <BellIcon className="h-[19px] w-[19px]" />
         </span>
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface">
+          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold leading-none text-white ring-2 ring-surface">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -108,7 +108,7 @@ export function NotificationBell({
           <header className="flex items-center gap-2 border-b border-line/60 px-4 py-3">
             <h2 className="text-[15px] font-semibold text-t1">Notifications</h2>
             {unreadCount > 0 && (
-              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
+              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent-ink">
                 {unreadCount} new
               </span>
             )}
@@ -116,7 +116,7 @@ export function NotificationBell({
               <button
                 type="button"
                 onClick={() => onAction('read', unreadIds)}
-                className="ml-auto text-[12px] font-medium text-accent hover:underline"
+                className="ml-auto text-[12px] font-medium text-accent-ink hover:underline"
               >
                 Mark all read
               </button>
@@ -127,7 +127,7 @@ export function NotificationBell({
             {preview.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <BellIcon className="mx-auto h-6 w-6 text-t3/70" />
-                <p className="mt-2.5 text-[14px] font-medium text-t2">You&rsquo;re all caught up</p>
+                <p className="mt-2.5 text-[15px] font-medium text-t2">You&rsquo;re all caught up</p>
                 <p className="mt-0.5 text-[12px] text-t3">New activity shows up here.</p>
               </div>
             ) : (
@@ -144,14 +144,14 @@ export function NotificationBell({
                       <span
                         aria-hidden
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                          n.read ? 'bg-muted text-t3' : 'bg-accent/15 text-accent'
+                          n.read ? 'bg-muted text-t3' : 'bg-accent/15 text-accent-ink'
                         }`}
                       >
                         {(() => { const Glyph = notificationIcon(n.type); return <Glyph className="h-[17px] w-[17px]" />; })()}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className={`truncate text-[13.5px] font-semibold ${n.read ? 'text-t2' : 'text-t1'}`}>
+                          <span className={`truncate text-[13px] font-semibold ${n.read ? 'text-t2' : 'text-t1'}`}>
                             {n.title}
                           </span>
                           {!n.read && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
@@ -159,7 +159,7 @@ export function NotificationBell({
                             {timeAgo(n.createdAt)}
                           </span>
                         </span>
-                        <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-relaxed text-t3">
+                        <span className="mt-0.5 line-clamp-2 block text-[13px] leading-relaxed text-t3">
                           {n.body}
                         </span>
                       </span>
@@ -184,7 +184,7 @@ export function NotificationBell({
             <Link
               href="/notifications"
               onClick={close}
-              className="hig-press flex h-10 items-center justify-center rounded-xl text-[14px] font-semibold text-accent hover:bg-accent/10"
+              className="hig-press hig-touch flex h-10 items-center justify-center rounded-xl text-[15px] font-semibold text-accent-ink hover:bg-accent/10"
             >
               View all
               {notifications.length > PREVIEW && (

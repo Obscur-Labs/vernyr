@@ -71,7 +71,7 @@ export default function DevConsolePage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-                <span className="font-mono text-accent">/dev</span> Console
+                <span className="font-mono text-accent-ink">/dev</span> Console
               </h1>
               <p className="mt-1 text-xs text-t2">
                 Direct database access with no authentication. Local development only, dark theme only.
@@ -596,7 +596,7 @@ function StudentHandoffModal({ result, onClose }: {
       description={
         <>
           The student portal runs on a different origin, so paste this into the devtools console at{' '}
-          <a href={studentUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+          <a href={studentUrl} target="_blank" rel="noreferrer" className="text-accent-ink hover:underline">
             {studentUrl}
           </a>.
         </>
@@ -953,7 +953,7 @@ function RbacTab() {
             <div key={p.key} className="rounded-lg bg-muted px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-t1">{p.name}</span>
-                <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-[10px] text-t3">{p.key}</span>
+                <span className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-[11px] text-t3">{p.key}</span>
                 {p.isSystem && <Badge tone="accent">built-in</Badge>}
                 {p.fullAccess && <Badge tone="warning">full access</Badge>}
               </div>
@@ -991,7 +991,7 @@ function RbacTab() {
                   <tr>
                     <td
                       colSpan={data.presets.length + 1}
-                      className="px-2 pb-1 pt-4 text-[10px] font-bold uppercase tracking-widest text-accent"
+                      className="px-2 pb-1 pt-4 text-[11px] font-bold uppercase tracking-widest text-accent-ink"
                     >
                       {group.group}
                     </td>
@@ -1000,7 +1000,7 @@ function RbacTab() {
                     <tr key={mod.key} className="border-t border-line/60">
                       <td className="px-2 py-2">
                         <span className="text-sm text-t1">{mod.label}</span>
-                        <span className="ml-2 font-mono text-[10px] text-t3">{mod.key}</span>
+                        <span className="ml-2 font-mono text-[11px] text-t3">{mod.key}</span>
                       </td>
                       {data.presets.map((p) => (
                         <td key={p.key} className="px-2 py-2 text-center">
@@ -1047,7 +1047,7 @@ function RbacTab() {
               <div className="space-y-3">
                 {data.scoping.filter((r) => r.area === area).map((rule) => (
                   <div key={rule.surface + rule.rule} className="rounded-lg bg-muted px-3 py-2.5">
-                    <p className="break-all font-mono text-xs text-accent">{rule.surface}</p>
+                    <p className="break-all font-mono text-xs text-accent-ink">{rule.surface}</p>
                     <p className="mt-1 text-sm text-t1">{rule.rule}</p>
                     <p className="mt-2 font-mono text-xs text-t3">{rule.source}</p>
                   </div>

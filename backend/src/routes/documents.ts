@@ -16,6 +16,9 @@ import { uploadBuffer, destroyAsset, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { notify } from '../utils/notify';
 import { attachAccounts } from '../services/accounts';
+import { isPortalStudent, ownsStudentRow, scopeToOwnStudent } from '../services/scope';
+import { serverError } from '../utils/httpError';
+import { scalar } from '../utils/query';
 
 const router = Router();
 
@@ -128,7 +131,7 @@ router.post('/requests', authenticate, can('documents', 'create'), async (req: A
 
     res.status(201).json({ requests, message });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -136,15 +139,18 @@ router.post('/requests', authenticate, can('documents', 'create'), async (req: A
 router.get('/requests', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
-    if (req.query.studentId) filter.studentId = req.query.studentId;
-    if (req.query.status)    filter.status    = req.query.status;
+    const studentId = scalar(req.query.studentId);
+    if (studentId) filter.studentId = studentId;
+    const status = scalar(req.query.status);
+    if (status) filter.status = status;
+    if (!(await scopeToOwnStudent(req, filter))) { res.json([]); return; }
     const requests = await DocumentRequest.find(filter)
       .populate('requestedBy', 'name role')
       .populate('documentId', 'status currentVersion')
       .sort('-createdAt');
     res.json(requests);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -157,7 +163,7 @@ router.put('/requests/:id/cancel', authenticate, can('documents', 'update'), asy
     await syncRequestChatMessages(request._id.toString(), 'cancelled');
     res.json(request);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -218,7 +224,7 @@ router.get('/download-all/:studentId', authenticate, can('documents', 'read'), a
     }
     await archive.finalize();
   } catch (err) {
-    if (!res.headersSent) res.status(500).json({ message: 'Server error', error: err });
+    if (!res.headersSent) serverError(res, err);
   }
 });
 
@@ -246,9 +252,14 @@ async function destroyUnreferencedVersions(versions: IDocVersion[]): Promise<voi
 router.get('/', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
-    if (req.query.studentId) filter.studentId = req.query.studentId;
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.type) filter.type = req.query.type;
+    for (const key of ['studentId', 'status', 'type'] as const) {
+      const value = scalar(req.query[key]);
+      if (value) filter[key] = value;
+    }
+    // A student holds `documents.read` so the portal has something to show.
+    // Without this the studentId in the query string was the only thing
+    // deciding whose passport scan came back.
+    if (!(await scopeToOwnStudent(req, filter))) { res.json([]); return; }
     const docs = await DocumentModel.find(filter)
       .populate('studentId', 'personal')
       .populate('reviewedBy', 'name email')
@@ -256,7 +267,7 @@ router.get('/', authenticate, can('documents', 'read'), async (req: AuthRequest,
       .lean();
     res.json(await attachAccounts(docs, ['currentVersion.uploadedBy']));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -265,10 +276,13 @@ router.post('/', authenticate, can('documents', 'create'), async (req: AuthReque
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }
   try {
+    if (!(await ownsStudentRow(req, req.body?.studentId))) {
+      res.status(403).json({ message: 'You can only add documents to your own record' }); return;
+    }
     const doc = await DocumentModel.create(req.body);
     res.status(201).json(doc);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -286,6 +300,9 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
   if (!mongoose.Types.ObjectId.isValid(studentId)) {
     res.status(400).json({ message: 'Invalid studentId' }); return;
   }
+  if (!(await ownsStudentRow(req, studentId))) {
+    res.status(403).json({ message: 'You can only upload to your own record' }); return;
+  }
 
   const fileName = req.file.originalname;
   const now      = new Date();
@@ -294,7 +311,8 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
   try {
     asset = await uploadBuffer(req.file, mediaFolders.studentDocuments(studentId));
   } catch (err) {
-    res.status(502).json({ message: 'Upload to storage failed', error: err }); return;
+    console.error('Cloudinary upload failed:', err);
+    res.status(502).json({ message: 'Upload to storage failed' }); return;
   }
 
   const fileUrl = asset.url;
@@ -382,19 +400,22 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
 
     res.status(fulfilledRequest ? 200 : 201).json({ document: doc, request: fulfilledRequest });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
-router.get('/:id', authenticate, can('documents', 'read'), async (req, res: Response) => {
+router.get('/:id', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const doc = await DocumentModel.findById(req.params.id)
       .populate('reviewedBy', 'name email')
       .lean();
     if (!doc) { res.status(404).json({ message: 'Document not found' }); return; }
+    if (!(await ownsStudentRow(req, doc.studentId))) {
+      res.status(403).json({ message: 'You can only view your own documents' }); return;
+    }
     res.json((await attachAccounts([doc], ['currentVersion.uploadedBy']))[0]);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -403,17 +424,22 @@ router.put('/:id', authenticate, can('documents', 'update'), async (req: AuthReq
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }
   try {
+    if (isPortalStudent(req)) {
+      res.status(403).json({ message: 'Documents are edited by the people working your case' }); return;
+    }
     const doc = await DocumentModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!doc) { res.status(404).json({ message: 'Document not found' }); return; }
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 // PUT /api/documents/:id/status — review workflow
 router.put('/:id/status', authenticate, can('documents', 'update'), async (req: AuthRequest, res: Response) => {
   try {
+    // Verification is a staff decision — never the uploader's.
+    if (isPortalStudent(req)) { res.status(403).json({ message: 'Forbidden' }); return; }
     const { status, rejectionReason, notes } = req.body;
     const updateData: Record<string, unknown> = {
       status,
@@ -431,7 +457,7 @@ router.put('/:id/status', authenticate, can('documents', 'update'), async (req: 
     if (!doc) { res.status(404).json({ message: 'Document not found' }); return; }
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -440,11 +466,15 @@ router.delete('/:id', authenticate, can('documents', 'delete'), async (req: Auth
     res.status(403).json({ message: 'University users have read-only document access' }); return;
   }
   try {
+    const target = await DocumentModel.findById(req.params.id).select('studentId').lean();
+    if (target && !(await ownsStudentRow(req, target.studentId))) {
+      res.status(403).json({ message: 'You can only delete your own documents' }); return;
+    }
     const doc = await DocumentModel.findByIdAndDelete(req.params.id);
     if (doc) await destroyUnreferencedVersions(doc.versions);
     res.json({ message: 'Document deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

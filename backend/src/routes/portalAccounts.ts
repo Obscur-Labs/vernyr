@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import mongoose from 'mongoose';
 import PortalAccount, { PORTAL_ROLES, type PortalRole } from '../models/PortalAccount';
 import Student from '../models/Student';
 import { USERNAME_RE } from '../models/accountFields';
@@ -9,6 +10,8 @@ import { listPresets, invalidateUser } from '../services/access';
 import { credentialConflict } from '../services/accounts';
 import { logActivity } from '../utils/activityLog';
 import { clientError } from '../utils/mongoErrors';
+import { serverError } from '../utils/httpError';
+import { scalar } from '../utils/query';
 
 const router = Router();
 
@@ -32,11 +35,11 @@ async function withPresets(rows: Record<string, unknown>[]) {
 router.get('/', authenticate, can('portal_accounts', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
-    const role = String(req.query.role ?? '');
+    const role = scalar(req.query.role) ?? '';
     if (PORTAL_ROLES.includes(role as PortalRole)) filter.role = role;
-    if (req.query.active !== 'all') filter.isActive = true;
+    if (scalar(req.query.active) !== 'all') filter.isActive = true;
 
-    const q = String(req.query.q ?? '').trim();
+    const q = (scalar(req.query.q) ?? '').trim();
     if (q) {
       const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       filter.$or = [{ name: rx }, { username: rx }, { email: rx }, { universityName: rx }];
@@ -50,7 +53,7 @@ router.get('/', authenticate, can('portal_accounts', 'read'), async (req: AuthRe
 
     res.json(await withPresets(rows as Record<string, unknown>[]));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -76,6 +79,9 @@ router.post('/', authenticate, can('portal_accounts', 'create'), async (req: Aut
     const conflict = await credentialConflict({ username, email });
     if (conflict) { res.status(409).json({ message: conflict }); return; }
 
+    if (role === 'student' && !mongoose.isValidObjectId(String(studentId))) {
+      res.status(400).json({ message: 'Pick the student record this login belongs to' }); return;
+    }
     if (role === 'student' && (await PortalAccount.exists({ studentId }))) {
       res.status(409).json({ message: 'That student already has a portal login' }); return;
     }
@@ -104,11 +110,9 @@ router.post('/', authenticate, can('portal_accounts', 'create'), async (req: Aut
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
-
-const PRIVILEGED = ['role', 'isActive', 'presetKey', 'permissions', 'studentId'] as const;
 
 // PUT /api/portal-accounts/:id
 router.put('/:id', authenticate, can('portal_accounts', 'update'), async (req: AuthRequest, res: Response) => {
@@ -122,6 +126,13 @@ router.put('/:id', authenticate, can('portal_accounts', 'update'), async (req: A
       delete update.presetKey;
       delete update.permissions;
       delete update.role;
+    }
+    // Which student a login is bound to is the row-level half of the student
+    // gate — repointing it hands one person another person's whole record.
+    delete update.studentId;
+    // A portal account never becomes staff, whatever the body says.
+    if (update.role !== undefined && !PORTAL_ROLES.includes(update.role as PortalRole)) {
+      res.status(400).json({ message: 'A portal login is a student or a university' }); return;
     }
 
     if ('permissions' in update) update.permissions = sanitizePermissions(update.permissions);
@@ -161,7 +172,7 @@ router.put('/:id', authenticate, can('portal_accounts', 'update'), async (req: A
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -182,7 +193,7 @@ router.patch('/:id/password', authenticate, can('portal_accounts', 'update'), as
     });
     res.json({ message: `Password reset for ${account.name}` });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -201,10 +212,8 @@ router.delete('/:id', authenticate, can('portal_accounts', 'delete'), async (req
     });
     res.json({ message: `${account.name} can no longer sign in` });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
-
-void PRIVILEGED;
 
 export default router;

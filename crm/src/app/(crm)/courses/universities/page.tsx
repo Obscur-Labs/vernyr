@@ -301,11 +301,11 @@ function UniversitiesInner() {
                       onClick={() => openDetail(u)}
                       className="hig-press group flex h-full w-full items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left hover:border-accent/40"
                     >
-                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent-ink">
                         <BuildingIcon className="h-[18px] w-[18px]" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-semibold text-t1 group-hover:text-accent">
+                        <span className="block truncate text-[15px] font-semibold text-t1 group-hover:text-accent-ink">
                           {u.name}
                         </span>
                         <span className="mt-0.5 block text-[12px] text-t3">
@@ -366,7 +366,7 @@ function UniversitiesInner() {
               <DetailRow label="Courses listed">{open.courseCount}</DetailRow>
               {open.website && (
                 <DetailRow label="Website">
-                  <a href={open.website} target="_blank" rel="noreferrer" className="break-all text-accent hover:underline">
+                  <a href={open.website} target="_blank" rel="noreferrer" className="break-all text-accent-ink hover:underline">
                     {open.website}
                   </a>
                 </DetailRow>
@@ -378,7 +378,7 @@ function UniversitiesInner() {
               <h3 className="text-[13px] font-semibold uppercase tracking-wider text-t3">Courses</h3>
               <Link
                 href={`/courses?university=${open._id}`}
-                className="text-[12.5px] font-medium text-accent hover:underline"
+                className="text-[13px] font-medium text-accent-ink hover:underline"
               >
                 Open in the browser
               </Link>
@@ -399,7 +399,7 @@ function UniversitiesInner() {
                     >
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className="truncate text-[13.5px] font-medium text-t1">{c.name}</span>
+                          <span className="truncate text-[13px] font-medium text-t1">{c.name}</span>
                           <LevelChip level={c.level} />
                         </span>
                         <span className="mt-0.5 block text-[12px] text-t3">
@@ -407,7 +407,7 @@ function UniversitiesInner() {
                           {c.intakes.length ? ` · ${c.intakes.join(', ')}` : ''}
                         </span>
                       </span>
-                      <span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-t2">
+                      <span className="shrink-0 text-[13px] font-semibold tabular-nums text-t2">
                         {formatMoney(c.tuition)}
                       </span>
                     </button>

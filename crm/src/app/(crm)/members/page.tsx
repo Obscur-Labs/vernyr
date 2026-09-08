@@ -103,7 +103,7 @@ export default function MembersPage() {
           <>
             Staff and partner accounts. What each one can reach is decided by the preset in their
             seat — edit those on{' '}
-            <Link href="/roles" className="text-accent hover:underline">Roles &amp; permissions</Link>.
+            <Link href="/roles" className="text-accent-ink hover:underline">Roles &amp; permissions</Link>.
             Student portal logins are issued from the student&rsquo;s own page, not here.
           </>
         }
@@ -128,7 +128,7 @@ export default function MembersPage() {
               <TD>{loginHandle(u)}</TD>
               <TD>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[14px] font-medium text-t1">{u.presetName ?? u.role}</span>
+                  <span className="text-[15px] font-medium text-t1">{u.presetName ?? u.role}</span>
                   {u.presetInherited && (
                     <Badge title="No preset saved on this account yet — it follows the account type.">
                       Inherited
@@ -437,7 +437,7 @@ function MemberSheet({
                       active ? 'border-accent/50 bg-accent/[0.07]' : 'border-line bg-card hover:bg-muted/60'
                     }`}
                   >
-                    <span className="block text-[14px] font-semibold text-t1">{p.name}</span>
+                    <span className="block text-[15px] font-semibold text-t1">{p.name}</span>
                     <span className="mt-0.5 block text-[12px] text-t2">
                       {modules.length ? summarize(expandPreset(p, modules), modules) : '—'}
                     </span>

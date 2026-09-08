@@ -73,7 +73,7 @@ export function DocRequestCard({
               <p className="text-sm font-medium text-t1 truncate">{item.label || DOC_LABELS[item.type]}</p>
               {item.note && <p className="text-xs text-t3 truncate">{item.note}</p>}
             </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border capitalize flex-shrink-0 ${REQ_STATUS_STYLE[item.status]}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold border capitalize flex-shrink-0 ${REQ_STATUS_STYLE[item.status]}`}>
               {item.status}
             </span>
             {onCancelItem && item.status === 'pending' && (

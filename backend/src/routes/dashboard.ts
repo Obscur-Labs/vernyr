@@ -5,6 +5,7 @@ import Application from '../models/Application';
 import Visa from '../models/Visa';
 import Payment from '../models/Payment';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
+import { serverError } from '../utils/httpError';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get('/stats', authenticate, can('dashboard', 'read'), async (_req: AuthRe
       studentsByStage: Object.fromEntries(studentsByStage.map(({ _id, count }) => [_id, count])),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -54,7 +55,7 @@ router.get('/reports', authenticate, can('reports', 'read'), async (_req: AuthRe
       monthlyRevenue: monthlyRevenue[0]?.total || 0,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

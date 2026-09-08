@@ -114,7 +114,7 @@ export default function DashboardPage() {
           title="Twelve-month trend"
           subtitle="New leads, students and applications, month by month"
           action={
-            <Button variant="ghost" size="sm" onClick={() => router.push('/reports')} className="text-accent">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/reports')} className="text-accent-ink">
               All reports
             </Button>
           }

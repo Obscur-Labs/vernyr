@@ -167,11 +167,11 @@ export function Modal({
           <header className="flex shrink-0 items-start gap-4 border-b border-line/60 px-6 py-5">
             <div className="min-w-0 flex-1">
               {title && (
-                <h2 id={titleId} className="truncate text-[19px] font-semibold tracking-tight text-t1">
+                <h2 id={titleId} className="hig-title3 truncate text-t1">
                   {title}
                 </h2>
               )}
-              {description && <p className="mt-1 text-[13px] leading-relaxed text-t3">{description}</p>}
+              {description && <p className="hig-footnote mt-1.5 leading-relaxed text-t3">{description}</p>}
             </div>
             {dismissable && (
               <IconButton
@@ -229,7 +229,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <p className="text-[15px] leading-relaxed text-t2">{body}</p>
+      <p className="hig-subhead leading-relaxed text-t2">{body}</p>
     </Modal>
   );
 }

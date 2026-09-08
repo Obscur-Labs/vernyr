@@ -118,7 +118,7 @@ export default function DocumentsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {doc.currentVersion?.fileUrl && (
-                          <a href={fileHref(doc.currentVersion.fileUrl)} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline">
+                          <a href={fileHref(doc.currentVersion.fileUrl)} target="_blank" rel="noreferrer" className="text-xs text-accent-ink hover:underline">
                             View
                           </a>
                         )}
@@ -155,7 +155,7 @@ export default function DocumentsPage() {
                 href={fileHref(reviewDoc.currentVersion.fileUrl)}
                 target="_blank"
                 rel="noreferrer"
-                className="block w-full text-center py-3 mb-4 rounded-xl border border-line text-sm text-accent hover:bg-muted transition-colors"
+                className="block w-full text-center py-3 mb-4 rounded-xl border border-line text-sm text-accent-ink hover:bg-muted transition-colors"
               >
                 Open File in New Tab
               </a>

@@ -177,7 +177,7 @@ export function VernyrSeal({ className = '' }: { className?: string }) {
 /**
  * The wordmark is the brand lettering, painted through an alpha mask so it
  * inherits `currentColor` and works on either theme. Sized in `em`, so
- * `className="text-[19px]"` sets its height the way it would set type.
+ * `className="text-[20px]"` sets its height the way it would set type.
  */
 export function Wordmark({ className = '' }: { className?: string }) {
   return (

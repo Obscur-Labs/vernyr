@@ -93,7 +93,7 @@ export default function LoginPage() {
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 sm:px-10">
         <header className="flex items-center gap-3 text-t1">
           <VernyrMark className="h-9 w-9" />
-          <Wordmark className="text-[19px]" />
+          <Wordmark className="text-[20px]" />
           <span aria-hidden className="h-4 w-px bg-line" />
           <span className="text-[13px] text-t2">Counsellor workspace</span>
         </header>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                   <svg
                     viewBox="0 0 24 24"
                     aria-hidden
-                    className="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent"
+                    className="mt-0.5 h-[18px] w-[18px] shrink-0 text-accent-ink"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.4"
@@ -128,7 +128,7 @@ export default function LoginPage() {
                     {c.glyph}
                   </svg>
                   <div>
-                    <p className="text-[14px] font-medium text-t1">{c.title}</p>
+                    <p className="text-[15px] font-medium text-t1">{c.title}</p>
                     <p className="mt-1 text-[13px] leading-relaxed text-t2">{c.body}</p>
                   </div>
                 </li>
@@ -140,7 +140,7 @@ export default function LoginPage() {
           <section className="lg:col-span-6 lg:col-start-7">
             <div className="auth-plate mx-auto w-full max-w-md p-7 sm:p-9">
               <h2 className="auth-display text-[2rem]">Sign in</h2>
-              <p className="mt-3 text-[14px] leading-relaxed text-t2">
+              <p className="mt-3 text-[15px] leading-relaxed text-t2">
                 Staff accounts are issued by your administrator. Administrators sign in with their
                 email address.
               </p>

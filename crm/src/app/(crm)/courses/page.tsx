@@ -255,7 +255,7 @@ function CoursesInner() {
           />
         </div>
         {facets.currencies.length > 0 && (
-          <p className="mt-2 text-[11.5px] text-t3">
+          <p className="mt-2 text-[12px] text-t3">
             Most courses are priced in {facets.currencies[0].value}.
           </p>
         )}
@@ -343,12 +343,12 @@ function CoursesInner() {
                     >
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className="truncate text-[14.5px] font-semibold text-t1 group-hover:text-accent">
+                          <span className="truncate text-[15px] font-semibold text-t1 group-hover:text-accent-ink">
                             {course.name}
                           </span>
                           <LevelChip level={course.level} />
                         </span>
-                        <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12.5px] text-t3">
+                        <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13px] text-t3">
                           <span className="truncate font-medium text-t2">{course.universityName}</span>
                           <span aria-hidden>·</span>
                           <span>{course.country}</span>
@@ -361,7 +361,7 @@ function CoursesInner() {
                         </span>
                       </span>
 
-                      <span className="hidden w-24 shrink-0 text-right text-[12.5px] text-t2 sm:block">
+                      <span className="hidden w-24 shrink-0 text-right text-[13px] text-t2 sm:block">
                         {formatDuration(course.duration)}
                       </span>
                       <span className="hidden w-32 shrink-0 text-right text-[13px] font-semibold tabular-nums text-t1 md:block">

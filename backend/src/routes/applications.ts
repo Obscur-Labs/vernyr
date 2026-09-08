@@ -1,8 +1,10 @@
 import { Router, Response } from 'express';
 import Application from '../models/Application';
-import User from '../models/User';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { portalScope } from '../services/accounts';
+import { isPortalStudent, ownsStudentRow, scopeToOwnStudent } from '../services/scope';
+import { serverError } from '../utils/httpError';
+import { scalar } from '../utils/query';
 
 const router = Router();
 
@@ -15,9 +17,13 @@ async function getUniversityScope(userId: string): Promise<string | null> {
 router.get('/', authenticate, can('applications', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
-    if (req.query.studentId) filter.studentId = req.query.studentId;
-    if (req.query.status)    filter.status    = req.query.status;
-    if (req.query.country)   filter.country   = req.query.country;
+    for (const key of ['studentId', 'status', 'country'] as const) {
+      const value = scalar(req.query[key]);
+      if (value) filter[key] = value;
+    }
+
+    // A student sees their own applications, and no one else's.
+    if (!(await scopeToOwnStudent(req, filter))) { res.json([]); return; }
 
     // University reps can only see applications addressed to their institution
     if (req.user?.role === 'university') {
@@ -31,7 +37,7 @@ router.get('/', authenticate, can('applications', 'read'), async (req: AuthReque
       .sort('-createdAt');
     res.json(applications);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -41,11 +47,15 @@ router.post('/', authenticate, can('applications', 'create'), async (req: AuthRe
     res.status(403).json({ message: 'University users cannot create applications' });
     return;
   }
+  if (isPortalStudent(req)) {
+    res.status(403).json({ message: 'Applications are filed by your counsellor' });
+    return;
+  }
   try {
     const application = await Application.create(req.body);
     res.status(201).json(application);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -53,6 +63,10 @@ router.get('/:id', authenticate, can('applications', 'read'), async (req: AuthRe
   try {
     const application = await Application.findById(req.params.id).populate('studentId', 'personal');
     if (!application) { res.status(404).json({ message: 'Application not found' }); return; }
+
+    if (!(await ownsStudentRow(req, application.studentId?._id ?? application.studentId))) {
+      res.status(403).json({ message: 'Access denied' }); return;
+    }
 
     // University rep can only read applications for their institution
     if (req.user?.role === 'university') {
@@ -64,11 +78,12 @@ router.get('/:id', authenticate, can('applications', 'read'), async (req: AuthRe
 
     res.json(application);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 router.put('/:id', authenticate, can('applications', 'update'), async (req: AuthRequest, res: Response) => {
+  if (isPortalStudent(req)) { res.status(403).json({ message: 'Forbidden' }); return; }
   try {
     const existing = await Application.findById(req.params.id);
     if (!existing) { res.status(404).json({ message: 'Application not found' }); return; }
@@ -97,21 +112,21 @@ router.put('/:id', authenticate, can('applications', 'update'), async (req: Auth
       .populate('studentId', 'personal');
     res.json(application);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 // University reps cannot delete applications
 router.delete('/:id', authenticate, can('applications', 'delete'), async (req: AuthRequest, res: Response) => {
-  if (req.user?.role === 'university') {
-    res.status(403).json({ message: 'University users cannot delete applications' });
+  if (req.user?.role === 'university' || isPortalStudent(req)) {
+    res.status(403).json({ message: 'You cannot delete applications' });
     return;
   }
   try {
     await Application.findByIdAndDelete(req.params.id);
     res.json({ message: 'Application deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

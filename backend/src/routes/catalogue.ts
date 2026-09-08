@@ -6,6 +6,7 @@ import {
   parseDeadline, parseDuration, parseExams, parseIntakes, parseMoney, slugify,
 } from '../services/catalogue';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
+import { serverError } from '../utils/httpError';
 
 const router = Router();
 
@@ -163,7 +164,7 @@ router.get('/countries', async (_req: AuthRequest, res: Response) => {
 
     res.json([...byCountry.values()].sort((a, b) => a.country.localeCompare(b.country)));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -193,7 +194,7 @@ router.get('/universities', async (req: AuthRequest, res: Response) => {
 
     res.json({ items, total, page, pages: Math.max(Math.ceil(total / limit), 1) });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -205,7 +206,7 @@ router.get('/universities/:id', async (req: AuthRequest, res: Response): Promise
       .sort({ level: 1, name: 1 }).lean();
     res.json({ ...university, courses });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -222,7 +223,7 @@ router.post('/universities', can('courses', 'create'), async (req: AuthRequest, 
       res.status(409).json({ message: 'That university already exists in this country' });
       return;
     }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -244,7 +245,7 @@ router.put('/universities/:id', can('courses', 'update'), async (req: AuthReques
     }
     res.json(university);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -256,7 +257,7 @@ router.delete('/universities/:id', can('courses', 'delete'), async (req: AuthReq
     await university.deleteOne();
     res.json({ message: 'University and its courses removed' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -309,7 +310,7 @@ router.get('/courses/facets', async (req: AuthRequest, res: Response) => {
       })),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -350,7 +351,7 @@ router.get('/courses/stats', async (_req: AuthRequest, res: Response) => {
       tuitionBands: tuitionBands.map((r) => ({ value: String(r._id), count: r.n })),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -368,7 +369,7 @@ router.get('/courses', async (req: AuthRequest, res: Response) => {
 
     res.json({ items, total, page, pages: Math.max(Math.ceil(total / limit), 1), limit });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -380,7 +381,7 @@ router.get('/courses/:id', async (req: AuthRequest, res: Response): Promise<void
     if (!course) { res.status(404).json({ message: 'Course not found' }); return; }
     res.json(course);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -402,7 +403,7 @@ router.post('/courses', can('courses', 'create'), async (req: AuthRequest, res: 
       res.status(409).json({ message: 'That course already exists at this university' });
       return;
     }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -418,7 +419,7 @@ router.put('/courses/:id', can('courses', 'update'), async (req: AuthRequest, re
     if (!course) { res.status(404).json({ message: 'Course not found' }); return; }
     res.json(course);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -429,7 +430,7 @@ router.delete('/courses/:id', can('courses', 'delete'), async (req: AuthRequest,
     await University.updateOne({ _id: course.university }, { $inc: { courseCount: -1 } });
     res.json({ message: 'Course removed' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

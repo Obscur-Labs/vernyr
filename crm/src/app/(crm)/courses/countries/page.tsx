@@ -80,20 +80,20 @@ export default function CountriesPage() {
                 className="hig-press group rounded-2xl border border-line bg-surface p-4 hover:border-accent/40"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold text-t1 group-hover:text-accent">
+                  <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold text-t1 group-hover:text-accent-ink">
                     {c.country}
                   </h2>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent-ink">
                     <GlobeIcon className="h-[17px] w-[17px]" />
                   </span>
                 </div>
 
-                <p className="mt-3 text-[26px] font-bold leading-none tracking-tight text-t1">
+                <p className="mt-3 text-[28px] font-bold leading-none tracking-tight text-t1">
                   {fmtNumber(c.courses)}
                 </p>
                 <p className="mt-1 text-[11px] font-medium uppercase tracking-wider text-t3">courses</p>
 
-                <p className="mt-3 flex items-center gap-1.5 text-[12.5px] text-t2">
+                <p className="mt-3 flex items-center gap-1.5 text-[13px] text-t2">
                   <BuildingIcon className="h-3.5 w-3.5 text-t3" />
                   {c.universities} universit{c.universities === 1 ? 'y' : 'ies'}
                 </p>

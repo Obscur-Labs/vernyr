@@ -87,7 +87,7 @@ function AddStudentDrawer({ open, onClose, onSave, counsellors, ownsCaseload }: 
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="hig-press grid h-9 w-9 place-items-center rounded-lg text-t2 hover:bg-muted hover:text-t1"
+            className="hig-press hig-touch grid h-9 w-9 place-items-center rounded-xl text-t2 hover:bg-muted hover:text-t1"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
@@ -296,7 +296,7 @@ export default function StudentsPage() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-accent/20 text-accent-ink text-xs font-bold flex items-center justify-center flex-shrink-0">
                         {s.personal?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium text-t1">{s.personal?.name}</span>
@@ -315,7 +315,7 @@ export default function StudentsPage() {
                           <span
                             key={c._id}
                             className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              c._id === me?._id ? 'bg-accent/15 text-accent' : 'bg-muted text-t2'
+                              c._id === me?._id ? 'bg-accent/15 text-accent-ink' : 'bg-muted text-t2'
                             }`}
                           >
                             {c.name}
@@ -334,7 +334,7 @@ export default function StudentsPage() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60 ${
                           (s.counsellors ?? []).some(c => c._id === me?._id)
                             ? 'bg-muted text-t2 hover:text-t1'
-                            : 'bg-accent/15 text-accent hover:bg-accent/25'
+                            : 'bg-accent/15 text-accent-ink hover:bg-accent/25'
                         }`}
                       >
                         {busyId === s._id ? '…' : (s.counsellors ?? []).some(c => c._id === me?._id) ? 'Leave' : 'Assign me'}

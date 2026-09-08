@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import User, { USERNAME_RE } from '../models/User';
+import User, { STAFF_ROLES, USERNAME_RE, type StaffRole } from '../models/User';
 import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { sanitizePermissions } from '../config/modules';
 import { DEFAULT_PRESET_FOR_ROLE } from '../config/presets';
@@ -8,6 +8,7 @@ import { logActivity } from '../utils/activityLog';
 import { clientError } from '../utils/mongoErrors';
 import PortalAccount from '../models/PortalAccount';
 import { credentialConflict } from '../services/accounts';
+import { serverError } from '../utils/httpError';
 
 const router = Router();
 
@@ -43,30 +44,65 @@ router.get('/', authenticate, can('members', 'read'), async (_req: AuthRequest, 
       .lean();
     res.json(await withPresets(users as Record<string, unknown>[]));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 /** GET /api/users/counsellors — the assignment picker. */
-router.get('/counsellors', authenticate, async (_req, res: Response) => {
+router.get('/counsellors', authenticate, can('students', 'read'), async (_req, res: Response) => {
   try {
     const counsellors = await User.find({ role: 'counsellor', isActive: true })
       .select('name username email role avatar');
     res.json(counsellors);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 /** Fields that decide what an account can reach — never settable by its holder. */
 const PRIVILEGED_FIELDS = ['role', 'isActive', 'presetKey', 'permissions'] as const;
 
+/**
+ * `members.update` let its holder mint an admin, including out of their own
+ * account. A seat is only handed out by someone who already holds the access
+ * module — the same gate that guards the preset matrix itself.
+ */
+async function guardSeatEscalation(
+  req: AuthRequest,
+  res: Response,
+  role?: string,
+  presetKey?: unknown,
+): Promise<boolean> {
+  const wantsAdmin = role === 'admin' || String(presetKey ?? '') === 'admin';
+  if (!wantsAdmin || may(req, 'access', 'update')) return true;
+  res.status(403).json({ message: 'Granting the admin seat needs Roles & access' });
+  return false;
+}
+
 // POST /api/users — create a member
 router.post('/', authenticate, can('members', 'create'), async (req: AuthRequest, res: Response) => {
+  const { name, username, email, password, phone, avatar, role, presetKey, permissions } = req.body ?? {};
+
+  // Spreading the body put `role`, `isActive` and any future privileged field
+  // under the caller's control. Members are staff seats, and only the two.
+  if (role !== undefined && !STAFF_ROLES.includes(role as StaffRole)) {
+    res.status(400).json({ message: 'A member is an admin or a counsellor' }); return;
+  }
+  if (String(password ?? '').length < 6) {
+    res.status(400).json({ message: 'Password must be at least 6 characters' }); return;
+  }
+  if (!(await guardSeatEscalation(req, res, role as string | undefined, presetKey))) return;
+
   try {
-    const { permissions, ...rest } = req.body ?? {};
+    // Usernames and emails are unique across both collections; a Mongo index
+    // only covers its own, so this path has to ask.
+    const conflict = await credentialConflict({ username, email });
+    if (conflict) { res.status(409).json({ message: conflict }); return; }
+
     const user = await User.create({
-      ...rest,
+      name, username, email, password, phone, avatar,
+      role: role || 'counsellor',
+      presetKey,
       ...(permissions ? { permissions: sanitizePermissions(permissions) } : {}),
     });
     logActivity(req, {
@@ -77,7 +113,7 @@ router.post('/', authenticate, can('members', 'create'), async (req: AuthRequest
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -107,7 +143,7 @@ router.post('/student-account', authenticate, can('portal_accounts', 'create'), 
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -128,6 +164,20 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     // Dropped rather than rejected: the profile form posts the whole record
     // back, so a self-update legitimately carries the caller's current seat.
     if (!manages) for (const field of PRIVILEGED_FIELDS) delete updateData[field];
+
+    if (updateData.role !== undefined && !STAFF_ROLES.includes(updateData.role as StaffRole)) {
+      res.status(400).json({ message: 'A member is an admin or a counsellor' }); return;
+    }
+    if (!(await guardSeatEscalation(req, res, updateData.role as string | undefined, updateData.presetKey))) return;
+
+    // Credentials are unique across both collections. Without this a staff
+    // member could take a student's username onto their own account, and the
+    // student's login would then resolve to someone else's record.
+    const conflict = await credentialConflict(
+      { username: updateData.username, email: updateData.email },
+      req.params.id,
+    );
+    if (conflict) { res.status(409).json({ message: conflict }); return; }
 
     if ('permissions' in updateData) {
       updateData.permissions = sanitizePermissions(updateData.permissions);
@@ -165,7 +215,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -188,7 +238,7 @@ router.delete('/:id', authenticate, can('members', 'delete'), async (req: AuthRe
     });
     res.json({ message: `${user.name} deactivated` });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

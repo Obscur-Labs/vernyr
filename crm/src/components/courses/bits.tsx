@@ -110,7 +110,7 @@ export function FilterGroup({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-1.5 px-2 text-[12px] font-medium text-accent hover:underline"
+          className="mt-1.5 px-2 text-[12px] font-medium text-accent-ink hover:underline"
         >
           {expanded ? 'Show less' : `Show all ${matched.length}`}
         </button>
@@ -122,13 +122,13 @@ export function FilterGroup({
 /** A removable summary of one active filter. */
 export function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 py-1 pl-2.5 pr-1.5 text-[12px] font-medium text-accent">
+    <span className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 py-1 pl-2.5 pr-1.5 text-[12px] font-medium text-accent-ink">
       {label}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${label}`}
-        className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-accent/20"
+        className="hig-touch hig-touch-tight flex h-4 w-4 items-center justify-center rounded-full hover:bg-accent/20"
       >
         <CloseIcon className="h-3 w-3" />
       </button>
@@ -147,7 +147,7 @@ export function DetailRow({
   return (
     <div className={cn('hig-row items-start', className)}>
       <span className="w-36 shrink-0 pt-px text-[13px] text-t3">{label}</span>
-      <span className="min-w-0 flex-1 text-[14px] text-t1">{children}</span>
+      <span className="min-w-0 flex-1 text-[15px] text-t1">{children}</span>
     </div>
   );
 }

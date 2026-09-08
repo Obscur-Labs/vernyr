@@ -7,8 +7,22 @@ import User from '../models/User';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { getIo } from '../socket/emitter';
 import { portalScope, portalAccountForStudent } from '../services/accounts';
+import { serverError } from '../utils/httpError';
+import { scalar } from '../utils/query';
 
 const router = Router();
+
+/**
+ * Fields no request body may set, on create or update.
+ *
+ * `userId` is the link between a student record and the portal login that owns
+ * it — the row-level half of every student-scoped check in the API. A body that
+ * could set it could hand any record to any login.
+ */
+const NEVER_FROM_BODY = ['_id', 'userId', 'createdAt', 'updatedAt', '__v'];
+
+const withoutSystemFields = (body: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(body ?? {}).filter(([k]) => !NEVER_FROM_BODY.includes(k)));
 
 /** Normalises whatever the client sent into a list of distinct id strings. */
 function idList(value: unknown): string[] {
@@ -125,11 +139,13 @@ async function announceCounsellorChange(
 router.get('/', authenticate, can('students', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
-    if (req.query.stage) filter.stage = req.query.stage;
+    const stage = scalar(req.query.stage);
+    if (stage) filter.stage = stage;
 
     // Counsellors work the whole book; `?counsellor=me` narrows it to their own.
     if (req.query.counsellor) {
-      const who = req.query.counsellor === 'me' ? req.user?.id : String(req.query.counsellor);
+      const asked = scalar(req.query.counsellor) ?? '';
+      const who = asked === 'me' ? req.user?.id : asked;
       if (who && mongoose.Types.ObjectId.isValid(who)) filter.counsellors = new mongoose.Types.ObjectId(who);
     }
 
@@ -153,7 +169,7 @@ router.get('/', authenticate, can('students', 'read'), async (req: AuthRequest, 
       .sort('-createdAt');
     res.json(students);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -162,7 +178,7 @@ router.post('/', authenticate, can('students', 'create'), async (req: AuthReques
     res.status(403).json({ message: 'University users cannot create student records' }); return;
   }
   try {
-    const body = { ...req.body };
+    const body = withoutSystemFields(req.body);
     // Whoever enrols a student is working the case, so they go on the roster.
     const roster = idList(body.counsellors);
     if (req.user?.role === 'counsellor' && !roster.includes(req.user.id)) roster.push(req.user.id);
@@ -173,7 +189,7 @@ router.post('/', authenticate, can('students', 'create'), async (req: AuthReques
     announceCounsellorChange(student, [], roster.filter(id => id !== req.user!.id)).catch(() => {});
     res.status(201).json(await student.populate('counsellors', 'name email'));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -204,6 +220,9 @@ function stripFieldsStudentsCannotSet(req: AuthRequest, body: Record<string, unk
 
 /** GET /api/students/by-user/:userId — resolve a portal User to their Student record */
 router.get('/by-user/:userId', authenticate, can('students', 'read'), async (req: AuthRequest, res: Response) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+    res.status(400).json({ message: 'Invalid user id' }); return;
+  }
   if (req.user?.role === 'student' && req.params.userId !== req.user.id) {
     res.status(403).json({ message: 'You can only view your own record' });
     return;
@@ -214,7 +233,7 @@ router.get('/by-user/:userId', authenticate, can('students', 'read'), async (req
     if (!student) { res.status(404).json({ message: 'Student not found for user' }); return; }
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -239,7 +258,7 @@ router.get('/:id', authenticate, can('students', 'read'), async (req: AuthReques
 
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -249,7 +268,7 @@ router.put('/:id', authenticate, can('students', 'update'), async (req: AuthRequ
   }
   const denied = await denyOtherStudentsRecord(req, req.params.id);
   if (denied) { res.status(403).json({ message: denied }); return; }
-  req.body = stripFieldsStudentsCannotSet(req, req.body ?? {});
+  req.body = stripFieldsStudentsCannotSet(req, withoutSystemFields(req.body));
   if ('counsellors' in req.body) req.body.counsellors = idList(req.body.counsellors);
   try {
     const before = await Student.findById(req.params.id).select('counsellors');
@@ -265,7 +284,7 @@ router.put('/:id', authenticate, can('students', 'update'), async (req: AuthRequ
     }
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -276,7 +295,7 @@ router.patch('/:id', authenticate, can('students', 'update'), async (req: AuthRe
   }
   const denied = await denyOtherStudentsRecord(req, req.params.id);
   if (denied) { res.status(403).json({ message: denied }); return; }
-  req.body = stripFieldsStudentsCannotSet(req, req.body ?? {});
+  req.body = stripFieldsStudentsCannotSet(req, withoutSystemFields(req.body));
   if ('counsellors' in req.body) req.body.counsellors = idList(req.body.counsellors);
   try {
     const before = await Student.findById(req.params.id).select('counsellors');
@@ -292,7 +311,7 @@ router.patch('/:id', authenticate, can('students', 'update'), async (req: AuthRe
     }
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -329,7 +348,7 @@ async function saveRoster(
     announceCounsellorChange(student, was, now.filter(id => id !== req.user!.id)).catch(() => {});
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 }
 
@@ -364,7 +383,7 @@ router.delete('/:id', authenticate, can('students', 'delete'), async (req: AuthR
     await Student.findByIdAndDelete(req.params.id);
     res.json({ message: 'Student deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

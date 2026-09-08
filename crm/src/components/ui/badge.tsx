@@ -13,12 +13,12 @@ import { COURSE_LEVEL_LABELS, type CourseLevel, type UserRole } from '@/types';
  */
 
 export const badgeVariants = cva(
-  'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+  'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 hig-caption2 font-semibold',
   {
     variants: {
       tone: {
         neutral: 'bg-muted text-t2',
-        accent: 'bg-accent/15 text-accent',
+        accent: 'bg-accent/15 text-accent-ink',
         success: 'bg-emerald-500/15 text-emerald-400',
         warning: 'bg-amber-500/15 text-amber-400',
         danger: 'bg-red-500/15 text-red-400',

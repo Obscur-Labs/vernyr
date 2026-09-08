@@ -2,24 +2,19 @@
 import { usePathname } from 'next/navigation';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type Theme   = 'dark' | 'light';
-export type Palette = 'indigo' | 'violet' | 'emerald' | 'rose' | 'amber' | 'sky';
+export type Theme = 'dark' | 'light';
 
 interface ThemeCtx {
-  theme:      Theme;
-  toggle:     () => void;
-  palette:    Palette;
-  setPalette: (p: Palette) => void;
+  theme: Theme;
+  toggle: () => void;
   /** True on /dev, where the theme is pinned and `toggle` does nothing. */
-  locked:     boolean;
+  locked: boolean;
 }
 
 const ThemeContext = createContext<ThemeCtx>({
-  theme:      'dark',
-  toggle:     () => {},
-  palette:    'indigo',
-  setPalette: () => {},
-  locked:     false,
+  theme: 'dark',
+  toggle: () => {},
+  locked: false,
 });
 
 /** The dev console is dark-only, so it opts out of the light theme entirely. */
@@ -27,21 +22,20 @@ const isThemeLocked = (pathname: string | null) => !!pathname?.startsWith('/dev'
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const locked   = isThemeLocked(pathname);
+  const locked = isThemeLocked(pathname);
 
-  const [theme,   setTheme]        = useState<Theme>('dark');
-  const [palette, setPaletteState] = useState<Palette>('indigo');
+  const [theme, setTheme] = useState<Theme>('dark');
 
-  // Restore persisted preferences on mount
+  // Restore the persisted preference on mount.
   useEffect(() => {
-    const savedTheme   = localStorage.getItem('crm-theme')   as Theme   | null;
-    const savedPalette = localStorage.getItem('crm-palette') as Palette | null;
-
-    if (savedTheme) setTheme(savedTheme);
-    if (savedPalette) {
-      setPaletteState(savedPalette);
-      document.documentElement.setAttribute('data-palette', savedPalette);
-    }
+    const saved = localStorage.getItem('crm-theme') as Theme | null;
+    if (saved) setTheme(saved);
+    // The accent used to be switchable and wrote `data-palette` here. The CRM
+    // has one colour now, so clear the attribute a previous build may have left
+    // on the element — a stale `data-palette` matches nothing but is confusing
+    // to find in the inspector.
+    document.documentElement.removeAttribute('data-palette');
+    localStorage.removeItem('crm-palette');
   }, []);
 
   // Single owner of the `light` class: applying it here rather than at each call
@@ -52,21 +46,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggle = () => {
     if (locked) return;
-    setTheme(prev => {
+    setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
       localStorage.setItem('crm-theme', next);
       return next;
     });
   };
 
-  const setPalette = (p: Palette) => {
-    setPaletteState(p);
-    localStorage.setItem('crm-palette', p);
-    document.documentElement.setAttribute('data-palette', p);
-  };
-
   return (
-    <ThemeContext.Provider value={{ theme, toggle, palette, setPalette, locked }}>
+    <ThemeContext.Provider value={{ theme, toggle, locked }}>
       {children}
     </ThemeContext.Provider>
   );

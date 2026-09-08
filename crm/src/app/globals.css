@@ -1,179 +1,70 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   DEFAULT — dark + indigo
+   THE PALETTE — Vernyr indigo, dark and light
+
+   One colour, fixed. The CRM used to ship six switchable palettes; a product
+   has a colour, and this is it — the same #3853DE the marketing site and the
+   auth screens already carry, so the journey from vernyr.com into the app is
+   one surface.
+
+   The accent is two tokens, not one, because on the dark ground no single
+   value can do both of its jobs: white text needs the accent dark enough to
+   sit on (luminance <= 0.183), and accent text needs it light enough to read
+   against a card (luminance >= 0.236). Those windows do not overlap.
+
+     --color-accent      the FILL — button and chip backgrounds, white on top
+     --color-accent-ink  the INK  — accent as text, icons and links
+
+   On light they are the same value; one indigo does both there.
 ═══════════════════════════════════════════════════════════════ */
 :root {
-  --color-base:    #080d1b;
-  --color-surface: #0e1629;
-  --color-card:    #141e38;
-  --color-muted:   #1b2745;
-  --color-line:    #253255;
-  --color-t1:      #edf0ff;
-  --color-t2:      #98a2c9;
-  --color-t3:      #8690ad;
-  --color-accent:  #6366f1;
-  --background:    #080d1b;
-  --foreground:    #edf0ff;
+  --color-base:       #080d1b;
+  --color-surface:    #0e1629;
+  --color-card:       #141e38;
+  --color-muted:      #1b2745;
+  --color-line:       #253255;
+  --color-t1:         #edf0ff;
+  --color-t2:         #98a2c9;
+  --color-t3:         #8690ad;
+  /* white on it 6.07:1 */
+  --color-accent:     #3853de;
+  /* on card 5.50:1 · surface 6.01:1 · base 6.46:1 */
+  --color-accent-ink: #7e8fea;
+  --background:       #080d1b;
+  --foreground:       #edf0ff;
 }
 
 :root.light {
-  --color-base:    #f0f2ff;
-  --color-surface: #ffffff;
-  --color-card:    #f8f9ff;
-  --color-muted:   #e8ebff;
-  --color-line:    #d4d8f8;
-  --color-t1:      #0c1040;
-  --color-t2:      #48567a;
-  --color-t3:      #5f6988;
-  --color-accent:  #4f46e5;
-  --background:    #f0f2ff;
-  --foreground:    #0c1040;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   VIOLET
-═══════════════════════════════════════════════════════════════ */
-:root[data-palette="violet"] {
-  --color-base:    #09061c;
-  --color-surface: #0f0c2a;
-  --color-card:    #160f38;
-  --color-muted:   #1e1548;
-  --color-line:    #281e5e;
-  --color-t1:      #f0eeff;
-  --color-t2:      #a094d0;
-  --color-t3:      #8880ae;
-  --color-accent:  #7c3aed;
-}
-:root.light[data-palette="violet"] {
-  --color-base:    #f4f1ff;
-  --color-surface: #ffffff;
-  --color-card:    #faf8ff;
-  --color-muted:   #ede8ff;
-  --color-line:    #d8d0ff;
-  --color-t1:      #1a0050;
-  --color-t2:      #50408a;
-  --color-t3:      #725ea0;
-  --color-accent:  #7c3aed;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   EMERALD
-═══════════════════════════════════════════════════════════════ */
-:root[data-palette="emerald"] {
-  --color-base:    #04100d;
-  --color-surface: #071814;
-  --color-card:    #0c2019;
-  --color-muted:   #102a22;
-  --color-line:    #18382d;
-  --color-t1:      #e8fdf5;
-  --color-t2:      #7cbfa1;
-  --color-t3:      #60987c;
-  --color-accent:  #10b981;
-}
-:root.light[data-palette="emerald"] {
-  --color-base:    #ebfdf5;
-  --color-surface: #ffffff;
-  --color-card:    #f2fdf8;
-  --color-muted:   #d1fae5;
-  --color-line:    #a7f3d0;
-  --color-t1:      #064230;
-  --color-t2:      #065f46;
-  --color-t3:      #35785c;
-  --color-accent:  #059669;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ROSE
-═══════════════════════════════════════════════════════════════ */
-:root[data-palette="rose"] {
-  --color-base:    #140508;
-  --color-surface: #1e0a10;
-  --color-card:    #280f18;
-  --color-muted:   #341522;
-  --color-line:    #44202e;
-  --color-t1:      #fff1f3;
-  --color-t2:      #c9959e;
-  --color-t3:      #a57c86;
-  --color-accent:  #f43f5e;
-}
-:root.light[data-palette="rose"] {
-  --color-base:    #fff1f2;
-  --color-surface: #ffffff;
-  --color-card:    #fff8f9;
-  --color-muted:   #ffe4e8;
-  --color-line:    #fecdd3;
-  --color-t1:      #4a0517;
-  --color-t2:      #9f1239;
-  --color-t3:      #a8455a;
-  --color-accent:  #e11d48;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   AMBER
-═══════════════════════════════════════════════════════════════ */
-:root[data-palette="amber"] {
-  --color-base:    #110900;
-  --color-surface: #1a1200;
-  --color-card:    #221800;
-  --color-muted:   #2d2100;
-  --color-line:    #3d2e00;
-  --color-t1:      #fff8e0;
-  --color-t2:      #c4a273;
-  --color-t3:      #a38653;
-  --color-accent:  #f59e0b;
-}
-:root.light[data-palette="amber"] {
-  --color-base:    #fffbeb;
-  --color-surface: #ffffff;
-  --color-card:    #fffef5;
-  --color-muted:   #fef3c7;
-  --color-line:    #fde68a;
-  --color-t1:      #431a00;
-  --color-t2:      #92400e;
-  --color-t3:      #8b6918;
-  --color-accent:  #d97706;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SKY
-═══════════════════════════════════════════════════════════════ */
-:root[data-palette="sky"] {
-  --color-base:    #03101e;
-  --color-surface: #07182e;
-  --color-card:    #0b1f3e;
-  --color-muted:   #10274e;
-  --color-line:    #183360;
-  --color-t1:      #dff3ff;
-  --color-t2:      #78b6d8;
-  --color-t3:      #6994b4;
-  --color-accent:  #0ea5e9;
-}
-:root.light[data-palette="sky"] {
-  --color-base:    #eff8ff;
-  --color-surface: #ffffff;
-  --color-card:    #f5fbff;
-  --color-muted:   #e0f2fe;
-  --color-line:    #bae6fd;
-  --color-t1:      #082f49;
-  --color-t2:      #0369a1;
-  --color-t3:      #377293;
-  --color-accent:  #0284c7;
+  --color-base:       #f0f2ff;
+  --color-surface:    #ffffff;
+  --color-card:       #f8f9ff;
+  --color-muted:      #e8ebff;
+  --color-line:       #d4d8f8;
+  --color-t1:         #0c1040;
+  --color-t2:         #48567a;
+  --color-t3:         #5f6988;
+  /* white on it 6.07:1 · as ink on white 6.07:1 · on card 5.78:1 */
+  --color-accent:     #3853de;
+  --color-accent-ink: #3853de;
+  --background:       #f0f2ff;
+  --foreground:       #0c1040;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    TAILWIND MAPPING
 ═══════════════════════════════════════════════════════════════ */
 @theme inline {
-  --color-base:    var(--color-base);
-  --color-surface: var(--color-surface);
-  --color-card:    var(--color-card);
-  --color-muted:   var(--color-muted);
-  --color-line:    var(--color-line);
-  --color-t1:      var(--color-t1);
-  --color-t2:      var(--color-t2);
-  --color-t3:      var(--color-t3);
-  --color-accent:  var(--color-accent);
+  --color-base:       var(--color-base);
+  --color-surface:    var(--color-surface);
+  --color-card:       var(--color-card);
+  --color-muted:      var(--color-muted);
+  --color-line:       var(--color-line);
+  --color-t1:         var(--color-t1);
+  --color-t2:         var(--color-t2);
+  --color-t3:         var(--color-t3);
+  --color-accent:     var(--color-accent);
+  --color-accent-ink: var(--color-accent-ink);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -281,7 +172,7 @@ body {
 
 /* Sidebar active nav glow */
 .nav-active-glow {
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent-ink);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -426,7 +317,7 @@ body { font-family: var(--font-system); }
    One visible ring for keyboard users, never removed without replacement. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent-ink) 45%, transparent);
   border-radius: var(--radius-sm);
 }
 
@@ -723,6 +614,8 @@ body { font-family: var(--font-system); }
   --color-t2:      #454956;
   --color-t3:      #767b8a;
   --color-accent:  #3853de;
+  /* On paper the accent is ink and fill alike — 6.07:1 on white. */
+  --color-accent-ink: #3853de;
 
   color: var(--color-t1);
   position: relative;
@@ -799,4 +692,108 @@ body { font-family: var(--font-system); }
   text-transform: uppercase;
   color: var(--color-t2);
   background: rgba(255, 255, 255, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HIG TYPE SCALE + HIT AREAS
+   The tokens above declared the iOS scale; these are what let a component
+   *use* it. Before this the UI layer sized text with arbitrary values —
+   `text-[14px]`, `text-[11.5px]` — which are not steps on the scale, so the
+   vertical rhythm drifted a little on every screen that set its own.
+
+   Named for the role, not the pixel, so a component says what a line *is*
+   and the scale decides how big that is.
+═══════════════════════════════════════════════════════════════ */
+.hig-large-title { font-size: 34px; line-height: 1.06; font-weight: 700; letter-spacing: -0.022em; }
+.hig-title1      { font-size: 28px; line-height: 1.14; font-weight: 700; letter-spacing: -0.021em; }
+.hig-title2      { font-size: 22px; line-height: 1.18; font-weight: 700; letter-spacing: -0.018em; }
+.hig-title3      { font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -0.015em; }
+.hig-headline    { font-size: 17px; line-height: 1.29; font-weight: 600; letter-spacing: -0.012em; }
+.hig-body        { font-size: 17px; line-height: 1.29; font-weight: 400; letter-spacing: -0.012em; }
+.hig-callout     { font-size: 16px; line-height: 1.31; font-weight: 400; letter-spacing: -0.009em; }
+.hig-subhead     { font-size: 15px; line-height: 1.33; font-weight: 400; letter-spacing: -0.006em; }
+.hig-footnote    { font-size: 13px; line-height: 1.38; font-weight: 400; }
+.hig-caption     { font-size: 12px; line-height: 1.33; font-weight: 400; }
+.hig-caption2    { font-size: 11px; line-height: 1.27; font-weight: 400; }
+
+/* The all-caps label above a field or a metric. 11pt is the floor Apple
+   sets for tracked-out caps — smaller stops being readable once spaced. */
+.hig-label {
+  font-size: 11px;
+  line-height: 1.27;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Hit areas ────────────────────────────────────────────────────────────
+   44x44pt is the HIG minimum, and it is about the finger rather than the
+   glyph: a 36pt toolbar button is the right *visual* weight on a pointer
+   machine and the wrong target on a touchscreen. `.hig-touch` keeps the
+   drawn size and grows only the area that receives the tap, so the layout
+   is unchanged and the target is legal.
+
+   `::after` rather than padding, because padding would move the border and
+   the background with it. */
+.hig-touch { position: relative; }
+.hig-touch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  transform: translate(-50%, -50%);
+}
+/* A row of them must not have overlapping targets stealing each other's taps. */
+.hig-touch-tight::after { min-width: 40px; min-height: 40px; }
+
+/* ── Controls ─────────────────────────────────────────────────────────────
+   One height for every text control, at the 44pt minimum, so an input, a
+   select and a button standing in a row line up on both edges. */
+.hig-control { min-height: 44px; }
+.hig-control-sm { min-height: 32px; }   /* dense tables and inline filters */
+
+/* A control's radius is concentric with the card it sits in: the card is
+   16px with 16px of padding, so an inset control reads correctly at 12px. */
+.hig-field-radius { border-radius: var(--radius-md); }
+
+/* ═══════════════════════════════════════════════════════════════
+   TAILWIND'S TYPE SCALE, MOVED ONTO THE iOS SCALE
+   The app sizes most of its text with Tailwind's names — ~190 `text-xs`
+   and ~170 `text-sm` across the screens. Those names carry Tailwind's own
+   ramp (12/14/16/18/20/24), and Apple's is 11/12/13/15/17/20/22/28/34.
+   The two agree at 12 and 20 and disagree everywhere else, so half the app
+   was a pixel or two off the grid the HIG layer sets.
+
+   Redefining the steps moves every call site at once, which is the same
+   move the light-theme colour ramp above makes and for the same reason:
+   rewriting ~370 class names by hand would be a worse change with more
+   ways to go wrong. `text-sm` now means footnote, `text-base` means body.
+
+   Line heights come with them — Tailwind pairs one with each step, and a
+   size moved without its leading just re-breaks the rhythm somewhere else.
+═══════════════════════════════════════════════════════════════ */
+@theme {
+  /* Left at 12 — caption1, where it already sat. This is the app's most-used
+     step (~190 sites of metadata and labels), and dropping it to caption2
+     would shrink all of it to buy nothing: 12 is already on the scale. */
+  --text-xs: 12px;                 /* caption1 */
+  --text-xs--line-height: 1.33;
+  --text-sm: 13px;                 /* footnote */
+  --text-sm--line-height: 1.38;
+  --text-base: 15px;               /* subhead — the app's workhorse */
+  --text-base--line-height: 1.33;
+  --text-lg: 17px;                 /* body / headline */
+  --text-lg--line-height: 1.29;
+  --text-xl: 20px;                 /* title3 */
+  --text-xl--line-height: 1.25;
+  --text-2xl: 22px;                /* title2 */
+  --text-2xl--line-height: 1.18;
+  --text-3xl: 28px;                /* title1 */
+  --text-3xl--line-height: 1.14;
+  --text-4xl: 34px;                /* large title */
+  --text-4xl--line-height: 1.06;
 }

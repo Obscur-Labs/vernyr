@@ -14,6 +14,7 @@ import {
 } from '../services/access';
 import { logActivity } from '../utils/activityLog';
 import { clientError } from '../utils/mongoErrors';
+import { serverError } from '../utils/httpError';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ router.get('/presets', authenticate, can('access', 'read'), async (_req: AuthReq
     const counts = await Promise.all(presets.map((p) => countUsersOnPreset(p.key)));
     res.json(presets.map((p, i) => ({ ...p, memberCount: counts[i] })));
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -97,7 +98,7 @@ router.post('/presets', authenticate, can('access', 'create'), async (req: AuthR
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -147,7 +148,7 @@ router.put('/presets/:key', authenticate, can('access', 'update'), async (req: A
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -192,7 +193,7 @@ router.delete('/presets/:key', authenticate, can('access', 'delete'), async (req
     });
     res.json({ message: isBuiltIn(slug) ? 'Reset to the built-in default' : 'Preset deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

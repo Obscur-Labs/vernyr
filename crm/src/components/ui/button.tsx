@@ -19,7 +19,7 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary: 'bg-accent text-white hover:brightness-110',
-        secondary: 'bg-accent/12 text-accent hover:bg-accent/20',
+        secondary: 'bg-accent/12 text-accent-ink hover:bg-accent/20',
         outline: 'border border-line bg-card text-t2 hover:border-accent/50 hover:text-t1',
         ghost: 'text-t2 hover:bg-muted hover:text-t1',
         danger: 'danger-action bg-transparent',
@@ -27,11 +27,13 @@ export const buttonVariants = cva(
         destructive: 'text-white hover:brightness-110',
       },
       size: {
-        sm: 'min-h-8 px-3 text-[13px]',
-        md: 'min-h-11 px-5 text-[15px]',
-        lg: 'min-h-12 px-6 text-[16px]',
-        /** Square, for a lone glyph. */
-        icon: 'h-9 w-9 rounded-lg p-0',
+        // `sm` is drawn at 32pt — the right weight for a control inside a
+        // table row — and `.hig-touch` grows its tap target back to 44.
+        sm: 'hig-touch min-h-8 px-3.5 hig-footnote',
+        md: 'hig-control px-5 hig-subhead',
+        lg: 'min-h-12 px-6 hig-callout',
+        /** Square, for a lone glyph. 36pt drawn, 44pt to the finger. */
+        icon: 'hig-touch h-9 w-9 rounded-xl p-0',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },
@@ -68,7 +70,13 @@ export function ButtonLink({
   return <Link href={href} className={classes} {...props} />;
 }
 
-/** A toolbar control: 36pt square, one glyph, always labelled. */
+/**
+ * A toolbar control: one glyph, always labelled.
+ *
+ * Drawn at 36pt, which is the weight Apple gives a toolbar button on a
+ * pointer machine, and padded out to a 44pt tap target by `.hig-touch` — the
+ * glyph should not grow just because the finger needs room.
+ */
 export function IconButton({
   label, className, variant = 'ghost', ...props
 }: Omit<ButtonProps, 'size' | 'aria-label'> & { label: string }) {

@@ -5,7 +5,7 @@ import { body, validationResult } from 'express-validator';
 import User, { USERNAME_RE } from '../models/User';
 import PortalAccount from '../models/PortalAccount';
 import Student from '../models/Student';
-import { authenticate, can, AuthRequest } from '../middleware/auth';
+import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { invalidateUser, loadPrincipal } from '../services/access';
 import {
   credentialConflict,
@@ -14,6 +14,8 @@ import {
 } from '../services/accounts';
 import { logActivity } from '../utils/activityLog';
 import { clientError } from '../utils/mongoErrors';
+import { serverError } from '../utils/httpError';
+import { loginLimiter, signupLimiter, lookupLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -30,7 +32,7 @@ const studentIdOf = (doc: unknown) => {
 };
 
 // POST /api/auth/login — one form for staff and portal accounts alike
-router.post('/login', [
+router.post('/login', loginLimiter, [
   body('identifier').optional().notEmpty().trim(),
   body('password').notEmpty(),
 ], async (req: AuthRequest, res: Response): Promise<void> => {
@@ -73,7 +75,7 @@ router.post('/login', [
       },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -84,8 +86,10 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise
     if (!found) { res.status(404).json({ message: 'User not found' }); return; }
 
     const p = req.principal!;
+    // `toObject()` skips the toJSON transform that strips the hash, and the
+    // document was loaded with `+password`. Serialise through toJSON instead.
     res.json({
-      ...found.doc.toObject(),
+      ...(found.doc.toJSON() as Record<string, unknown>),
       studentId: studentIdOf(found.doc),
       access: {
         presetKey: p.presetKey,
@@ -95,7 +99,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise
       },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -105,12 +109,15 @@ router.post('/register', authenticate, can('members', 'create'), [
   body('username').optional().trim().toLowerCase().matches(USERNAME_RE),
   body('email').optional().isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
-  body('role').optional(),
+  body('role').optional().isIn(['admin', 'counsellor']).withMessage('A member is an admin or a counsellor'),
 ], async (req: AuthRequest, res: Response): Promise<void> => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) { res.status(400).json({ errors: errors.array() }); return; }
 
   const { name, username, email, password, role } = req.body;
+  if (role === 'admin' && !may(req, 'access', 'update')) {
+    res.status(403).json({ message: 'Granting the admin seat needs Roles & access' }); return;
+  }
   try {
     const conflict = await credentialConflict({ username, email });
     if (conflict) { res.status(409).json({ message: conflict }); return; }
@@ -120,12 +127,12 @@ router.post('/register', authenticate, can('members', 'create'), [
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 // POST /api/auth/register-student — self-registration on the portal
-router.post('/register-student', [
+router.post('/register-student', signupLimiter, [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('username').trim().toLowerCase().matches(USERNAME_RE)
     .withMessage('Username must be 3–32 characters: letters, numbers, dot, underscore or hyphen'),
@@ -167,23 +174,23 @@ router.post('/register-student', [
   } catch (err) {
     const known = clientError(err);
     if (known) { res.status(known.status).json({ message: known.message }); return; }
-    res.status(500).json({ message: 'Server error during registration', error: err });
+    serverError(res, err, 'Server error during registration');
   }
 });
 
 // GET /api/auth/username-available?username=…
-router.get('/username-available', async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/username-available', lookupLimiter, async (req: AuthRequest, res: Response): Promise<void> => {
   const username = String(req.query.username ?? '').trim().toLowerCase();
   if (!USERNAME_RE.test(username)) { res.json({ available: false, reason: 'invalid' }); return; }
   try {
     res.json({ available: !(await credentialConflict({ username })) });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
 // POST /api/auth/change-password
-router.post('/change-password', authenticate, [
+router.post('/change-password', authenticate, loginLimiter, [
   body('currentPassword').notEmpty(),
   body('newPassword').isLength({ min: 6 }),
 ], async (req: AuthRequest, res: Response): Promise<void> => {
@@ -209,7 +216,7 @@ router.post('/change-password', authenticate, [
     });
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

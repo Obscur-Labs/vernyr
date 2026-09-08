@@ -141,7 +141,7 @@ export function LeadKanban({ leads, onStatusChange, onCardClick }: Props) {
 
               {colLeads.length === 0 && (
                 <div className={`h-20 flex items-center justify-center border-2 border-dashed rounded-xl text-xs text-t3 transition-colors ${
-                  isOver ? 'border-accent/40 text-accent' : 'border-line'
+                  isOver ? 'border-accent/40 text-accent-ink' : 'border-line'
                 }`}>
                   {isOver ? 'Drop here' : 'No leads'}
                 </div>

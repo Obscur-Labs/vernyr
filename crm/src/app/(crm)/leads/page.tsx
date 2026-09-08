@@ -74,7 +74,7 @@ function AddLeadDrawer({ open, onClose, onSave, counsellors }: DrawerProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="hig-press grid h-9 w-9 place-items-center rounded-lg text-t2 hover:bg-muted hover:text-t1"
+            className="hig-press hig-touch grid h-9 w-9 place-items-center rounded-xl text-t2 hover:bg-muted hover:text-t1"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
@@ -261,10 +261,14 @@ export default function LeadsPage() {
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-t1">{lead.name}</p>
                     <p className="text-xs text-t2">{lead.email}</p>
+                    {/* An inline affordance inside a row that is itself
+                        clickable: a 44pt target here would sit over the row and
+                        swallow its taps, so this takes the inline-link
+                        exemption and is simply given more room instead. */}
                     {lead.convertedStudentId && (
                       <Link
                         href={`/students/${lead.convertedStudentId}`}
-                        className="inline-flex items-center gap-1 mt-1 text-xs bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium hover:bg-emerald-500/25 transition-colors"
+                        className="hig-press inline-flex h-7 items-center gap-1 mt-1 text-xs bg-emerald-500/15 text-emerald-400 px-2.5 rounded-full font-medium hover:bg-emerald-500/25"
                         onClick={e => e.stopPropagation()}
                       >
                         View Student

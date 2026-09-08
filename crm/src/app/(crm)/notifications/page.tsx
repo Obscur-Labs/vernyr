@@ -91,7 +91,7 @@ export default function CRMNotificationsPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-accent"
+            className="text-accent-ink"
             onClick={() => perform('read', unread.map((n) => n._id))}
           >
             Mark all as read
@@ -101,7 +101,7 @@ export default function CRMNotificationsPage() {
 
       {selected.size > 0 && (
         <Card padding="none" className="flex items-center gap-2 border-accent/20 bg-accent/10 px-4 py-2.5">
-          <span className="text-sm font-semibold text-accent">{selected.size} selected</span>
+          <span className="text-sm font-semibold text-accent-ink">{selected.size} selected</span>
           <span aria-hidden className="mx-1 h-4 w-px bg-line" />
           <Button variant="ghost" size="sm" onClick={() => perform('read')}>
             <CheckIcon className="h-3.5 w-3.5" />Mark read
@@ -164,7 +164,7 @@ export default function CRMNotificationsPage() {
                     aria-hidden
                     className={cn(
                       'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                      n.read ? 'bg-muted text-t3' : 'bg-accent/15 text-accent',
+                      n.read ? 'bg-muted text-t3' : 'bg-accent/15 text-accent-ink',
                     )}
                   >
                     <Glyph className="h-[18px] w-[18px]" />

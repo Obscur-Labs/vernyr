@@ -91,7 +91,7 @@ export function InstallPrompt({ appName }: { appName: string }) {
   return (
     <div className="overlay-panel animate-slide-in-right fixed bottom-4 left-4 right-4 z-[70] mx-auto max-w-sm rounded-2xl p-4 sm:left-auto">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent-ink">
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
             <path d="M10 2a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L9 10.586V3a1 1 0 011-1z" />
             <path d="M3 14a1 1 0 011 1v1h12v-1a1 1 0 112 0v1a2 2 0 01-2 2H4a2 2 0 01-2-2v-1a1 1 0 011-1z" />

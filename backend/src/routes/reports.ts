@@ -9,6 +9,7 @@ import User from '../models/User';
 import Course from '../models/Course';
 import University from '../models/University';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
+import { serverError } from '../utils/httpError';
 
 const router = Router();
 
@@ -118,7 +119,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       applicationsByStatus: bucketsOf(applicationsByStatus),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -176,7 +177,7 @@ router.get('/finance', async (req: AuthRequest, res: Response) => {
       })),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -237,7 +238,7 @@ router.get('/students', async (req: AuthRequest, res: Response) => {
       ieltsBands: ielts.map((r) => ({ value: String(r._id), count: r.n })),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -275,7 +276,7 @@ router.get('/applications', async (req: AuthRequest, res: Response) => {
       offerRate: total ? Math.round((won / total) * 100) : 0,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -310,7 +311,7 @@ router.get('/visas', async (req: AuthRequest, res: Response) => {
       approvalRate: decided ? Math.round((ok / decided) * 100) : 0,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -351,7 +352,7 @@ router.get('/leads', async (req: AuthRequest, res: Response) => {
       conversionRate: total ? Math.round((converted / total) * 100) : 0,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -394,7 +395,7 @@ router.get('/catalogue', async (_req: AuthRequest, res: Response) => {
       tuitionBands: tuition.map((r) => ({ value: BAND_LABELS[String(r._id)] ?? String(r._id), count: r.n })),
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

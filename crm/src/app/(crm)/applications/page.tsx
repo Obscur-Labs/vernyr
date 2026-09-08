@@ -143,7 +143,7 @@ export default function ApplicationsPage() {
                     </div>
                   ))}
                   {colApps.length === 0 && (
-                    <div className={`h-16 flex items-center justify-center border-2 border-dashed rounded-xl text-xs text-t3 ${isOver ? 'border-accent/40 text-accent' : 'border-line'}`}>
+                    <div className={`h-16 flex items-center justify-center border-2 border-dashed rounded-xl text-xs text-t3 ${isOver ? 'border-accent/40 text-accent-ink' : 'border-line'}`}>
                       {isOver ? 'Drop here' : 'Empty'}
                     </div>
                   )}

@@ -40,12 +40,12 @@ function NavRow({
       aria-current={active ? 'page' : undefined}
       title={folded ? label : undefined}
       className={cn(
-        'hig-press relative flex h-11 items-center rounded-xl text-[15px] font-medium',
+        'hig-press hig-subhead relative flex h-11 items-center rounded-xl font-medium',
         folded ? 'justify-center px-0' : 'gap-3 px-3',
-        active ? 'bg-accent/15 text-accent' : 'text-t2 hover:bg-muted hover:text-t1',
+        active ? 'bg-accent/15 text-accent-ink' : 'text-t2 hover:bg-muted hover:text-t1',
       )}
     >
-      <span className={cn('flex shrink-0 items-center', active ? 'text-accent' : 'text-t3')}>{icon}</span>
+      <span className={cn('flex shrink-0 items-center', active ? 'text-accent-ink' : 'text-t3')}>{icon}</span>
       {!folded && <span className="hig-fold-label flex-1 truncate">{label}</span>}
     </Link>
   );
@@ -71,10 +71,10 @@ function SubRow({ item, active, onNavigate }: { item: NavLeaf; active: boolean; 
       className={cn(
         // No `hig-press` here: its 0.97 press-scale would notch the rail these
         // rows share. The colour transition below is the whole feedback.
-        'flex h-9 items-center rounded-r-lg border-l pl-[21px] pr-3 text-[14px]',
+        'hig-footnote hig-touch hig-touch-tight flex h-9 items-center rounded-r-lg border-l pl-[21px] pr-3',
         'transition-[background-color,border-color,color] duration-150',
         active
-          ? 'border-accent bg-accent/10 font-semibold text-accent'
+          ? 'border-accent bg-accent/10 font-semibold text-accent-ink'
           : 'border-line font-medium text-t2 hover:border-t3 hover:bg-muted hover:text-t1',
       )}
     >
@@ -120,7 +120,7 @@ function Sidebar({ items, pathname, folded, openSections, onOpenSections, onNavi
           aria-label="Vernyr - go to dashboard"
           className="hig-press flex items-center rounded-lg text-t1"
         >
-          {folded ? <VernyrMark className="h-7 w-7" /> : <Wordmark className="text-[19px]" />}
+          {folded ? <VernyrMark className="h-7 w-7" /> : <Wordmark className="text-[20px]" />}
         </Link>
       </div>
 
@@ -170,13 +170,13 @@ function Sidebar({ items, pathname, folded, openSections, onOpenSections, onNavi
               <AccordionItem key={item.label} value={item.label}>
                 <AccordionTrigger
                   className={cn(
-                    'h-11 text-[15px] font-medium',
+                    'hig-subhead h-11 font-medium',
                     // Closed but current: the row itself carries the highlight,
                     // because the active child inside it is not visible.
-                    inSection && !open ? 'bg-accent/10 text-accent' : 'text-t2 hover:bg-muted hover:text-t1',
+                    inSection && !open ? 'bg-accent/10 text-accent-ink' : 'text-t2 hover:bg-muted hover:text-t1',
                   )}
                 >
-                  <span className={cn('flex shrink-0 items-center', inSection ? 'text-accent' : 'text-t3')}>
+                  <span className={cn('flex shrink-0 items-center', inSection ? 'text-accent-ink' : 'text-t3')}>
                     {item.icon}
                   </span>
                   <span className="hig-fold-label truncate">{item.label}</span>

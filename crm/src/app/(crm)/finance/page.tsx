@@ -139,7 +139,7 @@ export default function FinancePage() {
                           </button>
                         )}
                         {p.receiptUrl && (
-                          <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline">Receipt</a>
+                          <a href={p.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-accent-ink hover:underline">Receipt</a>
                         )}
                       </div>
                     </td>

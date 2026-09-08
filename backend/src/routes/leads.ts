@@ -4,19 +4,23 @@ import Student from '../models/Student';
 import User from '../models/User';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { notify } from '../utils/notify';
+import { serverError } from '../utils/httpError';
+import { scalar } from '../utils/query';
 
 const router = Router();
 
 router.get('/', authenticate, can('leads', 'read'), async (req: AuthRequest, res: Response) => {
   try {
     const filter: Record<string, unknown> = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
+    const status = scalar(req.query.status);
+    if (status) filter.status = status;
+    const assignedTo = scalar(req.query.assignedTo);
+    if (assignedTo) filter.assignedTo = assignedTo;
     if (req.user?.role === 'counsellor') filter.assignedTo = req.user.id;
     const leads = await Lead.find(filter).populate('assignedTo', 'name email').sort('-createdAt');
     res.json(leads);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -25,7 +29,7 @@ router.post('/', authenticate, can('leads', 'create'), async (req: AuthRequest, 
     const lead = await Lead.create({ ...req.body, assignedTo: req.body.assignedTo || req.user!.id });
     res.status(201).json(lead);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -35,7 +39,7 @@ router.get('/:id', authenticate, can('leads', 'read'), async (req, res: Response
     if (!lead) { res.status(404).json({ message: 'Lead not found' }); return; }
     res.json(lead);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -97,7 +101,7 @@ router.put('/:id', authenticate, can('leads', 'update'), async (req: AuthRequest
 
     res.json(lead);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 
@@ -108,7 +112,7 @@ router.delete('/:id', authenticate, can('leads', 'delete'), async (req, res: Res
     await Lead.findByIdAndDelete(req.params.id);
     res.json({ message: 'Lead deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err });
+    serverError(res, err);
   }
 });
 

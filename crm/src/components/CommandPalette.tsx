@@ -107,7 +107,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             aria-label="Search pages"
             className="w-full bg-transparent py-4 text-[15px] text-t1 placeholder:text-t3 focus:outline-none focus-visible:shadow-none"
           />
-          <kbd className="hidden shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] font-medium text-t3 sm:block">
+          <kbd className="hidden shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] font-medium text-t3 sm:block">
             esc
           </kbd>
         </div>
@@ -167,7 +167,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="mr-1 inline-block min-w-[18px] rounded border border-line px-1 text-center font-sans text-[10px] leading-4 text-t3">
+    <kbd className="mr-1 inline-block min-w-[18px] rounded border border-line px-1 text-center font-sans text-[11px] leading-4 text-t3">
       {children}
     </kbd>
   );

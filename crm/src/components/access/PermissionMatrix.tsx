@@ -48,7 +48,7 @@ export function PermissionMatrix({
                     <div className="flex items-center gap-2">
                       <span className="text-[15px] font-semibold text-t1">{mod.label}</span>
                       {some && !all && (
-                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-t2">
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-t2">
                           Partial
                         </span>
                       )}
@@ -110,9 +110,9 @@ function VerbToggle({
       aria-label={label}
       disabled={disabled}
       onClick={onToggle}
-      className={`hig-press relative flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium disabled:opacity-40 ${
+      className={`hig-press hig-touch hig-touch-tight relative flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium disabled:opacity-40 ${
         on
-          ? 'border-accent/40 bg-accent/15 text-accent'
+          ? 'border-accent/40 bg-accent/15 text-accent-ink'
           : 'border-line bg-card text-t3 hover:text-t2'
       }`}
     >

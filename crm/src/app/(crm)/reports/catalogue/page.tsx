@@ -39,7 +39,7 @@ export default function CatalogueReportPage() {
             <ChartCard
               title="By level"
               subtitle="The mix of degrees on offer"
-              action={<Link href="/courses" className="text-[13px] font-medium text-accent hover:underline">Browse</Link>}
+              action={<Link href="/courses" className="text-[13px] font-medium text-accent-ink hover:underline">Browse</Link>}
             >
               <DonutChart slices={levels} centerLabel="Courses" />
             </ChartCard>
@@ -53,7 +53,7 @@ export default function CatalogueReportPage() {
             <ChartCard
               title="Coverage by country"
               subtitle="How many courses each destination contributes"
-              action={<Link href="/courses/countries" className="text-[13px] font-medium text-accent hover:underline">Countries</Link>}
+              action={<Link href="/courses/countries" className="text-[13px] font-medium text-accent-ink hover:underline">Countries</Link>}
             >
               <HBarChart slices={data.byCountry} labelWidth="w-32" />
             </ChartCard>
@@ -61,7 +61,7 @@ export default function CatalogueReportPage() {
             <ChartCard
               title="Deepest catalogues"
               subtitle="Universities with the most courses listed"
-              action={<Link href="/courses/universities" className="text-[13px] font-medium text-accent hover:underline">Universities</Link>}
+              action={<Link href="/courses/universities" className="text-[13px] font-medium text-accent-ink hover:underline">Universities</Link>}
             >
               <HBarChart slices={data.byUniversity} labelWidth="w-44" monochrome />
             </ChartCard>

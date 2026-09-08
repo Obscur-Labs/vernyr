@@ -112,7 +112,7 @@ function FileContent({ msg, isMe }: { msg: Message; isMe: boolean }) {
   return (
     <a href={href} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20' : 'bg-accent/15'}`}>
-        <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-accent'}`}>
+        <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-accent-ink'}`}>
           <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
         </svg>
       </div>
@@ -133,7 +133,7 @@ function RoomAvatars({ room, online, size = 40 }: { room: Room; online?: boolean
   return (
     <div className="relative flex-shrink-0" style={{ width: size + small * 0.45, height: size }}>
       <div
-        className="absolute left-0 top-0 rounded-full bg-accent/20 text-accent font-bold flex items-center justify-center"
+        className="absolute left-0 top-0 rounded-full bg-accent/20 text-accent-ink font-bold flex items-center justify-center"
         style={{ width: size, height: size, fontSize: size * 0.32 }}
       >
         {first ? getInitials(first.name) : '?'}
@@ -599,11 +599,11 @@ function ChatInner() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
-                      <p className={`text-sm font-semibold truncate ${isActive ? 'text-accent' : 'text-t1'}`}>
+                      <p className={`text-sm font-semibold truncate ${isActive ? 'text-accent-ink' : 'text-t1'}`}>
                         {room.title}
                       </p>
                       {conv.archived ? (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-t3 bg-muted border border-line rounded-full px-2 py-0.5 flex-shrink-0">Closed</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-t3 bg-muted border border-line rounded-full px-2 py-0.5 flex-shrink-0">Closed</span>
                       ) : lastTime && (
                         <span className="text-[11px] text-t3 flex-shrink-0">{lastTime}</span>
                       )}
@@ -632,7 +632,7 @@ function ChatInner() {
         {!activeConv ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <div className="w-16 h-16 rounded-2xl bg-accent/15 flex items-center justify-center mb-4">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-accent">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-accent-ink">
                 <path fillRule="evenodd" d="M4.848 2.771A49.144 49.144 0 0112 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 01-3.476.383.39.39 0 00-.297.17l-2.755 4.133a.75.75 0 01-1.248 0l-2.755-4.133a.39.39 0 00-.297-.17 48.9 48.9 0 01-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97z" clipRule="evenodd"/>
               </svg>
             </div>
@@ -668,7 +668,7 @@ function ChatInner() {
                   {isClosed
                     ? <span className="im-sub">room closed</span>
                     : otherTyping
-                      ? <span className="text-accent">typing…</span>
+                      ? <span className="text-accent-ink">typing…</span>
                       : otherOnline
                         ? <span className="text-emerald-500">online</span>
                         : <span className="im-sub">offline</span>}
@@ -692,7 +692,7 @@ function ChatInner() {
                   onClick={handleDownloadZip}
                   disabled={zipBusy}
                   title="Download all documents as ZIP"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-t2 hover:text-accent hover:border-accent/40 text-xs font-semibold transition disabled:opacity-40 flex-shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-t2 hover:text-accent-ink hover:border-accent/40 text-xs font-semibold transition disabled:opacity-40 flex-shrink-0"
                 >
                   {zipBusy ? (
                     <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -752,7 +752,7 @@ function ChatInner() {
                             <button
                               onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
                               title="Reply"
-                              className="self-center opacity-0 group-hover:opacity-100 transition text-t3 hover:text-accent p-1"
+                              className="self-center opacity-0 group-hover:opacity-100 transition text-t3 hover:text-accent-ink p-1"
                             >
                               <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                                 <path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
@@ -790,7 +790,7 @@ function ChatInner() {
                             <button
                               onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
                               title="Reply"
-                              className="self-center opacity-0 group-hover:opacity-100 transition text-t3 hover:text-accent p-1"
+                              className="self-center opacity-0 group-hover:opacity-100 transition text-t3 hover:text-accent-ink p-1"
                             >
                               <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                                 <path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
@@ -922,7 +922,7 @@ function ChatInner() {
               <button
                 type="submit"
                 disabled={!input.trim() || sending}
-                className="w-10 h-10 rounded-full im-send flex items-center justify-center disabled:opacity-40 transition active:scale-95 flex-shrink-0"
+                className="hig-touch w-10 h-10 rounded-full im-send flex items-center justify-center disabled:opacity-40 transition active:scale-95 flex-shrink-0"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 -rotate-45">
                   <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>

@@ -64,7 +64,7 @@ export function Stat({
           {trend && (
             <span
               className={cn(
-                'rounded-full px-2 py-0.5 text-xs font-medium',
+                'hig-caption rounded-full px-2 py-0.5 font-medium',
                 trend.value >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400',
               )}
             >
@@ -77,11 +77,11 @@ export function Stat({
       {/* Untinted stats put the label first — that is the report-page reading
           order, where the label is the question and the number is the answer. */}
       {!tinted && (
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-t3">{label}</p>
+        <p className="hig-label text-t3">{label}</p>
       )}
 
       <div className={cn('flex items-end justify-between gap-2', !tinted && 'mt-2')}>
-        <p className={cn('text-[30px] font-bold leading-none tracking-tight', TONE_CLASS[tone])}>
+        <p className={cn('hig-title1 leading-none', TONE_CLASS[tone])}>
           {value}
         </p>
         {spark && spark.length > 1 && (
@@ -92,9 +92,9 @@ export function Stat({
       </div>
 
       {tinted && (
-        <p className="mt-1 text-xs font-medium uppercase tracking-wider text-t2">{label}</p>
+        <p className="hig-label mt-1.5 text-t2">{label}</p>
       )}
-      {hint && <p className="mt-1.5 text-[12px] text-t3">{hint}</p>}
+      {hint && <p className="hig-caption mt-1.5 text-t3">{hint}</p>}
     </div>
   );
 }

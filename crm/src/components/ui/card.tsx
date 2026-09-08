@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
  * and a table panel share one set of paddings and radii.
  */
 
+// 16px radius with 16px of padding is the concentric pair the HIG layer is
+// built around: a 12px control inset in this card lines up with its corner.
 const cardVariants = cva('rounded-2xl border', {
   variants: {
     tone: {
@@ -49,8 +51,8 @@ export function CardHeader({
   return (
     <header className={cn('mb-5 flex items-start justify-between gap-3', className)}>
       <div className="min-w-0">
-        <h2 className="text-[15px] font-semibold tracking-tight text-t1">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-[12px] text-t3">{subtitle}</p>}
+        <h2 className="hig-headline text-t1">{title}</h2>
+        {subtitle && <p className="hig-caption mt-0.5 text-t3">{subtitle}</p>}
       </div>
       {action}
     </header>
@@ -69,8 +71,8 @@ export function PageHeader({
   return (
     <header className={cn('flex flex-wrap items-start justify-between gap-4', className)}>
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-t1">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-t2">{subtitle}</p>}
+        <h1 className="hig-title1 text-t1">{title}</h1>
+        {subtitle && <p className="hig-subhead mt-1 text-t2">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2.5">{actions}</div>}
     </header>
@@ -94,9 +96,9 @@ export function EmptyState({
   return (
     <Card tone="dashed" padding="none" className={cn('py-16 text-center', className)}>
       {icon && <div className="mx-auto mb-3 flex justify-center text-t3/60">{icon}</div>}
-      <p className="text-[15px] font-semibold text-t1">{title}</p>
+      <p className="hig-headline text-t1">{title}</p>
       {description && (
-        <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-t3">{description}</p>
+        <p className="hig-footnote mx-auto mt-1.5 max-w-sm leading-relaxed text-t3">{description}</p>
       )}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </Card>

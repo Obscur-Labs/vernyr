@@ -138,7 +138,7 @@ export default function RolesPage() {
             A preset is a named set of permissions. Every screen and every action in the app
             belongs to a module, and a preset says which of those a person holds. Assign one to
             each member on the{' '}
-            <Link href="/members" className="text-accent hover:underline">Members</Link> page.
+            <Link href="/members" className="text-accent-ink hover:underline">Members</Link> page.
           </>
         }
         actions={can('access', 'create') && (

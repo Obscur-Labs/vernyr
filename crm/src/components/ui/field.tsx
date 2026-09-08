@@ -12,15 +12,20 @@ import { cn } from '@/lib/utils';
  * field's height, radius and focus ring cannot drift between them. `Field`
  * wires the label, the hint and the error to the control by id — the part that
  * gets skipped when every page writes its own `<label>`.
+ *
+ * Sizes follow the HIG layer: the default control is 44pt tall, which is the
+ * minimum target Apple specifies, and its type is a step on the iOS scale
+ * rather than a number that happened to look right. `sm` is the deliberate
+ * exception — a dense table filter on a pointer machine, never a primary form.
  */
 
 const control = cva(
-  'w-full rounded-xl border bg-card text-t1 placeholder:text-t3 focus:outline-none disabled:opacity-50',
+  'hig-field-radius w-full border bg-card text-t1 placeholder:text-t3 focus:outline-none disabled:opacity-50',
   {
     variants: {
       size: {
-        sm: 'px-2.5 py-1.5 text-[13px]',
-        md: 'px-3 py-2.5 text-[14px]',
+        sm: 'hig-control-sm px-3 py-1.5 hig-footnote',
+        md: 'hig-control px-3.5 py-2.5 hig-subhead',
       },
       invalid: {
         true: 'border-[var(--color-danger)] focus:border-[var(--color-danger)]',
@@ -38,9 +43,14 @@ Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> & ControlVariants) => 
   <input className={cn(control({ size, invalid }), className)} {...props} />
 );
 
+// A textarea is sized by its rows, so the 44pt floor would fight a 2-row box.
 export const Textarea = ({ className, size, invalid, rows = 3, ...props }:
 React.TextareaHTMLAttributes<HTMLTextAreaElement> & ControlVariants) => (
-  <textarea rows={rows} className={cn(control({ size, invalid }), className)} {...props} />
+  <textarea
+    rows={rows}
+    className={cn(control({ size, invalid }), 'min-h-0 py-2.5', className)}
+    {...props}
+  />
 );
 
 // The DOM's own `size` is a number — of characters on an input, of visible rows
@@ -64,16 +74,33 @@ export function Field({
   className?: string;
 }) {
   const id = useId();
+  const describedBy = `${id}-desc`;
+  const described = !!(error || hint);
+
   return (
     <div className={cn('block', className)}>
-      <label htmlFor={id} className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wider text-t3">
+      <label htmlFor={id} className="hig-label mb-1.5 block text-t3">
         {label}
-        {required && <span className="ml-1 text-[var(--color-danger)]">*</span>}
+        {/* The asterisk alone is a colour-only signal to a screen reader. */}
+        {required && (
+          <span className="ml-1 text-[var(--color-danger)]">
+            *<span className="sr-only"> (required)</span>
+          </span>
+        )}
       </label>
       {typeof children === 'function' ? children(id) : children}
-      {error
-        ? <p className="mt-1 text-[11.5px] text-[var(--color-danger)]">{error}</p>
-        : hint && <p className="mt-1 text-[11.5px] leading-relaxed text-t3">{hint}</p>}
+      {described && (
+        <p
+          id={describedBy}
+          role={error ? 'alert' : undefined}
+          className={cn(
+            'hig-caption mt-1.5',
+            error ? 'text-[var(--color-danger)]' : 'leading-relaxed text-t3',
+          )}
+        >
+          {error || hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -90,13 +117,14 @@ export function SearchInput({
 }) {
   return (
     <div className={cn('relative', className)}>
-      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-t3" />
+      <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-t3" />
       <Input
+        type="search"
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
         placeholder={placeholder}
         aria-label={label}
-        className="pl-9"
+        className="pl-10"
       />
     </div>
   );
@@ -106,6 +134,10 @@ export function SearchInput({
  * A row of mutually exclusive choices — the iOS segmented control. Used for
  * report ranges, list filters and anything else with three or four options,
  * where a select would hide the alternatives behind a click.
+ *
+ * The track is 44pt so the whole control clears the touch minimum; the
+ * segments inside it are the 36pt Apple draws, with `.hig-touch` growing each
+ * one's target back out to the full height of the track.
  */
 export function Segmented<T extends string | number>({
   value, onChange, options, label, className,
@@ -117,7 +149,14 @@ export function Segmented<T extends string | number>({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={cn('flex rounded-full border border-line bg-card p-0.5', className)}>
+    <div
+      role="group"
+      aria-label={label}
+      className={cn(
+        'hig-control inline-flex items-center rounded-full border border-line bg-card p-1',
+        className,
+      )}
+    >
       {options.map((option) => (
         <button
           key={String(option.value)}
@@ -125,7 +164,7 @@ export function Segmented<T extends string | number>({
           onClick={() => onChange(option.value)}
           aria-pressed={value === option.value}
           className={cn(
-            'hig-press rounded-full px-3 py-1.5 text-[12px] font-semibold',
+            'hig-press hig-touch hig-touch-tight flex h-9 items-center rounded-full px-4 hig-footnote font-semibold',
             value === option.value ? 'bg-accent text-white' : 'text-t2 hover:text-t1',
           )}
         >
@@ -136,7 +175,12 @@ export function Segmented<T extends string | number>({
   );
 }
 
-/** A checkbox that takes the accent colour, with its label as the hit area. */
+/**
+ * A checkbox that takes the accent colour, with its label as the hit area.
+ *
+ * The whole row is the target — a 14pt box on its own is a quarter of the
+ * area Apple asks for, and the label is the part people actually aim at.
+ */
 export function Checkbox({
   checked, onChange, children, className,
 }: {
@@ -148,8 +192,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] transition-colors',
-        checked ? 'bg-accent/10 text-accent' : 'text-t2 hover:bg-muted',
+        'hig-control flex cursor-pointer items-center gap-2.5 rounded-xl px-3 hig-footnote transition-colors',
+        checked ? 'bg-accent/10 text-accent-ink' : 'text-t2 hover:bg-muted',
         className,
       )}
     >
@@ -157,7 +201,7 @@ export function Checkbox({
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-line bg-transparent accent-[var(--color-accent)]"
+        className="h-4 w-4 shrink-0 cursor-pointer rounded border-line bg-transparent accent-[var(--color-accent)]"
       />
       {children}
     </label>

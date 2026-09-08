@@ -227,7 +227,7 @@ export function DonutChart({
 
         {/* The hole. Hovering a slice swaps the total for that slice. */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[26px] font-bold leading-none tracking-tight text-t1">
+          <span className="text-[28px] font-bold leading-none tracking-tight text-t1">
             {active != null && shown[active] ? fmtCompact(shown[active].count) : centerValue ?? fmtCompact(total)}
           </span>
           <span className="mt-1 max-w-[70%] truncate text-center text-[11px] font-medium uppercase tracking-wider text-t3">
