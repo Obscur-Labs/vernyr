@@ -12,7 +12,7 @@ import Message from '../models/Message';
 import Conversation from '../models/Conversation';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
-import { uploadBuffer, destroyAsset, mediaFolders } from '../config/cloudinary';
+import { StorageRefusedError, uploadBuffer, destroyAsset, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { notify } from '../utils/notify';
 import { attachAccounts } from '../services/accounts';
@@ -312,7 +312,7 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
     asset = await uploadBuffer(req.file, mediaFolders.studentDocuments(studentId));
   } catch (err) {
     console.error('Cloudinary upload failed:', err);
-    res.status(502).json({ message: 'Upload to storage failed' }); return;
+    res.status(502).json({ message: err instanceof StorageRefusedError ? 'File storage refused the upload. Check the Cloudinary API key permissions.' : 'Upload to storage failed' }); return;
   }
 
   const fileUrl = asset.url;

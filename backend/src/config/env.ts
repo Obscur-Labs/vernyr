@@ -42,4 +42,11 @@ export const env = {
   jwtSecret: required('JWT_SECRET', 'dev-only-insecure-secret'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   allowedOrigins: allowedOrigins(),
+  cloudinary: {
+    url: process.env.CLOUDINARY_URL,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    folder: process.env.CLOUDINARY_FOLDER || 'la-europa-docs',
+  },
 };

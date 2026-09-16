@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 import path from 'path';
+import { env } from './env';
 
 /**
  * Cloudinary is the single storage backend for every user-uploaded file.
@@ -26,8 +27,7 @@ export interface UploadedFile {
   bytes: number;
 }
 
-// Read per call rather than at module load — see the note on `client()` below.
-const root = () => (process.env.CLOUDINARY_FOLDER || 'la-europa-docs').replace(/^\/+|\/+$/g, '');
+const root = () => env.cloudinary.folder.replace(/^\/+|\/+$/g, '');
 
 export const mediaFolders = {
   studentDocuments: (studentId: string) => `${root()}/students/${studentId}/documents`,
@@ -35,20 +35,17 @@ export const mediaFolders = {
   chatVoice:        (conversationId: string) => `${root()}/chat/${conversationId}/voice`,
 };
 
-// Configured lazily: `dotenv.config()` runs after this module is imported,
-// so reading env at module load would see an empty process.env.
 let configured = false;
 function client() {
   if (!configured) {
-    // CLOUDINARY_URL (cloudinary://key:secret@cloud) is picked up automatically.
-    if (!process.env.CLOUDINARY_URL) {
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key:    process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-    }
-    cloudinary.config({ secure: true });
+    const { url, cloudName, apiKey, apiSecret } = env.cloudinary;
+    const parsed = url ? new URL(url) : null;
+    cloudinary.config({
+      cloud_name: parsed?.hostname || cloudName,
+      api_key:    parsed ? decodeURIComponent(parsed.username) : apiKey,
+      api_secret: parsed ? decodeURIComponent(parsed.password) : apiSecret,
+      secure: true,
+    });
     configured = true;
   }
   return cloudinary;
@@ -71,6 +68,8 @@ export function resourceTypeFor(mimetype: string): MediaResourceType {
   return 'raw';
 }
 
+export class StorageRefusedError extends Error {}
+
 /** Stream an in-memory multer file to Cloudinary. */
 export function uploadBuffer(file: Express.Multer.File, folder: string): Promise<UploadedFile> {
   const resourceType = resourceTypeFor(file.mimetype);
@@ -84,7 +83,13 @@ export function uploadBuffer(file: Express.Multer.File, folder: string): Promise
     const stream = client().uploader.upload_stream(
       { folder, public_id: publicId, resource_type: resourceType, overwrite: false },
       (err, result) => {
-        if (err || !result) { reject(err ?? new Error('Cloudinary upload failed')); return; }
+        if (err || !result) {
+          if (err?.http_code === 401 || err?.http_code === 403) {
+            reject(new StorageRefusedError(`Cloudinary refused the upload (${err.http_code}) — the API key needs a role with asset create permission`));
+            return;
+          }
+          reject(err ?? new Error('Cloudinary upload failed')); return;
+        }
         resolve({
           url:          result.secure_url,
           publicId:     result.public_id,

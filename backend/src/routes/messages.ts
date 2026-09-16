@@ -5,7 +5,7 @@ import Conversation from '../models/Conversation';
 import User from '../models/User';
 import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
-import { uploadBuffer, mediaFolders } from '../config/cloudinary';
+import { StorageRefusedError, uploadBuffer, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { isUserViewing } from '../socket';
 import { notify } from '../utils/notify';
@@ -242,7 +242,7 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
     );
   } catch (err) {
     console.error('Cloudinary upload failed:', err);
-    res.status(502).json({ message: 'Upload to storage failed' }); return;
+    res.status(502).json({ message: err instanceof StorageRefusedError ? 'File storage refused the upload. Check the Cloudinary API key permissions.' : 'Upload to storage failed' }); return;
   }
   const fileUrl = asset.url;
 

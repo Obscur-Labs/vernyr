@@ -440,10 +440,10 @@ function ChatInner() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body:    form,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || 'Upload failed');
       toast('File sent!', 'success');
-    } catch {
-      toast('Failed to send file', 'error');
+    } catch (err) {
+      toast((err as Error).message || 'Failed to send file', 'error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -536,6 +536,10 @@ function ChatInner() {
 
   const activeRoom       = activeConv ? getRoom(activeConv, myId) : null;
   const otherParticipant = activeConv ? getOther(activeConv, myId) : null;
+  // Observers sit on the staff side: portal accounts to the left, everyone else to the right.
+  const portalIds = new Set(
+    activeConv?.participants.filter(p => p.role === 'student' || p.role === 'university').map(p => p._id) ?? [],
+  );
   const otherOnline      = otherParticipant ? onlineIds.has(otherParticipant._id) : false;
   const isClosed         = !!activeConv?.archived;
 
@@ -723,10 +727,12 @@ function ChatInner() {
                 <>
                   {messages.map((msg, idx) => {
                     const sid    = senderIdOf(msg);
-                    const isMe   = sid === myId;
+                    const isMe   = readOnly ? !portalIds.has(sid) : sid === myId;
                     const showDate = idx === 0 ||
                       new Date(msg.createdAt).toDateString() !== new Date(messages[idx - 1].createdAt).toDateString();
-                    const read = !!(otherParticipant && msg.readBy?.includes(otherParticipant._id));
+                    const read = readOnly
+                      ? !!msg.readBy?.some(id => isMe ? portalIds.has(id) : !portalIds.has(id))
+                      : !!(otherParticipant && msg.readBy?.includes(otherParticipant._id));
                     const isCard = msg.type === 'document_request' || msg.type === 'form_request' || msg.type === 'form_response';
 
                     if (msg.type === 'system') {

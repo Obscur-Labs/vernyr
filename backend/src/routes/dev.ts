@@ -196,7 +196,7 @@ router.get('/overview', async (_req, res: Response) => {
       storage: {
         provider:   'cloudinary',
         configured: isCloudinaryConfigured(),
-        folder:     process.env.CLOUDINARY_FOLDER ?? 'la-europa-docs',
+        folder:     env.cloudinary.folder,
       },
       database: {
         name:      conn.name ?? null,

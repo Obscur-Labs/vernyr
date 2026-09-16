@@ -299,10 +299,10 @@ export default function ChatPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body:    form,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || 'Upload failed');
       toast('File sent!', 'success');
-    } catch {
-      toast('Failed to send file', 'error');
+    } catch (err) {
+      toast((err as Error).message || 'Failed to send file', 'error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -328,10 +328,10 @@ export default function ChatPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body:    form,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || 'Upload failed');
       toast('Document uploaded!', 'success');
-    } catch {
-      toast('Upload failed', 'error');
+    } catch (err) {
+      toast((err as Error).message || 'Upload failed', 'error');
     } finally {
       setReqUploadingId(null);
     }

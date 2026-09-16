@@ -84,6 +84,10 @@ CLOUDINARY_FOLDER=vernyr-docs
 Uploads return `503` until the `CLOUDINARY_*` values are filled in; `GET /api/health`
 reports `storage: "cloudinary" | "unconfigured"`.
 
+The Cloudinary API key must carry a role that can **create** assets. A key
+without one still passes `api.ping()` and reports `configured`, but every
+upload is refused with a 403 — the routes answer 502 with a message saying so.
+
 ### Frontend environments
 
 `crm/.env` and `student/.env` are gitignored. Each holds both URL sets plus

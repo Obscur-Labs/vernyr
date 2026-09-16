@@ -39,6 +39,10 @@ const STATUS_ICON: Record<string, string> = {
   rejected:     '❌',
 };
 
+function uploadError(err: unknown): string {
+  return (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Upload failed';
+}
+
 export default function DocumentsPage() {
   const { studentId } = useAuthStore();
   const { toast } = useToast();
@@ -81,8 +85,8 @@ export default function DocumentsPage() {
       toast('Document uploaded!');
       setShowUploadPanel(false);
       loadDocuments();
-    } catch {
-      toast('Upload failed', 'error');
+    } catch (err) {
+      toast(uploadError(err), 'error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -107,8 +111,8 @@ export default function DocumentsPage() {
       });
       toast('Document uploaded!');
       loadDocuments();
-    } catch {
-      toast('Upload failed', 'error');
+    } catch (err) {
+      toast(uploadError(err), 'error');
     } finally {
       setUploading(false);
       setUploadingReq(null);
