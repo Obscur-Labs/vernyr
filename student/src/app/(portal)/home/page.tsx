@@ -52,7 +52,7 @@ export default function HomePage() {
           <div className="bg-surface border border-line rounded-2xl p-5 animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-t1 text-base">My Journey</h2>
-              <Link href="/progress" className="text-xs text-accent hover:underline font-medium">
+              <Link href="/profile?tab=progress" className="text-xs text-accent hover:underline font-medium">
                 Full view →
               </Link>
             </div>

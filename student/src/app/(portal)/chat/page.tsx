@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { MessageSkeleton } from '@/components/Skeleton';
 import { useAuthStore } from '@/stores/authStore';
@@ -54,30 +55,41 @@ function fmtListTime(iso?: string) {
 }
 
 function FileContent({ msg, isMe }: { msg: Message; isMe: boolean }) {
-  const ext  = msg.fileName?.split('.').pop()?.toLowerCase() ?? '';
+  const ext   = msg.fileName?.split('.').pop()?.toLowerCase() ?? '';
   const isImg = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
   const href  = fileHref(msg.fileUrl);
+  const docId = msg.meta?.documentId;
 
-  if (isImg) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={href} alt={msg.fileName} className="max-w-[220px] rounded-lg" />
-      </a>
-    );
-  }
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20' : 'bg-[#0a84ff]/15'}`}>
-        <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-[#0a84ff]'}`}>
-          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-        </svg>
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-medium truncate max-w-[150px]">{msg.fileName}</p>
-        <p className={`text-xs ${isMe ? 'text-white/70' : 'im-sub'}`}>Tap to open</p>
-      </div>
-    </a>
+    <div className="space-y-1.5">
+      {isImg ? (
+        <a href={href} target="_blank" rel="noreferrer" className="block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={href} alt={msg.fileName} className="max-w-[220px] rounded-lg" />
+        </a>
+      ) : (
+        <a href={href} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20' : 'bg-[#0a84ff]/15'}`}>
+            <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-[#0a84ff]'}`}>
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium truncate max-w-[150px]">{msg.fileName}</p>
+            <p className={`text-xs ${isMe ? 'text-white/70' : 'im-sub'}`}>Tap to open</p>
+          </div>
+        </a>
+      )}
+      {docId && (
+        <Link
+          href={`/documents?doc=${docId}`}
+          className={`inline-flex min-h-[32px] items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline ${isMe ? 'text-white/90' : 'text-[#0a84ff]'}`}
+        >
+          Open in Documents
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd"/></svg>
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -98,6 +110,7 @@ export default function ChatPage() {
   const [isTyping, setIsTyping]         = useState(false);
   const [otherTyping, setOtherTyping]   = useState(false);
   const [onlineIds, setOnlineIds]       = useState<Set<string>>(new Set());
+  const [inRoomIds, setInRoomIds]       = useState<Set<string>>(new Set());
   const [replyTo, setReplyTo]           = useState<Message | null>(null);
   const [reqUploadingId, setReqUploadingId] = useState<string | null>(null);
   const [formBusy, setFormBusy]         = useState(false);
@@ -121,6 +134,24 @@ export default function ChatPage() {
   const markRead = useCallback((convId: string) => {
     api.post(`/messages/${convId}/read`).catch(() => {});
   }, []);
+
+  /** Join the open thread's room and learn who else has it open. */
+  const joinThread = useCallback((convId: string) => {
+    socketRef.current?.emit('join_room', convId, (res?: { ok: boolean; viewers: string[] }) => {
+      if (res?.ok && activeRoomRef.current === convId) setInRoomIds(new Set(res.viewers));
+    });
+  }, []);
+
+  /** Pull the thread again — after a reconnect or coming back to the tab, to catch anything missed. */
+  const refreshThread = useCallback((convId: string) => {
+    api.get<Message[]>(`/messages/${convId}`)
+      .then(res => {
+        if (activeRoomRef.current !== convId) return;
+        setMessages(res.data);
+        markRead(convId);
+      })
+      .catch(() => {});
+  }, [markRead]);
 
   const otherOf = useCallback((room: Room): Participant | undefined =>
     room.participants.find(p => p._id !== myId) ?? room.participants[0], [myId]);
@@ -167,9 +198,25 @@ export default function ChatPage() {
     const socket = io(apiOrigin, { auth: { token: localStorage.getItem('student_token') } });
     socketRef.current = socket;
 
+    let connectedBefore = false;
     socket.on('connect', () => {
       socket.emit('get_presence', (online: string[]) => setOnlineIds(new Set(online)));
-      if (activeRoomRef.current) socket.emit('join_room', activeRoomRef.current);
+      const cid = activeRoomRef.current;
+      if (cid) {
+        joinThread(cid);
+        if (connectedBefore) refreshThread(cid);
+      }
+      connectedBefore = true;
+    });
+
+    socket.on('room_presence', ({ roomId, userId, inRoom }: { roomId: string; userId: string; inRoom: boolean }) => {
+      if (roomId !== activeRoomRef.current) return;
+      setInRoomIds(prev => {
+        const next = new Set(prev);
+        if (inRoom) next.add(userId); else next.delete(userId);
+        return next;
+      });
+      if (!inRoom) setOtherTyping(false);
     });
 
     socket.on('presence', ({ userId, online }: { userId: string; online: boolean }) => {
@@ -232,18 +279,35 @@ export default function ChatPage() {
     activeRoomRef.current = room._id;
     setView('thread');
     setOtherTyping(false);
+    setInRoomIds(new Set());
     setReplyTo(null);
     clearStaged();
     setMessages([]);
     setMsgLoading(true);
 
-    if (socketRef.current) socketRef.current.emit('join_room', room._id);
+    joinThread(room._id);
 
     api.get<Message[]>(`/messages/${room._id}`)
       .then(res => { setMessages(res.data); scrollToBottom(); markRead(room._id); })
       .catch(() => toast('Could not load messages', 'error'))
       .finally(() => setMsgLoading(false));
-  }, [scrollToBottom, toast, markRead, clearStaged]);
+  }, [scrollToBottom, toast, markRead, clearStaged, joinThread]);
+
+  /* ── Leave the room while the tab is hidden, so the other side sees it and gets notified ── */
+  useEffect(() => {
+    const onVisibility = () => {
+      const cid = activeRoomRef.current;
+      if (!cid || !socketRef.current) return;
+      if (document.visibilityState === 'hidden') {
+        socketRef.current.emit('leave_room', cid);
+      } else {
+        joinThread(cid);
+        refreshThread(cid);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [joinThread, refreshThread]);
 
   function backToList() {
     if (activeRoomRef.current && socketRef.current) {
@@ -382,6 +446,7 @@ export default function ChatPage() {
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const other       = activeRoom ? otherOf(activeRoom) : undefined;
   const otherOnline = other ? onlineIds.has(other._id) : false;
+  const otherInRoom = other ? inRoomIds.has(other._id) : false;
   const isClosed    = !!activeRoom?.archived;
   const sortedRooms = [...rooms].sort((a, b) => {
     if (!!a.archived !== !!b.archived) return a.archived ? 1 : -1;
@@ -482,6 +547,8 @@ export default function ChatPage() {
                     ? 'conversation closed'
                     : otherTyping
                       ? <span className="text-[#0a84ff]">typing…</span>
+                      : otherInRoom
+                        ? <span className="inline-flex items-center gap-1.5 font-medium text-emerald-500"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />in this chat</span>
                       : otherOnline
                         ? <span className="text-emerald-500">online</span>
                         : (counsellors.some(c => c._id === other?._id) ? 'Your Counsellor' : 'Previous Counsellor')}

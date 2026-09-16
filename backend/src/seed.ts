@@ -576,7 +576,7 @@ async function seed() {
       type:    'visa',
       title:   'Visa Application Filed',
       body:    'Your UK Tier 4 Student Visa application has been filed. We will notify you of any updates.',
-      link:    '/progress',
+      link:    '/profile?tab=progress',
       read:    true,
     },
     {

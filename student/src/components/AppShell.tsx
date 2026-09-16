@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { VernyrMark, Wordmark } from '@/components/auth/Insignia';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useTheme } from '@/context/ThemeContext';
+import { Header } from '@/components/Header';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
 import { io, Socket } from 'socket.io-client';
@@ -30,26 +30,6 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    href: '/progress',
-    label: 'Progress',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-        <path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd"/>
-        <path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-7.5a.75.75 0 01-.75-.75V3z" clipRule="evenodd"/>
-      </svg>
-    ),
-  },
-  {
-    href: '/documents',
-    label: 'Documents',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-        <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd"/>
-        <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z"/>
-      </svg>
-    ),
-  },
-  {
     href: '/applications',
     label: 'Apply',
     icon: (
@@ -70,6 +50,16 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: '/documents',
+    label: 'Documents',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+        <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd"/>
+        <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z"/>
+      </svg>
+    ),
+  },
+  {
     href: '/payments',
     label: 'Payments',
     icon: (
@@ -80,16 +70,6 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
 ];
-
-const BellIcon = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-    <path d="M5.85 3.5a.75.75 0 00-1.117-1 9.719 9.719 0 00-2.348 4.876.75.75 0 001.479.248A8.219 8.219 0 015.85 3.5zM19.267 2.5a.75.75 0 10-1.118 1 8.22 8.22 0 011.987 4.124.75.75 0 001.48-.248A9.72 9.72 0 0019.266 2.5z"/>
-    <path fillRule="evenodd" d="M12 2.25A6.75 6.75 0 005.25 9v.75a8.217 8.217 0 01-2.119 5.52.75.75 0 00.298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 107.48 0 24.583 24.583 0 004.83-1.244.75.75 0 00.298-1.205 8.217 8.217 0 01-2.118-5.52V9A6.75 6.75 0 0012 2.25zM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 004.496 0l.002.1a2.25 2.25 0 11-4.5 0z" clipRule="evenodd"/>
-  </svg>
-);
-
-const getInitials = (name: string) =>
-  name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
 /** A sidebar row. */
 function SideLink({
@@ -127,28 +107,13 @@ function SideLink({
   );
 }
 
-interface SidebarProps {
-  pathname: string;
-  unreadCount: number;
-  theme: 'light' | 'dark';
-  userName?: string;
-  onToggleTheme: () => void;
-  onSignOut: () => void;
-  onNavigate: () => void;
-  onSeenNotifications: () => void;
-}
-
-/** Module scope, not a closure inside `AppShell`. */
-function Sidebar({
-  pathname, unreadCount, theme, userName,
-  onToggleTheme, onSignOut, onNavigate, onSeenNotifications,
-}: SidebarProps) {
+/** Module scope, not a closure inside `AppShell`. Navigation only — appearance, profile and sign-out live in the header. */
+function Sidebar({ pathname, onNavigate }: { pathname: string; onNavigate: () => void }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
     <div className="flex h-full flex-col">
-      {/* Brand */}
-      <div className="flex h-[68px] shrink-0 items-center gap-3 border-b border-[var(--glass-border)] px-5">
+      <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-[var(--glass-border)] px-5">
         <VernyrMark className="h-8 w-8 shrink-0" />
         <div className="min-w-0">
           <Wordmark className="text-[17px] text-t1" />
@@ -167,71 +132,7 @@ function Sidebar({
             onNavigate={onNavigate}
           />
         ))}
-
-        <div className="mt-2 space-y-1 border-t border-[var(--glass-border)] pt-2">
-          <SideLink
-            href="/notifications"
-            label="Notifications"
-            icon={<BellIcon className="h-5 w-5" />}
-            active={isActive('/notifications')}
-            badge={unreadCount}
-            onNavigate={() => { onNavigate(); onSeenNotifications(); }}
-          />
-          <SideLink
-            href="/profile"
-            label="Profile"
-            active={isActive('/profile')}
-            onNavigate={onNavigate}
-            icon={
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
-                <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd"/>
-              </svg>
-            }
-          />
-        </div>
       </nav>
-
-      <div className="shrink-0 space-y-2 border-t border-[var(--glass-border)] px-3 py-4">
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-sm text-t2 transition-colors duration-200 hover:bg-muted hover:text-t1"
-        >
-          {theme === 'light' ? (
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-t3" aria-hidden>
-              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
-            </svg>
-          ) : (
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-t3" aria-hidden>
-              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd"/>
-            </svg>
-          )}
-          {theme === 'light' ? 'Dark mode' : 'Light mode'}
-        </button>
-
-        {userName && (
-          <div className="flex items-center gap-3 rounded-xl bg-muted px-3 py-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
-              {getInitials(userName)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-t1">{userName}</p>
-              <p className="text-[11px] font-medium text-t3">Student</p>
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="danger-action flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-200"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
-          </svg>
-          Sign out
-        </button>
-      </div>
     </div>
   );
 }
@@ -241,8 +142,7 @@ interface Props { children: React.ReactNode; title?: string; }
 export function AppShell({ children, title }: Props) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, clearAuth } = useAuthStore();
-  const { theme, toggle } = useTheme();
+  const { user } = useAuthStore();
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -291,23 +191,7 @@ export function AppShell({ children, title }: Props) {
   // A drawer left open across a navigation covers the page it just opened.
   useEffect(() => { setMobileMenuOpen(false); }, [pathname]);
 
-  const handleSignOut = () => {
-    clearAuth();
-    router.push('/login');
-  };
-
-  const sidebar = (
-    <Sidebar
-      pathname={pathname}
-      unreadCount={unreadCount}
-      theme={theme}
-      userName={user?.name}
-      onToggleTheme={toggle}
-      onSignOut={handleSignOut}
-      onNavigate={() => setMobileMenuOpen(false)}
-      onSeenNotifications={() => setUnreadCount(0)}
-    />
-  );
+  const sidebar = <Sidebar pathname={pathname} onNavigate={() => setMobileMenuOpen(false)} />;
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-base">
@@ -347,50 +231,12 @@ export function AppShell({ children, title }: Props) {
       </aside>
 
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {/* Mobile top bar */}
-        <div className="glass-nav flex items-center gap-2 border-b px-3 py-2.5 lg:hidden" style={{ borderColor: 'var(--glass-border)' }}>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open navigation"
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-t2 transition-colors hover:bg-muted hover:text-t1"
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
-              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
-            </svg>
-          </button>
-
-          <div className="flex min-w-0 items-center gap-2">
-            <VernyrMark className="h-6 w-6 shrink-0" />
-            {title
-              ? <span className="truncate text-sm font-semibold text-t1">{title}</span>
-              : <Wordmark className="text-[14px] text-t1" />}
-          </div>
-
-          <div className="flex-1" />
-
-          <Link
-            href="/notifications"
-            onClick={() => setUnreadCount(0)}
-            aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl text-t2 transition-colors hover:bg-muted hover:text-t1"
-          >
-            <BellIcon className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </Link>
-
-          <Link
-            href="/profile"
-            aria-label="Profile"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent"
-          >
-            {user ? getInitials(user.name) : 'U'}
-          </Link>
-        </div>
+        <Header
+          title={title}
+          unreadCount={unreadCount}
+          onOpenMenu={() => setMobileMenuOpen(true)}
+          onSeenNotifications={() => setUnreadCount(0)}
+        />
 
         {/* Mobile bottom nav */}
         <nav

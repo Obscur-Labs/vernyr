@@ -7,7 +7,7 @@ import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
 import { StorageRefusedError, uploadBuffer, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
-import { isUserViewing } from '../socket';
+import { isUserViewing, emitToThread } from '../socket';
 import { notify } from '../utils/notify';
 import { attachAccounts, findAccountById, lastSeenOf } from '../services/accounts';
 import { ownsStudentRow } from '../services/scope';
@@ -191,10 +191,9 @@ router.post('/send', authenticate, can('chat', 'create'), async (req: AuthReques
       updatedAt: new Date(),
     });
 
-    const io = getIo();
-    if (io) io.to(conversationId).emit('receive_message', message.toObject());
+    await emitToThread(conversationId, 'receive_message', message.toObject());
 
-    // Notify the other participants — but not anyone actively viewing this chat
+    // Only people who are not in the thread right now get a notification
     const conv = await Conversation.findById(conversationId);
     if (conv) {
       const others = conv.participants
@@ -250,29 +249,10 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
   if (replyTo) { try { parsedReply = JSON.parse(replyTo); } catch { /* ignore malformed reply payloads */ } }
 
   try {
-    // Create chat message
-    const message = await Message.create({
-      conversationId,
-      senderId:   req.user!.id,
-      senderName: req.user!.name,
-      type:       'file',
-      fileUrl,
-      fileName,
-      filePublicId:     asset.publicId,
-      fileResourceType: asset.resourceType,
-      meta: isVoice ? { voice: true, duration: duration ? Number(duration) : undefined } : undefined,
-      replyTo: parsedReply,
-      readBy: [req.user!.id],
-    });
-
-    await Conversation.findByIdAndUpdate(conversationId, {
-      lastMessage: { text: isVoice ? '🎤 Voice message' : `📎 ${fileName}`, senderId: req.user!.id, createdAt: new Date() },
-      updatedAt: new Date(),
-    });
-
     // If a studentId was provided (student uploading their own doc), also create a Document record
     // The Document record a chat upload also creates must land on the sender's
     // own student record, never on one named in the form field.
+    let documentId: string | undefined;
     if (studentId && !isVoice && await ownsStudentRow(req, studentId)) {
       const DocumentModel = (await import('../models/Document')).default;
       const now     = new Date();
@@ -290,8 +270,9 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
         existing.currentVersion = version;
         existing.status = 'uploaded';
         await existing.save();
+        documentId = existing._id.toString();
       } else {
-        await DocumentModel.create({
+        const created = await DocumentModel.create({
           studentId:      new mongoose.Types.ObjectId(studentId),
           type:           'other',
           label:          fileName,
@@ -299,14 +280,35 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
           currentVersion: version,
           versions:       [version],
         });
+        documentId = created._id.toString();
       }
     }
 
-    // Emit real-time to other participants
-    const io = getIo();
-    if (io) io.to(conversationId).emit('receive_message', message.toObject());
+    // Create chat message
+    const message = await Message.create({
+      conversationId,
+      senderId:   req.user!.id,
+      senderName: req.user!.name,
+      type:       'file',
+      fileUrl,
+      fileName,
+      filePublicId:     asset.publicId,
+      fileResourceType: asset.resourceType,
+      meta: isVoice
+        ? { voice: true, duration: duration ? Number(duration) : undefined }
+        : documentId ? { documentId, studentId } : undefined,
+      replyTo: parsedReply,
+      readBy: [req.user!.id],
+    });
 
-    // Notify the other participants — but not anyone actively viewing this chat
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: { text: isVoice ? '🎤 Voice message' : `📎 ${fileName}`, senderId: req.user!.id, createdAt: new Date() },
+      updatedAt: new Date(),
+    });
+
+    await emitToThread(conversationId, 'receive_message', message.toObject());
+
+    // Only people who are not in the thread right now get a notification
     const conv = await Conversation.findById(conversationId);
     if (conv) {
       const others = conv.participants
@@ -377,11 +379,8 @@ router.post('/form-response', authenticate, can('chat', 'create'), async (req: A
       updatedAt: new Date(),
     });
 
-    const io = getIo();
-    if (io) {
-      io.to(conversationId).emit('receive_message', response.toObject());
-      io.to(conversationId).emit('message_updated', formMsg.toObject());
-    }
+    await emitToThread(conversationId, 'receive_message', response.toObject());
+    getIo()?.to(conversationId).emit('message_updated', formMsg.toObject());
 
     const conv = await Conversation.findById(conversationId);
     if (conv) {

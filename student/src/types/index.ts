@@ -161,6 +161,9 @@ export interface MessageMeta {
   /* form_response */
   formMessageId?: string;
   answers?: FormAnswer[];
+  /* file — set when the upload was also filed under the student's documents */
+  documentId?: string;
+  studentId?: string;
 }
 
 export interface Message {

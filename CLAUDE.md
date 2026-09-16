@@ -241,6 +241,24 @@ other room joinable by anyone who could guess an id. The legacy `send_message`
 relay is gone with it: it rebroadcast whatever a client handed it, under a
 sender identity the server never checked.
 
+### Real-time chat
+
+- **Delivery.** Every new message goes out through `emitToThread()` in
+  `socket/index.ts`: the conversation room *and* each participant's `user:<id>`
+  room, in one `io.to([...])` call so a socket in both gets it once. The list
+  preview updates even when that thread is not open.
+- **Presence in the thread.** `join_room` acks `{ ok, viewers }`, and the room
+  hears `room_presence { roomId, userId, inRoom }` when a participant opens or
+  leaves it (last tab only). Observers are never announced. Both chat pages
+  leave the room while the tab is hidden and rejoin — refetching the thread —
+  when it comes back or the socket reconnects.
+- **Notifications only for the absent.** Anything said in a thread notifies
+  only participants for whom `isUserViewing()` is false. Document uploads that
+  carry a `conversationId` follow the same rule.
+- **Chat files and Documents.** When a chat upload is also filed as a
+  `Document`, the message carries `meta.documentId` (and `studentId`); both apps
+  render an "Open in Documents" link to `/documents?doc=<id>`.
+
 ### Request hardening
 
 - `helmet` for security headers, `x-powered-by` disabled, `trust proxy` set so
@@ -589,6 +607,12 @@ SVG axis tick.
 
 ### Student Portal Structure
 Mirrors the CRM structure but also has `ThemeContext` for light/dark switching. Auth store tracks `studentId` separately. Portal pages live under `app/(portal)/`.
+
+`components/Header.tsx` is the top bar on every breakpoint, like the CRM's:
+page title, appearance toggle, notifications, and the account menu (profile,
+sign out). The sidebar is navigation only — Home, Apply, Chat, Documents,
+Payments, the same five as the phone tab bar. Progress lives under
+Profile → Progress (`?tab=progress`); `/progress` only redirects there.
 
 ## Key Conventions
 

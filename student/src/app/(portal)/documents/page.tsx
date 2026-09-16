@@ -6,6 +6,7 @@ import { DocCardSkeleton } from '@/components/Skeleton';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
+import { fileHref } from '@/lib/media';
 import type { Document, DocType, DocumentRequest } from '@/types';
 
 const DOC_LABELS: Record<DocType, string> = {
@@ -56,6 +57,20 @@ export default function DocumentsPage() {
   const [filter, setFilter]        = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadingReq, setUploadingReq] = useState<DocumentRequest | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  // `?doc=<id>` arrives from a chat attachment: show that document, highlighted.
+  useEffect(() => {
+    setFocusId(new URLSearchParams(window.location.search).get('doc'));
+  }, []);
+
+  useEffect(() => {
+    if (!focusId || loading) return;
+    setFilter('all');
+    requestAnimationFrame(() => {
+      document.getElementById(`doc-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [focusId, loading]);
 
   function loadDocuments() {
     if (!studentId) return;
@@ -261,7 +276,13 @@ export default function DocumentsPage() {
         ) : (
           <div className="space-y-3">
             {filtered.map(doc => (
-              <div key={doc._id} className="bg-surface border border-line rounded-2xl p-4 flex items-center gap-4 animate-fade-in">
+              <div
+                key={doc._id}
+                id={`doc-${doc._id}`}
+                className={`bg-surface border rounded-2xl p-4 flex items-center gap-4 animate-fade-in transition-shadow ${
+                  focusId === doc._id ? 'border-accent ring-2 ring-accent/40' : 'border-line'
+                }`}
+              >
                 <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg flex-shrink-0">
                   {STATUS_ICON[doc.status]}
                 </div>
@@ -280,9 +301,21 @@ export default function DocumentsPage() {
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium border capitalize ${STATUS_STYLE[doc.status]}`}>
                     {doc.status.replace(/_/g, ' ')}
                   </span>
-                  {doc.versions.length > 1 && (
-                    <span className="text-xs text-t3">v{doc.versions.length}</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {doc.versions.length > 1 && (
+                      <span className="text-xs text-t3">v{doc.versions.length}</span>
+                    )}
+                    {doc.currentVersion?.fileUrl && (
+                      <a
+                        href={fileHref(doc.currentVersion.fileUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-[32px] items-center text-xs font-semibold text-accent hover:underline"
+                      >
+                        Open
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

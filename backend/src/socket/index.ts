@@ -33,20 +33,36 @@ export function isUserViewing(userId: string, roomId: string): boolean {
  * answer `GET /api/messages/:conversationId` gives — a participant, or an
  * observer holding chat read without send.
  */
-async function mayJoin(userId: string, roomId: string): Promise<boolean> {
-  if (roomId === `user:${userId}`) return true;
-  if (roomId.startsWith('user:')) return false;
-  if (!mongoose.isValidObjectId(roomId)) return false;
+async function mayJoin(userId: string, roomId: string): Promise<{ ok: boolean; participants: string[] }> {
+  const denied = { ok: false, participants: [] };
+  if (roomId === `user:${userId}`) return { ok: true, participants: [] };
+  if (roomId.startsWith('user:')) return denied;
+  if (!mongoose.isValidObjectId(roomId)) return denied;
 
   const principal = await loadPrincipal(userId);
-  if (!principal?.isActive || !allows(principal.permissions, 'chat', 'read')) return false;
+  if (!principal?.isActive || !allows(principal.permissions, 'chat', 'read')) return denied;
 
   const conv = await Conversation.findById(roomId).select('participants').lean();
-  if (!conv) return false;
-  if (conv.participants.some((p) => String(p) === userId)) return true;
+  if (!conv) return denied;
+  const participants = conv.participants.map(String);
+  if (participants.includes(userId)) return { ok: true, participants };
 
   // The observer seat: reads every thread, takes part in none.
-  return !allows(principal.permissions, 'chat', 'create');
+  return { ok: !allows(principal.permissions, 'chat', 'create'), participants };
+}
+
+/** Participants with at least one socket inside the conversation room. Observers never count. */
+function viewersOf(roomId: string, participants: string[]): string[] {
+  return participants.filter((p) => isUserViewing(p, roomId));
+}
+
+/** Emit to the conversation room and to every participant's personal room, once per socket. */
+export async function emitToThread(conversationId: string, event: string, payload: unknown): Promise<void> {
+  const io = getIo();
+  if (!io) return;
+  const conv = await Conversation.findById(conversationId).select('participants').lean();
+  const rooms = [String(conversationId), ...(conv?.participants ?? []).map((p) => `user:${p}`)];
+  io.to(rooms).emit(event, payload);
 }
 
 export function setupSocket(io: Server) {
@@ -87,14 +103,36 @@ export function setupSocket(io: Server) {
       else socket.emit('presence_list', online);
     });
 
-    socket.on('join_room', async (roomId: string) => {
+    // `room_presence` tells a thread who has it open right now. Only participants
+    // are announced — an observer reading along stays invisible.
+    socket.on('join_room', async (roomId: string, ack?: (res: { ok: boolean; viewers: string[] }) => void) => {
       if (typeof roomId !== 'string') return;
-      if (await mayJoin(userId, roomId)) socket.join(roomId);
-      else socket.emit('join_denied', { roomId });
+      const { ok, participants } = await mayJoin(userId, roomId);
+      if (!ok) {
+        socket.emit('join_denied', { roomId });
+        if (typeof ack === 'function') ack({ ok: false, viewers: [] });
+        return;
+      }
+      const wasViewing = isUserViewing(userId, roomId);
+      socket.join(roomId);
+      if (participants.includes(userId)) {
+        socket.data.threads = { ...(socket.data.threads ?? {}), [roomId]: participants };
+        if (!wasViewing) socket.to(roomId).emit('room_presence', { roomId, userId, inRoom: true });
+      }
+      if (typeof ack === 'function') ack({ ok: true, viewers: viewersOf(roomId, participants) });
     });
 
+    const leaveThread = (roomId: string) => {
+      const threads = (socket.data.threads ?? {}) as Record<string, string[]>;
+      if (!threads[roomId]) return;
+      delete threads[roomId];
+      if (!isUserViewing(userId, roomId)) io.to(roomId).emit('room_presence', { roomId, userId, inRoom: false });
+    };
+
     socket.on('leave_room', (roomId: string) => {
-      if (typeof roomId === 'string' && roomId !== `user:${userId}`) socket.leave(roomId);
+      if (typeof roomId !== 'string' || roomId === `user:${userId}`) return;
+      socket.leave(roomId);
+      leaveThread(roomId);
     });
 
     // The legacy `send_message` relay is gone: it broadcast whatever the client
@@ -110,6 +148,8 @@ export function setupSocket(io: Server) {
     });
 
     socket.on('disconnect', () => {
+      for (const roomId of Object.keys(socket.data.threads ?? {})) leaveThread(roomId);
+
       const live = onlineUsers.get(userId);
       if (!live) return;
       live.delete(socket.id);

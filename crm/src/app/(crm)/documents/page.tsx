@@ -21,11 +21,19 @@ export default function DocumentsPage() {
   const [filter, setFilter]       = useState<FilterTab>('all');
   const [reviewDoc, setReviewDoc] = useState<Doc | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [focusId, setFocusId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    api.get('/documents')
-      .then(r => setDocuments(r.data))
+    // `?doc=<id>` arrives from a chat attachment: open that document straight away.
+    const docParam = new URLSearchParams(window.location.search).get('doc');
+    setFocusId(docParam);
+    api.get<Doc[]>('/documents')
+      .then(r => {
+        setDocuments(r.data);
+        const target = docParam ? r.data.find(d => d._id === docParam) : undefined;
+        if (target) setReviewDoc(target);
+      })
       .catch(() => toast('Failed to load documents', 'error'))
       .finally(() => setLoading(false));
   }, []);
@@ -105,7 +113,7 @@ export default function DocumentsPage() {
                 const student = doc.studentId as unknown as { personal?: { name: string } };
                 const studentName = student?.personal?.name || 'Unknown Student';
                 return (
-                  <tr key={doc._id} className="border-b border-line last:border-0 hover:bg-muted/50 transition-colors">
+                  <tr key={doc._id} className={`border-b border-line last:border-0 hover:bg-muted/50 transition-colors ${focusId === doc._id ? 'bg-accent/10' : ''}`}>
                     <td className="px-4 py-3 text-sm font-medium text-t1">{studentName}</td>
                     <td className="px-4 py-3 text-sm text-t2">{doc.type.replace(/_/g,' ')}</td>
                     <td className="px-4 py-3 text-xs text-t2 max-w-[150px] truncate">{doc.currentVersion?.fileName}</td>

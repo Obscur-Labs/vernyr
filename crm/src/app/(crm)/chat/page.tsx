@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import api from '@/lib/api';
@@ -101,27 +102,38 @@ function FileContent({ msg, isMe }: { msg: Message; isMe: boolean }) {
   const ext    = msg.fileName?.split('.').pop()?.toLowerCase() ?? '';
   const isImg  = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
   const href   = fileHref(msg.fileUrl);
+  const docId  = msg.meta?.documentId;
 
-  if (isImg) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={href} alt={msg.fileName} className="max-w-[200px] rounded-lg" />
-      </a>
-    );
-  }
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20' : 'bg-accent/15'}`}>
-        <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-accent-ink'}`}>
-          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-        </svg>
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-medium truncate max-w-[150px]">{msg.fileName}</p>
-        <p className={`text-xs ${isMe ? 'text-white/70' : 'text-t3'}`}>Click to open</p>
-      </div>
-    </a>
+    <div className="space-y-1.5">
+      {isImg ? (
+        <a href={href} target="_blank" rel="noreferrer" className="block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={href} alt={msg.fileName} className="max-w-[200px] rounded-lg" />
+        </a>
+      ) : (
+        <a href={href} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20' : 'bg-accent/15'}`}>
+            <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-accent-ink'}`}>
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium truncate max-w-[150px]">{msg.fileName}</p>
+            <p className={`text-xs ${isMe ? 'text-white/70' : 'text-t3'}`}>Click to open</p>
+          </div>
+        </a>
+      )}
+      {docId && (
+        <Link
+          href={`/documents?doc=${docId}`}
+          className={`inline-flex min-h-[32px] items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline ${isMe ? 'text-white/90' : 'text-accent-ink'}`}
+        >
+          Open in Documents
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd"/></svg>
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -211,6 +223,7 @@ function ChatInner() {
   const [search,         setSearch]         = useState('');
   const [mobileView,     setMobileView]     = useState<'list' | 'messages'>('list');
   const [onlineIds,      setOnlineIds]      = useState<Set<string>>(new Set());
+  const [inRoomIds,      setInRoomIds]      = useState<Set<string>>(new Set());
   const [replyTo,        setReplyTo]        = useState<Message | null>(null);
   const [plusOpen,       setPlusOpen]       = useState(false);
   const [docsModal,      setDocsModal]      = useState(false);
@@ -241,6 +254,24 @@ function ChatInner() {
     if (readOnly) return;   // observers never mark anything read
     api.post(`/messages/${convId}/read`).catch(() => {});
   }, [readOnly]);
+
+  /** Join the open thread's room and learn who else has it open. */
+  const joinThread = useCallback((convId: string) => {
+    socketRef.current?.emit('join_room', convId, (res?: { ok: boolean; viewers: string[] }) => {
+      if (res?.ok && activeConvRef.current === convId) setInRoomIds(new Set(res.viewers));
+    });
+  }, []);
+
+  /** Pull the thread again — after a reconnect or coming back to the tab, to catch anything missed. */
+  const refreshThread = useCallback((convId: string) => {
+    api.get<Message[]>(`/messages/${convId}`)
+      .then(res => {
+        if (activeConvRef.current !== convId) return;
+        setMessages(res.data);
+        markRead(convId);
+      })
+      .catch(() => {});
+  }, [markRead]);
 
   /* ── Load conversations on mount ───────────────────────────────────────── */
   useEffect(() => {
@@ -279,9 +310,25 @@ function ChatInner() {
     const socket = io(apiOrigin, { auth: { token } });
     socketRef.current = socket;
 
+    let connectedBefore = false;
     socket.on('connect', () => {
       socket.emit('get_presence', (online: string[]) => setOnlineIds(new Set(online)));
-      if (activeConvRef.current) socket.emit('join_room', activeConvRef.current);
+      const cid = activeConvRef.current;
+      if (cid) {
+        joinThread(cid);
+        if (connectedBefore) refreshThread(cid);
+      }
+      connectedBefore = true;
+    });
+
+    socket.on('room_presence', ({ roomId, userId, inRoom }: { roomId: string; userId: string; inRoom: boolean }) => {
+      if (roomId !== activeConvRef.current) return;
+      setInRoomIds(prev => {
+        const next = new Set(prev);
+        if (inRoom) next.add(userId); else next.delete(userId);
+        return next;
+      });
+      if (!inRoom && userId !== myId) setOtherTyping(false);
     });
 
     socket.on('presence', ({ userId, online }: { userId: string; online: boolean }) => {
@@ -364,6 +411,7 @@ function ChatInner() {
     setActiveConv(conv);
     activeConvRef.current = conv._id;
     setOtherTyping(false);
+    setInRoomIds(new Set());
     setReplyTo(null);
     setPlusOpen(false);
     clearStaged();
@@ -371,13 +419,29 @@ function ChatInner() {
     setMsgLoading(true);
     setMobileView('messages');
 
-    if (socketRef.current) socketRef.current.emit('join_room', conv._id);
+    joinThread(conv._id);
 
     api.get<Message[]>(`/messages/${conv._id}`)
       .then(res => { setMessages(res.data); scrollToBottom(); markRead(conv._id); })
       .catch(() => toast('Could not load messages', 'error'))
       .finally(() => setMsgLoading(false));
-  }, [scrollToBottom, toast, markRead, clearStaged]);
+  }, [scrollToBottom, toast, markRead, clearStaged, joinThread]);
+
+  /* ── Leave the room while the tab is hidden, so the other side sees it and gets notified ── */
+  useEffect(() => {
+    const onVisibility = () => {
+      const cid = activeConvRef.current;
+      if (!cid || !socketRef.current) return;
+      if (document.visibilityState === 'hidden') {
+        socketRef.current.emit('leave_room', cid);
+      } else {
+        joinThread(cid);
+        refreshThread(cid);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [joinThread, refreshThread]);
 
   /* ── Resolve Student record for the open conversation ──────────────────── */
   useEffect(() => {
@@ -557,6 +621,7 @@ function ChatInner() {
     activeConv?.participants.filter(p => p.role === 'student' || p.role === 'university').map(p => p._id) ?? [],
   );
   const otherOnline      = otherParticipant ? onlineIds.has(otherParticipant._id) : false;
+  const otherInRoom      = otherParticipant ? inRoomIds.has(otherParticipant._id) : false;
   const isClosed         = !!activeConv?.archived;
   const { dragging, dropHandlers } = useFileDrop(stageFiles, !!activeConv && !isClosed && !readOnly);
 
@@ -694,9 +759,11 @@ function ChatInner() {
                     ? <span className="im-sub">room closed</span>
                     : otherTyping
                       ? <span className="text-accent-ink">typing…</span>
-                      : otherOnline
-                        ? <span className="text-emerald-500">online</span>
-                        : <span className="im-sub">offline</span>}
+                      : (readOnly ? inRoomIds.size > 0 : otherInRoom)
+                        ? <span className="inline-flex items-center gap-1.5 font-medium text-emerald-500"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />{readOnly ? 'in the chat now' : 'in this chat'}</span>
+                        : otherOnline
+                          ? <span className="text-emerald-500">online</span>
+                          : <span className="im-sub">offline</span>}
                 </p>
               </div>
 

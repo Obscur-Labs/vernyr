@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { CardSkeleton } from '@/components/Skeleton';
+import { JourneyProgress } from '@/components/JourneyProgress';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
 import type { Student } from '@/types';
 
-const TABS = ['Personal', 'Education', 'Preferences', 'Password'] as const;
+const TABS = ['Progress', 'Personal', 'Education', 'Preferences', 'Password'] as const;
 type Tab = typeof TABS[number];
 
 export default function ProfilePage() {
@@ -17,7 +18,14 @@ export default function ProfilePage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
-  const [tab, setTab]         = useState<Tab>('Personal');
+  const [tab, setTab]         = useState<Tab>('Progress');
+
+  // `?tab=personal` etc. — how old Progress links and the account menu land on a section.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab')?.toLowerCase();
+    const match = TABS.find(t => t.toLowerCase() === wanted);
+    if (match) setTab(match);
+  }, []);
 
   // Personal
   const [name,        setName]        = useState('');
@@ -154,12 +162,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-muted rounded-xl p-1">
+        <div role="tablist" className="flex gap-1 overflow-x-auto bg-muted rounded-xl p-1">
           {TABS.map(t => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${
+              className={`min-h-[40px] flex-1 shrink-0 whitespace-nowrap px-3 rounded-lg text-xs font-semibold transition ${
                 tab === t ? 'bg-surface text-t1 shadow-sm' : 'text-t2 hover:text-t1'
               }`}
             >
@@ -170,6 +180,16 @@ export default function ProfilePage() {
 
         {loading ? (
           <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)}</div>
+        ) : tab === 'Progress' ? (
+          student ? (
+            <JourneyProgress student={student} />
+          ) : (
+            <div className="text-center py-16">
+              <div className="text-4xl mb-4">🔍</div>
+              <p className="text-t2 font-medium">Profile not linked yet</p>
+              <p className="text-t3 text-sm mt-1">Contact your counsellor to get your profile set up.</p>
+            </div>
+          )
         ) : (
           <div className="bg-surface border border-line rounded-2xl p-5 animate-fade-in">
             {tab === 'Personal' && (

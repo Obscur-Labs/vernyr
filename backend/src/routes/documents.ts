@@ -14,6 +14,7 @@ import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
 import { StorageRefusedError, uploadBuffer, destroyAsset, mediaFolders } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
+import { isUserViewing, emitToThread } from '../socket';
 import { notify } from '../utils/notify';
 import { attachAccounts } from '../services/accounts';
 import { isPortalStudent, ownsStudentRow, scopeToOwnStudent } from '../services/scope';
@@ -344,6 +345,10 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
       });
     }
 
+    // Someone with the chat open watches the file arrive; everyone else is told.
+    const absentFrom = (ids: string[]) =>
+      conversationId ? ids.filter(id => !isUserViewing(id, String(conversationId))) : ids;
+
     // Fulfil a pending request if one was referenced
     let fulfilledRequest = null;
     if (requestId) {
@@ -354,7 +359,7 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
       );
       if (fulfilledRequest) {
         await syncRequestChatMessages(fulfilledRequest._id.toString(), 'fulfilled');
-        notify([fulfilledRequest.requestedBy.toString()], {
+        notify(absentFrom([fulfilledRequest.requestedBy.toString()]), {
           type:  'document',
           title: '✅ Requested Document Uploaded',
           body:  `${req.user!.name} uploaded ${fulfilledRequest.label || fulfilledRequest.type.replace(/_/g, ' ')}`,
@@ -365,7 +370,7 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
       // Free-will upload from the portal → tell everyone working the case
       const student = await Student.findById(studentId);
       if (student?.counsellors?.length) {
-        notify(student.counsellors.map(c => c.toString()), {
+        notify(absentFrom(student.counsellors.map(c => c.toString())), {
           type:  'document',
           title: '📤 New Document Uploaded',
           body:  `${req.user!.name} uploaded ${label || fileName}`,
@@ -388,14 +393,14 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
         fileName,
         filePublicId:     asset.publicId,
         fileResourceType: asset.resourceType,
+        meta: { documentId: doc._id.toString(), studentId: String(studentId) },
         readBy: [req.user!.id],
       });
       await Conversation.findByIdAndUpdate(conversationId, {
         lastMessage: { text: `📎 ${fileName}`, senderId: req.user!.id, createdAt: now },
         updatedAt: now,
       });
-      const io = getIo();
-      if (io) io.to(conversationId).emit('receive_message', chatMsg.toObject());
+      await emitToThread(String(conversationId), 'receive_message', chatMsg.toObject());
     }
 
     res.status(fulfilledRequest ? 200 : 201).json({ document: doc, request: fulfilledRequest });
