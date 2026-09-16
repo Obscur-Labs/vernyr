@@ -274,6 +274,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!token) router.push('/login');
   }, [router]);
 
+  // The saved profile paints the first frame; the server's copy replaces it.
+  useEffect(() => {
+    if (!useAuthStore.getState().token) return;
+    api.get('/auth/me')
+      .then(({ data }) => {
+        const { access: _access, studentId: _studentId, ...fresh } = data;
+        const cur = useAuthStore.getState();
+        if (!cur.user || !cur.token) return;
+        const next = { ...cur.user, ...fresh };
+        if (JSON.stringify(next) !== JSON.stringify(cur.user)) cur.setAuth(next, cur.token);
+      })
+      .catch(() => {});
+  }, []);
+
   // Refresh the seat on boot. The persisted copy is what draws the first paint;
   // this is what catches a permission changed while the tab was closed.
   useEffect(() => {

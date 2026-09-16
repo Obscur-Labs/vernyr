@@ -10,6 +10,7 @@ import { useToast } from '@/context/ToastContext';
 import type { Conversation, ConversationParticipant, Message, Student, DocType, FormField } from '@/types';
 import { DocRequestCard, FormRequestCard, FormResponseCard, ReplyQuote, Ticks } from '@/components/chat/MessageCards';
 import { RequestDocsModal, RequestFormModal } from '@/components/chat/RequestModals';
+import { ACCEPT, AttachmentTray, DropOverlay, useFileDrop, useStagedFiles } from '@/components/chat/Attachments';
 import {
   ChatIcon, ClipboardIcon, DocumentTextIcon, EyeIcon, InboxIcon, LockIcon,
   PaperclipIcon, PlusIcon,
@@ -229,6 +230,9 @@ function ChatInner() {
   // The admin observes every conversation but cannot take part in one.
   const readOnly = !!user && user.role === 'admin';
 
+  const rejectFile = useCallback((message: string) => toast(message, 'error'), [toast]);
+  const { staged, add: stageFiles, remove: unstageFile, clear: clearStaged } = useStagedFiles(rejectFile);
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 60);
   }, []);
@@ -362,6 +366,7 @@ function ChatInner() {
     setOtherTyping(false);
     setReplyTo(null);
     setPlusOpen(false);
+    clearStaged();
     setMessages([]);
     setMsgLoading(true);
     setMobileView('messages');
@@ -372,7 +377,7 @@ function ChatInner() {
       .then(res => { setMessages(res.data); scrollToBottom(); markRead(conv._id); })
       .catch(() => toast('Could not load messages', 'error'))
       .finally(() => setMsgLoading(false));
-  }, [scrollToBottom, toast, markRead]);
+  }, [scrollToBottom, toast, markRead, clearStaged]);
 
   /* ── Resolve Student record for the open conversation ──────────────────── */
   useEffect(() => {
@@ -402,7 +407,9 @@ function ChatInner() {
   /* ── Send text (optionally as a reply) ─────────────────────────────────── */
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || !activeConv) return;
+    if (!activeConv) return;
+    if (staged.length && !(await sendStaged())) return;
+    if (!input.trim()) return;
     const text = input.trim();
     const reply = replyTo;
     setInput('');
@@ -425,28 +432,37 @@ function ChatInner() {
     }
   }
 
-  /* ── Send file ─────────────────────────────────────────────────────────── */
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !activeConv) return;
+  /* ── Files: stage, preview, send ──────────────────────────────────────── */
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    stageFiles(Array.from(e.target.files ?? []));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  /** Sends staged files in order; a failure keeps it and everything after it staged. */
+  async function sendStaged(): Promise<boolean> {
+    if (!activeConv || uploading) return false;
     setUploading(true);
+    const token = localStorage.getItem('crm_token');
     try {
-      const form  = new FormData();
-      form.append('file', file);
-      form.append('conversationId', activeConv._id);
-      const token = localStorage.getItem('crm_token');
-      const res   = await fetch(`${apiUrl}/messages/send-file`, {
-        method:  'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body:    form,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || 'Upload failed');
-      toast('File sent!', 'success');
+      for (const item of staged) {
+        const form = new FormData();
+        form.append('file', item.file);
+        form.append('conversationId', activeConv._id);
+        const res = await fetch(`${apiUrl}/messages/send-file`, {
+          method:  'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body:    form,
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || `Could not send ${item.file.name}`);
+        unstageFile(item.id);
+      }
+      scrollToBottom();
+      return true;
     } catch (err) {
-      toast((err as Error).message || 'Failed to send file', 'error');
+      toast((err as Error).message, 'error');
+      return false;
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
@@ -542,6 +558,7 @@ function ChatInner() {
   );
   const otherOnline      = otherParticipant ? onlineIds.has(otherParticipant._id) : false;
   const isClosed         = !!activeConv?.archived;
+  const { dragging, dropHandlers } = useFileDrop(stageFiles, !!activeConv && !isClosed && !readOnly);
 
   /* ─────────────────────────────────────────────────────────────────────── */
   return (
@@ -629,10 +646,14 @@ function ChatInner() {
       </div>
 
       {/* ══ Message pane ═════════════════════════════════════════════════════ */}
-      <div className={`
-        ${mobileView === 'list' ? 'hidden' : 'flex'} lg:flex
-        flex-col flex-1 min-w-0 im-thread
-      `}>
+      <div
+        className={`
+          ${mobileView === 'list' ? 'hidden' : 'flex'} lg:flex
+          relative flex-col flex-1 min-w-0 im-thread
+        `}
+        {...dropHandlers}
+      >
+        <DropOverlay show={dragging} />
         {!activeConv ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <div className="w-16 h-16 rounded-2xl bg-accent/15 flex items-center justify-center mb-4">
@@ -843,9 +864,18 @@ function ChatInner() {
               )
             ) : (
             <>
+            <AttachmentTray
+              staged={staged}
+              onRemove={unstageFile}
+              onClear={clearStaged}
+              onAddMore={() => fileInputRef.current?.click()}
+              onSend={() => { void sendStaged(); }}
+              sending={uploading}
+            />
+
             {/* Reply banner */}
             {replyTo && (
-              <div className="flex-shrink-0 px-4 sm:px-5 pt-2 im-chrome border-t">
+              <div className={`flex-shrink-0 px-4 sm:px-5 pt-2 im-chrome ${staged.length ? '' : 'border-t'}`}>
                 <div className="flex items-center gap-2 im-quote border-l-2 border-[#0a84ff] rounded-lg px-3 py-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-[#0a84ff]">Replying to {replyTo.senderName}</p>
@@ -859,14 +889,15 @@ function ChatInner() {
             {/* Input bar */}
             <form
               onSubmit={handleSend}
-              className={`flex-shrink-0 px-4 sm:px-5 py-3 im-chrome flex items-center gap-2 relative ${replyTo ? '' : 'border-t'}`}
+              className={`flex-shrink-0 px-4 sm:px-5 py-3 im-chrome flex items-center gap-2 relative ${replyTo || staged.length ? '' : 'border-t'}`}
             >
               <input
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
                 onChange={handleFileChange}
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                accept={ACCEPT}
+                multiple
               />
 
               {/* Plus (attach / request) menu */}
@@ -892,7 +923,7 @@ function ChatInner() {
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left"
                       >
                         <PaperclipIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
-                        <span><span className="font-semibold block">Send file</span><span className="text-xs text-t3">Image, PDF, DOC…</span></span>
+                        <span><span className="font-semibold block">Send file</span><span className="text-xs text-t3">Or drop files on the chat</span></span>
                       </button>
                       {studentRec && (
                         <button
@@ -927,7 +958,8 @@ function ChatInner() {
               />
               <button
                 type="submit"
-                disabled={!input.trim() || sending}
+                disabled={(!input.trim() && !staged.length) || sending || uploading}
+                aria-label="Send"
                 className="hig-touch w-10 h-10 rounded-full im-send flex items-center justify-center disabled:opacity-40 transition active:scale-95 flex-shrink-0"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 -rotate-45">

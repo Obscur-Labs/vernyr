@@ -10,6 +10,7 @@ import { fileHref } from '@/lib/media';
 import { io, Socket } from 'socket.io-client';
 import type { Message, Student, DocRequestItem, FormAnswer } from '@/types';
 import { DocRequestCard, FormRequestCard, FormResponseCard, ReplyQuote, Ticks } from '@/components/chat/MessageCards';
+import { ACCEPT, AttachmentTray, DropOverlay, useFileDrop, useStagedFiles } from '@/components/chat/Attachments';
 
 import { apiOrigin, apiUrl } from '@/lib/config';
 
@@ -30,6 +31,12 @@ function msgPreview(msg: Message): string {
   if (msg.type === 'form_request')     return `📝 ${msg.meta?.title ?? 'Details requested'}`;
   if (msg.type === 'form_response')    return '📝 Details submitted';
   return msg.text ?? '';
+}
+
+/** History arrives with the sender populated; live messages carry a bare id. */
+function senderIdOf(msg: Message): string {
+  const s = msg.senderId as string | { _id: string };
+  return typeof s === 'object' && s ? s._id : s;
 }
 
 function initials(name?: string) {
@@ -104,6 +111,9 @@ export default function ChatPage() {
 
   const myId = user?._id ?? '';
 
+  const rejectFile = useCallback((message: string) => toast(message, 'error'), [toast]);
+  const { staged, add: stageFiles, remove: unstageFile, clear: clearStaged } = useStagedFiles(rejectFile);
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   }, []);
@@ -172,11 +182,11 @@ export default function ChatPage() {
 
     socket.on('receive_message', (msg: Message) => {
       setRooms(prev => prev.map(r => r._id === msg.conversationId
-        ? { ...r, lastMessage: { text: msgPreview(msg), senderId: msg.senderId, createdAt: msg.createdAt }, updatedAt: msg.createdAt }
+        ? { ...r, lastMessage: { text: msgPreview(msg), senderId: senderIdOf(msg), createdAt: msg.createdAt }, updatedAt: msg.createdAt }
         : r));
       if (activeRoomRef.current === msg.conversationId) {
         setMessages(prev => prev.some(m => m._id === msg._id) ? prev : [...prev, msg]);
-        if (msg.senderId !== myId) markRead(msg.conversationId);
+        if (senderIdOf(msg) !== myId) markRead(msg.conversationId);
         scrollToBottom();
       }
     });
@@ -223,6 +233,7 @@ export default function ChatPage() {
     setView('thread');
     setOtherTyping(false);
     setReplyTo(null);
+    clearStaged();
     setMessages([]);
     setMsgLoading(true);
 
@@ -232,7 +243,7 @@ export default function ChatPage() {
       .then(res => { setMessages(res.data); scrollToBottom(); markRead(room._id); })
       .catch(() => toast('Could not load messages', 'error'))
       .finally(() => setMsgLoading(false));
-  }, [scrollToBottom, toast, markRead]);
+  }, [scrollToBottom, toast, markRead, clearStaged]);
 
   function backToList() {
     if (activeRoomRef.current && socketRef.current) {
@@ -240,6 +251,7 @@ export default function ChatPage() {
     }
     setActiveRoom(null);
     activeRoomRef.current = null;
+    clearStaged();
     setView('list');
   }
 
@@ -259,7 +271,9 @@ export default function ChatPage() {
   /* ── Send text ─────────────────────────────────────────────────────────── */
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || !activeRoom || activeRoom.archived) return;
+    if (!activeRoom || activeRoom.archived) return;
+    if (staged.length && !(await sendStaged())) return;
+    if (!input.trim()) return;
     const text = input.trim();
     const reply = replyTo;
     setInput('');
@@ -282,32 +296,42 @@ export default function ChatPage() {
     }
   }
 
-  /* ── Send file ─────────────────────────────────────────────────────────── */
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !activeRoom || activeRoom.archived) return;
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('conversationId', activeRoom._id);
-      if (studentId) form.append('studentId', studentId);
+  /* ── Files: stage, preview, send ──────────────────────────────────────── */
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    stageFiles(Array.from(e.target.files ?? []));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
-      const token = localStorage.getItem('student_token');
-      const res   = await fetch(`${apiUrl}/messages/send-file`, {
-        method:  'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body:    form,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || 'Upload failed');
-      toast('File sent!', 'success');
+  /** Sends staged files in order; a failure keeps it and everything after it staged. */
+  async function sendStaged(): Promise<boolean> {
+    if (!activeRoom || activeRoom.archived || uploading) return false;
+    setUploading(true);
+    const token = localStorage.getItem('student_token');
+    try {
+      for (const item of staged) {
+        const form = new FormData();
+        form.append('file', item.file);
+        form.append('conversationId', activeRoom._id);
+        if (studentId) form.append('studentId', studentId);
+        const res = await fetch(`${apiUrl}/messages/send-file`, {
+          method:  'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body:    form,
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || `Could not send ${item.file.name}`);
+        unstageFile(item.id);
+      }
+      scrollToBottom();
+      return true;
     } catch (err) {
-      toast((err as Error).message || 'Failed to send file', 'error');
+      toast((err as Error).message, 'error');
+      return false;
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
+
+  const { dragging, dropHandlers } = useFileDrop(stageFiles, view === 'thread' && !!activeRoom && !activeRoom.archived);
 
   /* ── Upload for a counsellor's document request ────────────────────────── */
   async function handleRequestUpload(item: DocRequestItem, file: File) {
@@ -366,7 +390,8 @@ export default function ChatPage() {
 
   return (
     <AppShell title="Chat">
-      <div className="flex flex-col h-full max-h-screen im-thread">
+      <div className="relative flex flex-col h-full max-h-screen im-thread" {...dropHandlers}>
+        <DropOverlay show={dragging} />
 
         {/* ══ Rooms list ══════════════════════════════════════════════════ */}
         {view === 'list' && (
@@ -477,7 +502,7 @@ export default function ChatPage() {
               ) : (
                 <>
                   {messages.map((msg, idx) => {
-                    const isMe     = msg.senderId === myId;
+                    const isMe     = senderIdOf(msg) === myId;
                     const showDate = idx === 0 || new Date(msg.createdAt).toDateString() !== new Date(messages[idx - 1].createdAt).toDateString();
                     const read     = !!(other && msg.readBy?.includes(other._id));
                     const isCard   = msg.type === 'document_request' || msg.type === 'form_request' || msg.type === 'form_response';
@@ -586,9 +611,18 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
+                <AttachmentTray
+                  staged={staged}
+                  onRemove={unstageFile}
+                  onClear={clearStaged}
+                  onAddMore={() => fileInputRef.current?.click()}
+                  onSend={() => { void sendStaged(); }}
+                  sending={uploading}
+                />
+
                 {/* Reply banner */}
                 {replyTo && (
-                  <div className="flex-shrink-0 px-4 sm:px-6 pt-2 im-chrome border-t">
+                  <div className={`flex-shrink-0 px-4 sm:px-6 pt-2 im-chrome ${staged.length ? '' : 'border-t'}`}>
                     <div className="flex items-center gap-2 im-quote border-l-2 border-[#0a84ff] rounded-lg px-3 py-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-[#0a84ff]">Replying to {replyTo.senderName}</p>
@@ -601,21 +635,23 @@ export default function ChatPage() {
 
                 <form
                   onSubmit={handleSend}
-                  className={`flex-shrink-0 px-4 sm:px-6 py-3 im-chrome flex items-center gap-2 ${replyTo ? '' : 'border-t'}`}
+                  className={`flex-shrink-0 px-4 sm:px-6 py-3 im-chrome flex items-center gap-2 ${replyTo || staged.length ? '' : 'border-t'}`}
                 >
                   <input
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
                     onChange={handleFileChange}
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    accept={ACCEPT}
+                    multiple
                   />
 
                   <button
                     type="button"
                     disabled={uploading}
                     onClick={() => fileInputRef.current?.click()}
-                    title="Send a file or document"
+                    title="Attach files — or drop them on the chat"
+                    aria-label="Attach files"
                     className="w-10 h-10 rounded-xl im-sub hover:opacity-70 flex items-center justify-center disabled:opacity-40 transition flex-shrink-0"
                   >
                     {uploading ? (
@@ -640,7 +676,8 @@ export default function ChatPage() {
                   />
                   <button
                     type="submit"
-                    disabled={!input.trim() || sending}
+                    disabled={(!input.trim() && !staged.length) || sending || uploading}
+                    aria-label="Send"
                     className="w-10 h-10 rounded-full im-send flex items-center justify-center disabled:opacity-40 transition active:scale-95 flex-shrink-0"
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" className="w-4.5 h-4.5 -rotate-45">

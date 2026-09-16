@@ -272,6 +272,22 @@ export function AppShell({ children, title }: Props) {
     if (!token) router.push('/login');
   }, [router]);
 
+  // The saved profile paints the first frame; the server's copy replaces it.
+  useEffect(() => {
+    if (!useAuthStore.getState().token) return;
+    api.get('/auth/me')
+      .then(({ data }) => {
+        const { access: _access, studentId, ...fresh } = data;
+        const cur = useAuthStore.getState();
+        if (!cur.user || !cur.token) return;
+        const next = { ...cur.user, ...fresh };
+        if (JSON.stringify(next) !== JSON.stringify(cur.user) || (studentId && studentId !== cur.studentId)) {
+          cur.setAuth(next, cur.token, studentId ?? cur.studentId ?? undefined);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // A drawer left open across a navigation covers the page it just opened.
   useEffect(() => { setMobileMenuOpen(false); }, [pathname]);
 

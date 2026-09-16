@@ -36,6 +36,7 @@ const io = new Server(server, {
 
 // Middleware
 app.disable("x-powered-by");
+app.set("etag", false);
 // Behind Render's proxy, so req.ip must come from X-Forwarded-For or every
 // caller shares the load balancer's address and the rate limits are useless.
 app.set("trust proxy", 1);
@@ -49,6 +50,7 @@ app.use(cors({ origin: env.allowedOrigins, credentials: true }));
 // 10 MB was the body cap for JSON too, which let one request allocate 10 MB of
 // parsed objects. Uploads are multipart and carry their own limit.
 app.use(express.json({ limit: "256kb" }));
+app.use("/api", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use("/api", apiLimiter);
 

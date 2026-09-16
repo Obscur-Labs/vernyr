@@ -25,4 +25,18 @@ api.interceptors.response.use(
   }
 );
 
+// Two components asking for the same URL at once share one request.
+// The entry is dropped the moment it settles — no response outlives its request.
+const inflight = new Map<string, ReturnType<typeof api.get>>();
+const get = api.get.bind(api);
+api.get = ((url: string, config?: Parameters<typeof get>[1]) => {
+  if (config?.signal || config?.responseType) return get(url, config);
+  const key = `${url}?${JSON.stringify(config?.params ?? null)}`;
+  const pending = inflight.get(key);
+  if (pending) return pending;
+  const req = get(url, config).finally(() => inflight.delete(key));
+  inflight.set(key, req);
+  return req;
+}) as typeof api.get;
+
 export default api;

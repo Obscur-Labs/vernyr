@@ -602,29 +602,26 @@ Mirrors the CRM structure but also has `ThemeContext` for light/dark switching. 
 Both Next apps install to a phone home screen from the browser.
 
 - `src/app/manifest.ts` in each app → `/manifest.webmanifest`
-- `public/sw.js` — a minimal service worker. It exists to make the app
-  installable and keep the shell reachable offline; it never caches `/api/`.
-- `components/InstallPrompt.tsx` registers the worker and shows the banner.
-
-  **The worker is registered in production builds only,** and in development it
-  actively unregisters itself and drops its caches. The dev server reuses chunk
-  filenames across rebuilds, so a cache-first worker serves a stale
-  `foo_abc._.js` for a module whose contents have changed; the page then
-  hydrates against a module graph that no longer matches and fails *silently* —
-  no console error, just a screen stuck on the loading spinner. Registering in
-  dev cost a day of exactly that.
-
-  `CACHE` is versioned (`VERSION` in `sw.js`) because `activate` deletes every
-  cache that is not the current one — a pinned name means a deploy never
-  invalidates anything. Cache-first is used only for `/_next/static/`, whose
-  URLs are content-addressed in a production build; assets are
-  stale-while-revalidate, navigations are network-first, and everything else is
-  left to the network.
-  Android/Chrome uses `beforeinstallprompt`; iOS fires no such event, so Safari
-  gets the Share → Add to Home Screen wording instead.
 - Icons are `public/icon-192.png` and `icon-512.png` (`any` + `maskable`).
+- `components/InstallPrompt.tsx` shows the banner. Android/Chrome uses
+  `beforeinstallprompt`; iOS fires no such event, so Safari gets the Share →
+  Add to Home Screen wording instead.
 
-Installability needs HTTPS in production; `localhost` is exempt.
+**There is no service worker, on purpose.** Its cache kept installed apps on an
+old build after deploys. `InstallPrompt` unregisters any worker and clears every
+Cache Storage entry on load, and `public/sw.js` is a retired worker that does the
+same for a browser whose old worker checks for an update. Do not bring caching
+back.
+
+Nothing holds data for long:
+
+- API answers carry `Cache-Control: no-store` and no ETag (`backend/src/index.ts`).
+- Pages are static shells Vercel serves with `max-age=0, must-revalidate`; only
+  content-hashed `/_next/static` files are cached long-term.
+- `src/lib/api.ts` shares identical GETs that are *in flight at the same time*
+  and forgets them as they settle — no response is reused afterwards.
+- The persisted auth store (token, profile) survives reloads so sign-in sticks;
+  `AppShell` replaces the saved profile with `/auth/me` on load.
 
 ## Marketing site (`website/`)
 

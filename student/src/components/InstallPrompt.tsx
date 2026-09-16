@@ -10,37 +10,21 @@ interface InstallEvent extends Event {
 const DISMISSED = 'vernyr_portal_install_dismissed';
 
 /**
- * Registers the service worker, and offers the install banner where the browser
+ * Clears any leftover service worker, and offers the install banner where the browser
  * supports one. iOS fires no such event, so Safari gets the Share-sheet steps.
  */
 export function InstallPrompt({ appName }: { appName: string }) {
   const [deferred, setDeferred] = useState<InstallEvent | null>(null);
   const [iosHint, setIosHint] = useState(false);
 
-  /**
-   * The worker is a production concern only.
-   *
-   * In development it is actively harmful: the dev server reuses chunk
-   * filenames across rebuilds, so a cached copy of `foo_abc._.js` is served for
-   * a module whose contents have since changed. The page then hydrates against
-   * a module graph that no longer matches, which fails silently — no console
-   * error, just a screen that never finishes loading.
-   *
-   * Unregistering here also heals a browser that already has the old worker
-   * installed, which a code change alone would not reach.
-   */
+  // No service worker: its cache kept serving old builds after a deploy.
+  // This removes any worker and cache a browser still holds from before.
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
-
-    if (process.env.NODE_ENV !== 'production') {
-      navigator.serviceWorker.getRegistrations()
-        .then((rs) => Promise.all(rs.map((r) => r.unregister())))
-        .then(() => caches?.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))))
-        .catch(() => {});
-      return;
-    }
-
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.getRegistrations()
+      .then((rs) => Promise.all(rs.map((r) => r.unregister())))
+      .then(() => caches?.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
