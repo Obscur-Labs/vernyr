@@ -12,7 +12,7 @@ import Message from '../models/Message';
 import Conversation from '../models/Conversation';
 import { authenticate, can, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
-import { StorageRefusedError, uploadBuffer, destroyAsset, mediaFolders } from '../config/cloudinary';
+import { StorageRefusedError, uploadBuffer, destroyAsset, mediaFolders, signedFileUrl } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { isUserViewing, emitToThread } from '../socket';
 import { notify } from '../utils/notify';
@@ -207,7 +207,7 @@ router.get('/download-all/:studentId', authenticate, can('documents', 'read'), a
 
     const seen = new Set<string>();
     for (const doc of withFiles) {
-      const { fileUrl, fileName } = doc.currentVersion;
+      const { fileUrl, fileName, publicId, resourceType } = doc.currentVersion;
       const base = doc.label || doc.type;
       let entry = `${base.replace(/[^\w.-]+/g, '_')}__${fileName}`;
       let n = 1;
@@ -216,7 +216,7 @@ router.get('/download-all/:studentId', authenticate, can('documents', 'read'), a
 
       if (/^https?:\/\//i.test(fileUrl)) {
         // A single unreachable asset must not abort the whole archive
-        try { archive.append(await fetchRemote(fileUrl), { name: entry }); } catch { continue; }
+        try { archive.append(await fetchRemote(signedFileUrl(fileUrl, publicId, resourceType) ?? fileUrl), { name: entry }); } catch { continue; }
       } else {
         // Legacy record still pointing at the old local uploads folder
         const diskPath = path.join(process.cwd(), 'uploads', path.basename(fileUrl));
@@ -404,6 +404,23 @@ router.post('/upload', authenticate, can('documents', 'create'), requireCloudina
     }
 
     res.status(fulfilledRequest ? 200 : 201).json({ document: doc, request: fulfilledRequest });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+/** GET /api/documents/:id/open — a short-lived link to the current file (or ?version=<index>) */
+router.get('/:id/open', authenticate, can('documents', 'read'), async (req: AuthRequest, res: Response) => {
+  try {
+    const doc = await DocumentModel.findById(req.params.id).lean();
+    if (!doc) { res.status(404).json({ message: 'Document not found' }); return; }
+    if (!(await ownsStudentRow(req, doc.studentId))) {
+      res.status(403).json({ message: 'You can only view your own documents' }); return;
+    }
+    const index = Number(req.query.version);
+    const version = Number.isInteger(index) && doc.versions[index] ? doc.versions[index] : doc.currentVersion;
+    if (!version?.fileUrl) { res.status(404).json({ message: 'This document has no file' }); return; }
+    res.json({ url: signedFileUrl(version.fileUrl, version.publicId, version.resourceType) ?? version.fileUrl, fileName: version.fileName });
   } catch (err) {
     serverError(res, err);
   }

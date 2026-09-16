@@ -37,6 +37,11 @@ export interface IMessage extends Document {
   replyTo?: IReplyTo;
   reactions: IReaction[];
   editedAt?: Date;
+  /** Pinned to the top of the thread for everyone in it */
+  pinnedAt?: Date;
+  pinnedBy?: mongoose.Types.ObjectId;
+  /** Private bookmarks — never sent to anyone but the holder */
+  starredBy: mongoose.Types.ObjectId[];
   /** hidden only for these users ("delete for me") */
   deletedFor: mongoose.Types.ObjectId[];
   /** tombstone visible to everyone ("delete for everyone") */
@@ -65,11 +70,16 @@ const MessageSchema = new Schema<IMessage>({
   replyTo:        { type: ReplyToSchema },
   reactions:      { type: [{ userId: { type: Schema.Types.ObjectId, ref: 'User', required: true }, emoji: { type: String, required: true }, _id: false }], default: [] },
   editedAt:       Date,
+  pinnedAt:       Date,
+  pinnedBy:       { type: Schema.Types.ObjectId, ref: 'User' },
+  starredBy:      [{ type: Schema.Types.ObjectId, ref: 'User' }],
   deletedFor:     [{ type: Schema.Types.ObjectId, ref: 'User' }],
   deletedForEveryone: { type: Boolean, default: false },
   readBy:         [{ type: Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 MessageSchema.index({ conversationId: 1, createdAt: 1 });
+MessageSchema.index({ conversationId: 1, pinnedAt: -1 }, { partialFilterExpression: { pinnedAt: { $exists: true } } });
+MessageSchema.index({ starredBy: 1, createdAt: -1 });
 
 export default mongoose.model<IMessage>('Message', MessageSchema);

@@ -259,6 +259,34 @@ sender identity the server never checked.
   `Document`, the message carries `meta.documentId` (and `studentId`); both apps
   render an "Open in Documents" link to `/documents?doc=<id>`.
 
+### Message actions
+
+`components/chat/MessageActions.tsx` (one copy per app, identical but for the
+dark-mode test) holds everything done *to* a message, behind
+`useMessageActions()`: the right-click menu / long-press sheet, swipe-to-reply,
+multi-select, pinned bar, starred panel, delete dialog and reactions.
+
+- **Replies** send only `{ messageId }`. `replySnapshot()` builds the quote from
+  the stored message, and drops it if that message is in another thread.
+- **Pins** are shared, at most 3 per thread (`pinnedAt`/`pinnedBy`).
+- **Stars** are private. `starredBy` is stripped by `sanitize()` before anything
+  is broadcast; a viewer only ever sees `starred: boolean` about themselves.
+- **Delete** is for me or for everyone (own messages only); bulk delete is one
+  thread at a time. Deleting for everyone also unpins.
+- **Reactions** use Apple emoji artwork from the `emoji-datasource-apple` CDN;
+  the picker is `emoji-picker-react`. The five quick reactions are editable per
+  browser (`vernyr-quick-reactions` in localStorage).
+
+### Opening stored files
+
+Cloudinary refuses plain delivery URLs for raw files on this account (`401 deny
+or ACL failure`), so **never link a PDF by its `fileUrl`**. Ask the server:
+`GET /api/documents/:id/open` or `GET /api/messages/message/:id/open` check
+access and answer `{ url }` — a five-minute signed Admin API download link from
+`signedFileUrl()`. The frontends call `openStoredFile(path)` from `lib/media.ts`.
+The documents ZIP fetches through the same signed links. Inline chat images
+still render from their delivery URL.
+
 ### Request hardening
 
 - `helmet` for security headers, `x-powered-by` disabled, `trust proxy` set so

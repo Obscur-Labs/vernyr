@@ -169,7 +169,7 @@ export interface MessageMeta {
 export interface Message {
   _id: string;
   conversationId: string;
-  senderId: string;
+  senderId: string | { _id: string; name: string; role?: string; avatar?: string };
   senderName: string;
   type: MessageType;
   text?: string;
@@ -177,6 +177,13 @@ export interface Message {
   fileName?: string;
   meta?: MessageMeta;
   replyTo?: { messageId: string; senderName: string; preview: string };
+  reactions?: { userId: string; emoji: string }[];
+  editedAt?: string;
+  deletedForEveryone?: boolean;
+  pinnedAt?: string;
+  pinnedBy?: string;
+  /** Only ever about the viewer — the server never sends who else starred it */
+  starred?: boolean;
   readBy: string[];
   createdAt: string;
 }

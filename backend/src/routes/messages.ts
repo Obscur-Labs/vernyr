@@ -5,7 +5,7 @@ import Conversation from '../models/Conversation';
 import User from '../models/User';
 import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { upload, requireCloudinary } from '../middleware/upload';
-import { StorageRefusedError, uploadBuffer, mediaFolders } from '../config/cloudinary';
+import { StorageRefusedError, uploadBuffer, mediaFolders, signedFileUrl } from '../config/cloudinary';
 import { getIo } from '../socket/emitter';
 import { isUserViewing, emitToThread } from '../socket';
 import { notify } from '../utils/notify';
@@ -158,6 +158,19 @@ router.post('/conversation', authenticate, can('chat', 'create'), async (req: Au
 
 // ── Text / structured messages ────────────────────────────────────────────────
 
+/**
+ * The quoted snippet is taken from the stored message, never from the client —
+ * and only when that message lives in the same thread and still exists.
+ */
+async function replySnapshot(conversationId: string, replyTo: unknown) {
+  const id = (replyTo as { messageId?: unknown } | undefined)?.messageId;
+  if (typeof id !== 'string' || !mongoose.isValidObjectId(id)) return undefined;
+  const target = await Message.findOne({ _id: id, conversationId, deletedForEveryone: { $ne: true } }).lean();
+  if (!target) return undefined;
+  const text = target.type === 'file' ? `📎 ${target.fileName ?? 'File'}` : previewFor(target.type, target.text, target.meta);
+  return { messageId: target._id, senderName: target.senderName, preview: text.slice(0, 160) };
+}
+
 /** Human-readable preview for the conversation list */
 function previewFor(type: string | undefined, text?: string, meta?: Record<string, unknown>): string {
   switch (type) {
@@ -181,7 +194,7 @@ router.post('/send', authenticate, can('chat', 'create'), async (req: AuthReques
       type,
       text,
       meta,
-      replyTo,
+      replyTo: await replySnapshot(conversationId, replyTo),
       readBy: [req.user!.id],
     });
 
@@ -245,7 +258,7 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
   }
   const fileUrl = asset.url;
 
-  let parsedReply: { messageId: string; senderName: string; preview: string } | undefined;
+  let parsedReply: unknown;
   if (replyTo) { try { parsedReply = JSON.parse(replyTo); } catch { /* ignore malformed reply payloads */ } }
 
   try {
@@ -297,7 +310,7 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
       meta: isVoice
         ? { voice: true, duration: duration ? Number(duration) : undefined }
         : documentId ? { documentId, studentId } : undefined,
-      replyTo: parsedReply,
+      replyTo: await replySnapshot(conversationId, parsedReply),
       readBy: [req.user!.id],
     });
 
@@ -437,14 +450,18 @@ async function canRead(req: AuthRequest, conversationId: mongoose.Types.ObjectId
 
 /** Strip content from "deleted for everyone" tombstones before sending to clients */
 /** Accepts a document or a lean object — callers use both. */
-function sanitize(msg: unknown): Record<string, unknown> {
+function sanitize(msg: unknown, viewerId?: string): Record<string, unknown> {
   const src = msg as { toObject?: () => unknown };
   const obj = (typeof src.toObject === 'function' ? src.toObject() : msg) as Record<string, unknown>;
+  const starredBy = (obj.starredBy as unknown[] | undefined) ?? [];
+  delete obj.starredBy;
+  if (viewerId) obj.starred = starredBy.some(id => String(id) === viewerId);
   if (obj.deletedForEveryone) {
     obj.text = '';
     delete obj.fileUrl; delete obj.fileName;
     delete obj.filePublicId; delete obj.fileResourceType;
     delete obj.meta; delete obj.replyTo; obj.reactions = [];
+    delete obj.pinnedAt; delete obj.pinnedBy;
   }
   return obj;
 }
@@ -516,12 +533,17 @@ router.delete('/message/:id', authenticate, can('chat', 'delete'), async (req: A
   try {
     const msg = await Message.findById(req.params.id);
     if (!msg) { res.status(404).json({ message: 'Message not found' }); return; }
+    if (!(await isParticipant(msg.conversationId, req.user!.id))) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
 
     if (scope === 'everyone') {
       if (msg.senderId.toString() !== req.user!.id) {
         res.status(403).json({ message: 'You can only delete your own messages for everyone' }); return;
       }
       msg.deletedForEveryone = true;
+      msg.pinnedAt = undefined;
+      msg.pinnedBy = undefined;
       await msg.save();
       const io = getIo();
       if (io) io.to(msg.conversationId.toString()).emit('message_updated', sanitize(msg));
@@ -537,7 +559,7 @@ router.delete('/message/:id', authenticate, can('chat', 'delete'), async (req: A
 /** POST /api/messages/message/:id/react — toggle an emoji reaction */
 router.post('/message/:id/react', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response): Promise<void> => {
   const { emoji } = req.body as { emoji?: string };
-  if (!emoji || emoji.length > 8) { res.status(400).json({ message: 'emoji is required' }); return; }
+  if (typeof emoji !== 'string' || !emoji || emoji.length > 32 || /[<>]/.test(emoji)) { res.status(400).json({ message: 'emoji is required' }); return; }
   try {
     const msg = await Message.findById(req.params.id);
     if (!msg || msg.deletedForEveryone) { res.status(404).json({ message: 'Message not found' }); return; }
@@ -556,6 +578,143 @@ router.post('/message/:id/react', authenticate, can('chat', 'update'), async (re
     const io = getIo();
     if (io) io.to(msg.conversationId.toString()).emit('message_updated', sanitize(msg));
     res.json(sanitize(msg));
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+/** GET /api/messages/message/:id/open — a short-lived link to a chat attachment */
+router.get('/message/:id/open', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const msg = await Message.findById(req.params.id).lean();
+    if (!msg || msg.deletedForEveryone || !msg.fileUrl) { res.status(404).json({ message: 'File not found' }); return; }
+    if (!(await canRead(req, msg.conversationId))) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
+    res.json({ url: signedFileUrl(msg.fileUrl, msg.filePublicId, msg.fileResourceType) ?? msg.fileUrl, fileName: msg.fileName });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+const MAX_PINS = 3;
+
+/** POST /api/messages/message/:id/pin  { pinned: boolean } — pinned for everyone in the thread */
+router.post('/message/:id/pin', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response): Promise<void> => {
+  const pinned = req.body?.pinned !== false;
+  try {
+    const msg = await Message.findById(req.params.id);
+    if (!msg || msg.deletedForEveryone || msg.type === 'system') { res.status(404).json({ message: 'Message not found' }); return; }
+    const conv = await Conversation.findById(msg.conversationId).select('participants archived');
+    if (!conv || !conv.participants.some(p => p.toString() === req.user!.id)) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
+    if (conv.archived) { res.status(409).json({ message: 'This conversation is closed' }); return; }
+
+    if (pinned && !msg.pinnedAt) {
+      const count = await Message.countDocuments({ conversationId: msg.conversationId, pinnedAt: { $exists: true } });
+      if (count >= MAX_PINS) { res.status(409).json({ message: `You can pin up to ${MAX_PINS} messages. Unpin one first.` }); return; }
+      msg.pinnedAt = new Date();
+      msg.pinnedBy = new mongoose.Types.ObjectId(req.user!.id);
+    } else if (!pinned) {
+      msg.pinnedAt = undefined;
+      msg.pinnedBy = undefined;
+    }
+    await msg.save();
+
+    getIo()?.to(msg.conversationId.toString()).emit('message_updated', sanitize(msg));
+    res.json(sanitize(msg, req.user!.id));
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+/** POST /api/messages/message/:id/star  { starred: boolean } — private to the caller */
+router.post('/message/:id/star', authenticate, can('chat', 'update'), async (req: AuthRequest, res: Response): Promise<void> => {
+  const starred = req.body?.starred !== false;
+  try {
+    const msg = await Message.findById(req.params.id).select('conversationId deletedForEveryone');
+    if (!msg || msg.deletedForEveryone) { res.status(404).json({ message: 'Message not found' }); return; }
+    if (!(await isParticipant(msg.conversationId, req.user!.id))) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
+    await Message.updateOne(
+      { _id: msg._id },
+      starred ? { $addToSet: { starredBy: req.user!.id } } : { $pull: { starredBy: req.user!.id } },
+    );
+    getIo()?.to(`user:${req.user!.id}`).emit('message_starred', { messageId: msg._id.toString(), starred });
+    res.json({ ok: true, starred });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+/** POST /api/messages/message/bulk-delete  { ids: string[], scope: 'me' | 'everyone' } */
+router.post('/message/bulk-delete', authenticate, can('chat', 'delete'), async (req: AuthRequest, res: Response): Promise<void> => {
+  const scope = req.body?.scope === 'everyone' ? 'everyone' : 'me';
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : [])
+    .filter((id: unknown): id is string => typeof id === 'string' && mongoose.isValidObjectId(id))
+    .slice(0, 200);
+  if (!ids.length) { res.status(400).json({ message: 'ids are required' }); return; }
+  try {
+    const msgs = await Message.find({ _id: { $in: ids } }).select('conversationId senderId');
+    const convIds = [...new Set(msgs.map(m => m.conversationId.toString()))];
+    if (convIds.length !== 1 || !(await isParticipant(convIds[0], req.user!.id))) {
+      res.status(403).json({ message: 'Messages must all belong to one of your conversations' }); return;
+    }
+    if (scope === 'everyone' && msgs.some(m => m.senderId.toString() !== req.user!.id)) {
+      res.status(403).json({ message: 'You can only delete your own messages for everyone' }); return;
+    }
+
+    const idList = msgs.map(m => m._id);
+    if (scope === 'everyone') {
+      await Message.updateMany(
+        { _id: { $in: idList } },
+        { $set: { deletedForEveryone: true }, $unset: { pinnedAt: 1, pinnedBy: 1 } },
+      );
+      const io = getIo();
+      if (io) {
+        for (const m of await Message.find({ _id: { $in: idList } })) io.to(convIds[0]).emit('message_updated', sanitize(m));
+      }
+    } else {
+      await Message.updateMany({ _id: { $in: idList } }, { $addToSet: { deletedFor: req.user!.id } });
+    }
+    res.json({ ok: true, scope, count: msgs.length });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+/** GET /api/messages/:conversationId/pinned */
+router.get('/:conversationId/pinned', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!(await canRead(req, req.params.conversationId))) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
+    const pins = await Message.find({
+      conversationId: req.params.conversationId,
+      pinnedAt: { $exists: true },
+      deletedForEveryone: { $ne: true },
+    }).sort('-pinnedAt').limit(MAX_PINS).lean();
+    res.json(pins.map(m => sanitize(m, req.user!.id)));
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+/** GET /api/messages/:conversationId/starred — the caller's own bookmarks in this thread */
+router.get('/:conversationId/starred', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!(await isParticipant(req.params.conversationId, req.user!.id))) {
+      res.status(403).json({ message: 'Not a participant of this conversation' }); return;
+    }
+    const list = await Message.find({
+      conversationId: req.params.conversationId,
+      starredBy: req.user!.id,
+      deletedFor: { $ne: req.user!.id },
+      deletedForEveryone: { $ne: true },
+    }).sort('-createdAt').limit(100).lean();
+    res.json(list.map(m => sanitize(m, req.user!.id)));
   } catch (err) {
     serverError(res, err);
   }
@@ -584,7 +743,7 @@ router.get('/:conversationId', authenticate, async (req: AuthRequest, res: Respo
       .lean();
     await attachAccounts(page, ['senderId']);
 
-    res.json(page.reverse().map(m => sanitize(m)));
+    res.json(page.reverse().map(m => sanitize(m, req.user!.id)));
   } catch (err) {
     serverError(res, err);
   }

@@ -102,6 +102,33 @@ export function uploadBuffer(file: Express.Multer.File, folder: string): Promise
   });
 }
 
+/**
+ * A short-lived link that opens a stored file. Delivery URLs for raw files (PDF,
+ * DOCX …) are refused on this account ("deny or ACL failure"), so files are
+ * handed out through the signed Admin API download endpoint instead. Returns
+ * null for anything that is not a Cloudinary asset.
+ */
+export function signedFileUrl(fileUrl?: string, publicId?: string, resourceType?: MediaResourceType): string | null {
+  if (!fileUrl || !isCloudinaryConfigured()) return null;
+  const parsed = fileUrl.match(/res\.cloudinary\.com\/[^/]+\/(image|video|raw)\/upload\/(?:s--[^/]+--\/)?(?:v\d+\/)?(.+)$/);
+  if (!parsed && !publicId) return null;
+
+  const type = resourceType ?? (parsed?.[1] as MediaResourceType);
+  let id = publicId ?? decodeURIComponent(parsed![2]);
+  let format = '';
+  if (type !== 'raw' && !publicId) {
+    const dot = id.lastIndexOf('.');
+    if (dot > id.lastIndexOf('/')) { format = id.slice(dot + 1); id = id.slice(0, dot); }
+  }
+  if (type !== 'raw' && !format) format = path.extname(fileUrl.split('?')[0]).slice(1);
+
+  return client().utils.private_download_url(id, format, {
+    resource_type: type,
+    type: 'upload',
+    expires_at: Math.floor(Date.now() / 1000) + 300,
+  });
+}
+
 /** Best-effort delete — never throws, the DB record stays the source of truth. */
 export async function destroyAsset(publicId?: string, resourceType: MediaResourceType = 'raw'): Promise<void> {
   if (!publicId || !isCloudinaryConfigured()) return;

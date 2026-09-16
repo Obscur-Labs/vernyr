@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { fileHref } from '@/lib/media';
+import { openStoredFile } from '@/lib/media';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useToast } from '@/context/ToastContext';
 import type { Document as Doc, DocStatus } from '@/types';
@@ -37,6 +37,9 @@ export default function DocumentsPage() {
       .catch(() => toast('Failed to load documents', 'error'))
       .finally(() => setLoading(false));
   }, []);
+
+  const openDoc = (docId: string) =>
+    openStoredFile(`/documents/${docId}/open`).catch(() => toast('Could not open this file', 'error'));
 
   const handleReview = async (docId: string, status: DocStatus) => {
     try {
@@ -126,9 +129,14 @@ export default function DocumentsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {doc.currentVersion?.fileUrl && (
-                          <a href={fileHref(doc.currentVersion.fileUrl)} target="_blank" rel="noreferrer" className="text-xs text-accent-ink hover:underline">
-                            View
-                          </a>
+                          <button
+                            type="button"
+                            onClick={() => openDoc(doc._id)}
+                            className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg bg-accent/10 px-2.5 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent/20"
+                          >
+                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="h-4 w-4"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
+                            Open
+                          </button>
                         )}
                         {doc.status !== 'approved' && (
                           <button
@@ -159,14 +167,14 @@ export default function DocumentsPage() {
             <h3 className="text-base font-semibold text-t1 mb-1">Review Document</h3>
             <p className="text-sm text-t2 mb-4">{reviewDoc.type.replace(/_/g,' ')} — {reviewDoc.currentVersion?.fileName}</p>
             {reviewDoc.currentVersion?.fileUrl && (
-              <a
-                href={fileHref(reviewDoc.currentVersion.fileUrl)}
-                target="_blank"
-                rel="noreferrer"
-                className="block w-full text-center py-3 mb-4 rounded-xl border border-line text-sm text-accent-ink hover:bg-muted transition-colors"
+              <button
+                type="button"
+                onClick={() => openDoc(reviewDoc._id)}
+                className="flex w-full items-center justify-center gap-2 py-3 mb-4 rounded-xl border border-line text-sm font-semibold text-accent-ink hover:bg-muted transition-colors"
               >
-                Open File in New Tab
-              </a>
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="h-4 w-4"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
+                Open file in new tab
+              </button>
             )}
             <div className="mb-4">
               <label className="block text-xs text-t3 mb-1.5">Rejection Reason (required only for reject)</label>

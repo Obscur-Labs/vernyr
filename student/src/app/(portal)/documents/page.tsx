@@ -6,7 +6,7 @@ import { DocCardSkeleton } from '@/components/Skeleton';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
-import { fileHref } from '@/lib/media';
+import { openStoredFile } from '@/lib/media';
 import type { Document, DocType, DocumentRequest } from '@/types';
 
 const DOC_LABELS: Record<DocType, string> = {
@@ -306,14 +306,15 @@ export default function DocumentsPage() {
                       <span className="text-xs text-t3">v{doc.versions.length}</span>
                     )}
                     {doc.currentVersion?.fileUrl && (
-                      <a
-                        href={fileHref(doc.currentVersion.fileUrl)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex min-h-[32px] items-center text-xs font-semibold text-accent hover:underline"
+                      <button
+                        type="button"
+                        onClick={() => openStoredFile(`/documents/${doc._id}/open`).catch(() => toast('Could not open this file', 'error'))}
+                        aria-label={`Open ${doc.label ?? DOC_LABELS[doc.type]}`}
+                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-accent/10 px-3 text-xs font-semibold text-accent transition hover:bg-accent/20 active:scale-95"
                       >
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="h-4 w-4"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
                         Open
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>
