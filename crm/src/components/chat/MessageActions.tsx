@@ -223,7 +223,7 @@ export interface MenuAction {
 }
 
 export function MessageMenu({
-  x, y, sheet, myReaction, onReact, actions, onClose,
+  x, y, sheet: sheetRequested, myReaction, onReact, actions, onClose,
 }: {
   x: number;
   y: number;
@@ -236,17 +236,26 @@ export function MessageMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
   const [mode, setMode] = useState<'menu' | 'picker' | 'edit'>('menu');
+  const [sheet] = useState(() => sheetRequested || window.innerWidth < 640 || window.innerHeight < 520);
   const [slot, setSlot] = useState(0);
   const [quick, setQuick] = useQuickReactions();
   const dark = useDarkTheme();
 
   useLayoutEffect(() => {
-    if (sheet || !ref.current) return;
-    const { width, height } = ref.current.getBoundingClientRect();
-    setPos({
-      left: Math.max(8, Math.min(x, window.innerWidth - width - 8)),
-      top: Math.max(8, Math.min(y, window.innerHeight - height - 8)),
-    });
+    const el = ref.current;
+    if (sheet || !el) return;
+    const fit = () => {
+      // offset* ignores the entry animation's scale, so the measurement is the real size.
+      const width = el.offsetWidth, height = el.offsetHeight;
+      setPos({
+        left: Math.max(8, Math.min(x, window.innerWidth - width - 8)),
+        top: Math.max(8, Math.min(y, window.innerHeight - height - 8)),
+      });
+    };
+    fit();
+    const obs = new ResizeObserver(fit);
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [x, y, sheet, mode]);
 
   useEffect(() => {
@@ -280,6 +289,7 @@ export function MessageMenu({
     if (onReact) run(() => onReact(data.emoji));
   };
 
+  const pickerHeight = Math.max(220, Math.min(340, window.innerHeight - (mode === 'edit' ? 260 : 150)));
   const picker = (
     <div className="px-2 pb-2">
       <EmojiPicker
@@ -289,7 +299,7 @@ export function MessageMenu({
         lazyLoadEmojis
         previewConfig={{ showPreview: false }}
         width="100%"
-        height={340}
+        height={pickerHeight}
         searchPlaceHolder="Search emoji"
       />
     </div>
@@ -400,7 +410,7 @@ export function MessageMenu({
         <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
         <div
           ref={ref}
-          className="animate-sheet-up absolute inset-x-0 bottom-0 mx-auto max-h-[88vh] max-w-md overflow-y-auto rounded-t-3xl border border-line bg-surface shadow-2xl"
+          className="animate-sheet-up absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] max-w-md overflow-y-auto overscroll-contain rounded-t-3xl border border-line bg-surface shadow-2xl"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           <div className="mx-auto mt-2 h-1.5 w-9 rounded-full bg-[#8e8e93]/40" aria-hidden />
@@ -415,8 +425,8 @@ export function MessageMenu({
       <div
         ref={ref}
         onMouseDown={e => e.stopPropagation()}
-        className={`animate-scale-in absolute overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl ${mode === 'menu' ? 'w-[300px]' : 'w-[340px]'}`}
-        style={{ left: pos.left, top: pos.top }}
+        className={`animate-scale-in absolute overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface shadow-2xl ${mode === 'menu' ? 'w-[min(300px,calc(100vw-16px))]' : 'w-[min(340px,calc(100vw-16px))]'}`}
+        style={{ left: pos.left, top: pos.top, maxHeight: 'calc(100dvh - 16px)' }}
       >
         {body}
       </div>
@@ -563,7 +573,7 @@ export function DeleteDialog({
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="delete-title">
       <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
-      <div className="animate-scale-in relative w-full max-w-sm rounded-3xl border border-line bg-surface p-5 shadow-2xl">
+      <div className="animate-scale-in relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-3xl border border-line bg-surface p-5 shadow-2xl">
         <h2 id="delete-title" className="text-[17px] font-semibold text-t1">
           Delete {count > 1 ? `${count} messages` : 'message'}?
         </h2>
@@ -611,7 +621,7 @@ export function StarredPanel({
     <div className="fixed inset-0 z-[75]" role="dialog" aria-modal="true" aria-labelledby="starred-title">
       <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
       <div
-        className="animate-sheet-up absolute inset-x-0 bottom-0 flex max-h-[80vh] flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100vh-2rem)] sm:w-96 sm:rounded-3xl"
+        className="animate-sheet-up absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-2xl sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:max-h-[calc(100dvh-2rem)] sm:w-96 sm:rounded-3xl"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-center gap-2 border-b border-line px-4 py-2">
@@ -654,8 +664,28 @@ export function StarredPanel({
 /* ── Emoji button beside the message box ─────────────────────────────────── */
 export function ComposerEmojiButton({ onPick }: { onPick: (emoji: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ left: number; bottom: number; width: number; height: number } | null>(null);
   const dark = useDarkTheme();
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const width = Math.min(340, window.innerWidth - 16);
+      setBox({
+        width,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
+        bottom: window.innerHeight - r.top + 8,
+        height: Math.max(220, Math.min(380, r.top - 16)),
+      });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -674,8 +704,9 @@ export function ComposerEmojiButton({ onPick }: { onPick: (emoji: string) => voi
   }, [open]);
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="shrink-0">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen(v => !v)}
         aria-label="Insert emoji"
@@ -689,8 +720,11 @@ export function ComposerEmojiButton({ onPick }: { onPick: (emoji: string) => voi
           <path d="M9 9.5h.01M15 9.5h.01" strokeWidth="2.6" />
         </svg>
       </button>
-      {open && (
-        <div className="animate-scale-in absolute bottom-12 left-0 z-50 w-[min(340px,calc(100vw-2rem))] origin-bottom-left overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+      {open && box && (
+        <div
+          className="animate-scale-in fixed z-[60] origin-bottom-left overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+          style={{ left: box.left, bottom: box.bottom, width: box.width }}
+        >
           <EmojiPicker
             onEmojiClick={(d: EmojiClickData) => onPick(d.emoji)}
             emojiStyle={EmojiStyle.APPLE}
@@ -698,7 +732,7 @@ export function ComposerEmojiButton({ onPick }: { onPick: (emoji: string) => voi
             lazyLoadEmojis
             previewConfig={{ showPreview: false }}
             width="100%"
-            height={360}
+            height={box.height}
             searchPlaceHolder="Search emoji"
           />
         </div>
