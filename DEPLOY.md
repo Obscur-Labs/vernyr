@@ -66,19 +66,20 @@ Leave Framework, Install and Build on their defaults; each app's `vercel.json` o
 
 ### 5. First Admin on the live database (once)
 
-From your machine (it connects to the live database with the values in `backend/.env`):
+From your machine, in any terminal (it connects with the LIVE_ values in `backend/.env`):
 
-```powershell
-$env:MODE='live'; $env:ADMIN_EMAIL='you@laeuropa.com'; npm run bootstrap; Remove-Item Env:MODE
+```bash
+npm run bootstrap -- --live --email you@laeuropa.com --name "Your Name"
 ```
 
-It prints a one-time password when `ADMIN_PASSWORD` is not set. Sign in at `crm.vernyr.com` and change it.
+Leave out `--email` and it asks. Without `--password` it prints a one-time password: sign in at `crm.vernyr.com` and change it.
+Without `--live` it creates the Admin in the local database (`vernyr_dev`).
 
 ## Local development
 
 ```bash
 npm install
-npm run bootstrap     # first Admin in vernyr_dev (needs ADMIN_EMAIL in backend/.env)
+npm run bootstrap     # first Admin in vernyr_dev (asks for the email)
 npm run dev           # API :5000, crm :3000, portal :3001, website :3002
 npm run dev:all       # the same plus partner :3003
 ```

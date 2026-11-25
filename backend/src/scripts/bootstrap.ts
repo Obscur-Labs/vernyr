@@ -1,28 +1,42 @@
 /**
  * First start on an empty database: creates the first Admin, nothing else.
  *
- *   npm run bootstrap                       (uses MODE from backend/.env)
- *   MODE=live npm run bootstrap             (the live database)
+ *   npm run bootstrap                                  asks for the email (local database)
+ *   npm run bootstrap -- --live                        the live database
+ *   npm run bootstrap -- --live --email you@x.com --name "Your Name" --password "..."
  *
- * Reads ADMIN_EMAIL, ADMIN_NAME and ADMIN_PASSWORD. When ADMIN_PASSWORD is not
- * set a random one is generated and printed once: sign in and change it.
+ * Without --password a random one is generated and printed once: sign in and change it.
  * Safe to re-run: does nothing when an admin already exists.
  */
 import crypto from 'crypto';
+import readline from 'readline/promises';
 import mongoose from 'mongoose';
-import { env } from '../config/env';
-import User from '../models/User';
+
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > -1 ? process.argv[i + 1] : undefined;
+}
+
+async function ask(question: string): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try { return (await rl.question(question)).trim(); } finally { rl.close(); }
+}
 
 async function main() {
-  const email = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-  if (!email) throw new Error('Set ADMIN_EMAIL (the first Admin signs in with this email).');
-  const name = (process.env.ADMIN_NAME || 'Super Admin').trim();
-  const generated = !process.env.ADMIN_PASSWORD;
-  const password = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url') + 'A1!';
+  if (process.argv.includes('--live')) process.env.MODE = 'live';
+  // loaded after MODE is set: env.ts picks LOCAL_ or LIVE_ values when it is first imported
+  const { env } = await import('../config/env');
+  const { default: User } = await import('../models/User');
+
+  let email = (arg('email') || process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  if (!email) email = (await ask(`First Admin email (${env.mode} database): `)).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(`"${email}" is not an email address.`);
+  const name = (arg('name') || process.env.ADMIN_NAME || 'Super Admin').trim();
+  const given = arg('password') || process.env.ADMIN_PASSWORD;
+  const password = given || crypto.randomBytes(9).toString('base64url') + 'A1!';
 
   await mongoose.connect(env.mongoUri);
-  const db = mongoose.connection.db?.databaseName;
-  console.log(`Connected (mode: ${env.mode}, database: ${db})`);
+  console.log(`Connected (mode: ${env.mode}, database: ${mongoose.connection.db?.databaseName})`);
 
   const existing = await User.findOne({ role: 'admin' }).lean();
   if (existing) {
@@ -31,7 +45,7 @@ async function main() {
   }
   await User.create({ name, email, password, role: 'admin' });
   console.log(`Created the first Admin: ${email}`);
-  if (generated) console.log(`Password (shown once, change it after signing in): ${password}`);
+  if (!given) console.log(`Password (shown once, change it after signing in): ${password}`);
 }
 
 main()
