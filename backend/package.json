@@ -10,7 +10,6 @@
     "migrate:roles": "ts-node src/scripts/consolidateRoles.ts",
     "migrate:blank-credentials": "ts-node src/scripts/clearBlankCredentials.ts",
     "migrate:split-accounts": "ts-node src/scripts/splitPortalAccounts.ts",
-    
     "import:courses": "ts-node src/scripts/importCourses.ts",
     "test:security": "node scripts/security-smoke.js"
   },
@@ -28,6 +27,7 @@
     "mongoose": "^8.4.1",
     "multer": "^2.3.0",
     "nodemailer": "10.6.0",
+    "pdf-lib": "1.17.1",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {

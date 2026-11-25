@@ -1,4 +1,5 @@
 import { Country, Intake, MasterItem } from '../models/Master';
+import { ChecklistItem } from '../models/Work';
 
 /** The client's default masters (legacy/server/seed.js + util.js). Seeded once; Admin edits them afterwards. */
 
@@ -70,6 +71,16 @@ export function ensureMasters() {
     VISA_STAGES.forEach(([code, n, trigger, color], i) => lists.push(['visa_stage', n, i + 1, { trigger, color }, code]));
     for (const [type, name, sort, data, code] of lists) {
       await MasterItem.updateOne({ type, name }, { $setOnInsert: { type, name, sort, data, code } }, { upsert: true });
+    }
+    // default checklist (legacy seed): every student, by rule; APS only for Germany. System / visa / free types are not listed.
+    if (!(await ChecklistItem.estimatedDocumentCount())) {
+      const germany = await Country.findOne({ name: 'Germany' }).select('_id').lean();
+      for (const [i, [name, rule]] of DOC_TYPES.entries()) {
+        if (['System', 'Visa', 'No'].includes(rule)) continue;
+        const t = await MasterItem.findOne({ type: 'document_type', name }).select('_id').lean();
+        if (!t) continue;
+        await ChecklistItem.create(rule === 'Germany' ? { country_id: germany?._id, document_type_id: t._id, required: 'Yes', sort: i } : { document_type_id: t._id, required: rule, sort: i });
+      }
     }
   })().catch((err) => { ensured = null; throw err; });
   return ensured;

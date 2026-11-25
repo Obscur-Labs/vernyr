@@ -16,6 +16,7 @@ import accessRoutes from "./routes/access";
 import catalogueRoutes from "./routes/catalogue";
 import metaRoutes from "./routes/meta";
 import coreRoutes from "./routes/core";
+import workRoutes from "./routes/work";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -69,9 +70,6 @@ app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/catalogue", catalogueRoutes);
-// the client's CRM contract (legacy/server): masters, me, and the modules ported from it
-app.use("/api", metaRoutes);
-app.use("/api", coreRoutes);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.
@@ -86,6 +84,12 @@ app.get("/api/health", (_req, res) =>
     timestamp: new Date().toISOString(),
   }),
 );
+
+// The client's CRM contract (legacy/server): mounted on /api with a login check, so they come after
+// /api/health and /api/dev (both public), or they would answer those with 401.
+app.use("/api", metaRoutes);
+app.use("/api", coreRoutes);
+app.use("/api", workRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));

@@ -262,40 +262,10 @@ router.post('/send-file', authenticate, can('chat', 'create'), requireCloudinary
   if (replyTo) { try { parsedReply = JSON.parse(replyTo); } catch { /* ignore malformed reply payloads */ } }
 
   try {
-    // If a studentId was provided (student uploading their own doc), also create a Document record
-    // The Document record a chat upload also creates must land on the sender's
-    // own student record, never on one named in the form field.
-    let documentId: string | undefined;
-    if (studentId && !isVoice && await ownsStudentRow(req, studentId)) {
-      const DocumentModel = (await import('../models/Document')).default;
-      const now     = new Date();
-      const version = {
-        fileUrl,
-        fileName,
-        publicId:     asset.publicId,
-        resourceType: asset.resourceType,
-        uploadedAt:   now,
-        uploadedBy:   new mongoose.Types.ObjectId(req.user!.id),
-      };
-      const existing = await DocumentModel.findOne({ studentId, type: 'other', label: fileName });
-      if (existing) {
-        existing.versions.push(version);
-        existing.currentVersion = version;
-        existing.status = 'uploaded';
-        await existing.save();
-        documentId = existing._id.toString();
-      } else {
-        const created = await DocumentModel.create({
-          studentId:      new mongoose.Types.ObjectId(studentId),
-          type:           'other',
-          label:          fileName,
-          status:         'uploaded',
-          currentVersion: version,
-          versions:       [version],
-        });
-        documentId = created._id.toString();
-      }
-    }
+    // Chat files are no longer filed as Documents automatically: the client's chat has an explicit
+    // "Save to documents" action (ported with the chat module, PORTING.md).
+    const documentId: string | undefined = undefined;
+    void studentId; void ownsStudentRow;
 
     // Create chat message
     const message = await Message.create({
