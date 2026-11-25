@@ -33,12 +33,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!localStorage.getItem('crm_token')) { router.replace('/login'); return; }
-    if (!meta) load().catch(() => setFailed(true));
-  }, [meta, load, router]);
+    // the free API host sleeps when idle: the first call after a while can take up to a minute, so retry twice
+    if (!meta) {
+      setFailed('');
+      load().catch((e) => {
+        if (attempt < 2) setTimeout(() => setAttempt((n) => n + 1), 4000);
+        else setFailed((e as Error).message || 'Network error');
+      });
+    }
+  }, [meta, load, router, attempt]);
   useEffect(() => { setNavOpen(false); setMenuOpen(false); }, [path]);
   useEffect(() => {
     const onScroll = () => document.querySelector('.le-ui')?.classList.toggle('scrolled', window.scrollY > 4);
@@ -49,7 +57,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const logout = () => { clearAuth(); clear(); router.push('/login'); };
 
   if (!me || !meta) {
-    return <div className="le-ui"><div className="boot">{failed ? 'Could not load the CRM. Please refresh the page.' : 'Loading La Europa CRM...'}</div></div>;
+    return (
+      <div className="le-ui"><div className="boot">
+        {failed ? (
+          <div style={{ textAlign: 'center' }}>
+            <p>Could not load the CRM: {failed}</p>
+            <button className="btn primary" onClick={() => setAttempt((n) => n + 1)}>Try again</button>{' '}
+            <button className="btn" onClick={logout}>Log in again</button>
+          </div>
+        ) : 'Loading La Europa CRM...'}
+      </div></div>
+    );
   }
   const active = NAV.find((n) => path === n.href || path.startsWith(n.href + '/'))?.key;
 
