@@ -541,4 +541,5 @@ router.post('/:id/comments/:cid/pin', handle(async (req, res) => {
   res.json({ ok: true, is_pinned: c.is_pinned });
 }));
 
+export { transfer };
 export default router;

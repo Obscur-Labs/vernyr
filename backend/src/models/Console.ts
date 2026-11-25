@@ -17,7 +17,7 @@ export const Team = mongoose.model<ITeam>('Team', new Schema<ITeam>({
 
 /** Assignment engine: rules in priority order; round robin keeps its pointer on the rule. */
 export interface IAssignmentRule extends Document {
-  name: string; priority: number; applies_to: string[]; conditions: Record<string, unknown>; assign_to_type: 'user' | 'team' | 'round_robin' | 'least_loaded' | 'queue';
+  name: string; priority: number; applies_to: string[]; conditions: Record<string, unknown>; assign_to_type: 'user' | 'team_rr' | 'team_least' | 'branch_queue';
   assign_to_id?: Types.ObjectId; rr_pointer?: Types.ObjectId; status: string; is_deleted: boolean;
 }
 export const AssignmentRule = mongoose.model<IAssignmentRule>('AssignmentRule', new Schema<IAssignmentRule>({

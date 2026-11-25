@@ -34,7 +34,7 @@ export interface IStudent extends Document {
   /** One counsellor from first contact to visa (Nov 2026): the old application / visa slots always equal it. */
   primary_counsellor_id?: Types.ObjectId;
   email_thread_root_id?: string; email_thread_subject?: string; email_refs: string[]; emails_paused: boolean; emails_paused_reason?: string;
-  parent_cc_email?: string; source_id?: Types.ObjectId; sub_agent_id?: Types.ObjectId; photo_key?: string; pinned_notes?: string; portal_status?: string; profile_submitted_at?: Date; completion_percent?: number; show_team_to_student?: boolean; last_portal_login_at?: Date;
+  parent_cc_email?: string; source_id?: Types.ObjectId; sub_agent_id?: Types.ObjectId; photo_key?: string; pinned_notes?: string; portal_status?: string; merged_into?: Types.ObjectId; branch_id?: Types.ObjectId; profile_submitted_at?: Date; completion_percent?: number; show_team_to_student?: boolean; last_portal_login_at?: Date;
   academics: Academic[]; work: Work[]; tests: EnglishTest[]; aptitude: Aptitude[]; info_extra?: Record<string, unknown>; prefs: Prefs; family: Family; assignment_history: Assignment[];
   /** What the student gave on the portal sign-up: age group, guardian, consents, codes. */
   signup?: Record<string, unknown>;
@@ -55,7 +55,7 @@ const StudentSchema = new Schema<IStudent>({
   primary_counsellor_id: { ...ref('User'), index: true },
   email_thread_root_id: String, email_thread_subject: String, email_refs: { type: [String], default: [] },
   emails_paused: { type: Boolean, default: false }, emails_paused_reason: String, parent_cc_email: String,
-  source_id: ref('MasterItem'), sub_agent_id: ref('MasterItem'), photo_key: String, pinned_notes: String, portal_status: String, profile_submitted_at: Date, completion_percent: Number, show_team_to_student: Boolean, last_portal_login_at: Date,
+  source_id: ref('MasterItem'), sub_agent_id: ref('MasterItem'), photo_key: String, pinned_notes: String, portal_status: String, merged_into: ref('Student'), branch_id: ref('Branch'), profile_submitted_at: Date, completion_percent: Number, show_team_to_student: Boolean, last_portal_login_at: Date,
   academics: { type: [sub({ level: { type: String, required: true }, qualification_type: String, course_name: String, board_university: String, institution: String,
     score: Number, score_type: String, start_year: Number, pass_year: Number, currently_studying: Boolean, duration: Number, backlogs_total: Number,
     backlogs_active: Number, stream: String, english_marks: Number, sort: { type: Number, default: 0 } })], default: [] },

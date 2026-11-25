@@ -1,6 +1,9 @@
 import { Router, Response } from 'express';
 import { linkOnConvert, autoInvite } from '../services/portal';
-import { trigger } from '../services/email';
+import { trigger, fire } from '../services/email';
+import { getSetting, setSetting } from '../models/Audit';
+import { pick, record } from '../services/assign';
+import { fmtDateTime, fmtTime } from '../services/crm';
 import mongoose from 'mongoose';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import Lead, { LeadActivity, LEAD_FLOW, LEVELS, type ILead, type LeadStatus } from '../models/Lead';
@@ -84,16 +87,43 @@ function rowOut(l: ILead, L: Lookups) {
   };
 }
 
-/** The client's afterStatus(): keep the "Follow-up call" system task in step with the lead. */
-async function syncFollowupTask(req: AuthRequest, id: unknown) {
+async function leadEmailCtx(l: ILead) {
+  const names = (await Country.find({ _id: { $in: l.interested_countries ?? [] } }).select('name').lean()).map((c) => c.name);
+  const fu = l.next_followup_at;
+  return { interested_country: names.join(', ') || 'studying abroad', followup_date: fu ? fmtDateTime(fu).split(',')[0] : '', followup_time: fu ? fmtTime(fu) : '' };
+}
+const STATUS_MSG: Record<string, string> = { Contacted: 'Our counsellor has spoken with you and will guide you through the next steps.',
+  Interested: 'We will now help you with registration and the next steps.',
+  'Not interested': 'We understand. If your plans change, just reply to this email and we will be happy to help.' };
+/** The client's afterStatus(): the "Follow-up call" system task follows the lead; E21 on a status change, E03 when a follow-up is set. */
+async function afterStatus(req: AuthRequest, before: { status?: string; next_followup_at?: Date | null } | null, id: unknown) {
   const l = await Lead.findById(id);
   if (!l) return;
-  if (l.status === 'Follow-up' && l.next_followup_at && l.assigned_user_id) {
+  if (before && l.status !== before.status && l.email && STATUS_MSG[l.status] && (l.status !== 'Not interested' || (await getSetting('e21_not_interested')) === '1')) {
+    await fire(req, 'E21', { lead_id: l._id }, { lead_status_label: l.status, status_message: STATUS_MSG[l.status] }, `Lead status ${l.status} (E21)`);
+  }
+  const fuChanged = !before || String(before.next_followup_at ?? '') !== String(l.next_followup_at ?? '');
+  if (l.status === 'Follow-up' && l.next_followup_at && l.assigned_user_id && fuChanged) {
     await systemTask(`lead-fu:${l._id}`, { title: `Follow-up call: ${leadName(l)}`, type: 'Follow-up call', lead_id: l._id, assigned_to: l.assigned_user_id,
       due_at: l.next_followup_at, priority: 'Medium', reminder: '15 min' } as never, req.user!.id);
+    if (l.email) await fire(req, 'E03', { lead_id: l._id }, await leadEmailCtx(l), 'Follow-up scheduled (E03)');
   }
   if (['Not interested', 'Converted'].includes(l.status)) await closeSystemTask(`lead-fu:${l._id}`);
-  // E03 follow-up / E21 status emails arrive with the email engine (PORTING.md)
+}
+/** Old Admin setting, used when no assignment rule matches: round robin over counsellors, or the first country's counsellor. */
+async function fallbackOwner(countries: unknown[]) {
+  const rule = await getSetting('auto_assign_rule');
+  if (rule === 'by_country' && countries.length) {
+    const map = JSON.parse((await getSetting('auto_assign_country_map')) || '{}') as Record<string, string>;
+    return oid(map[String(countries[0])]);
+  }
+  if (rule !== 'round_robin') return null;
+  const cs = await User.find({ role: 'counsellor', isActive: true }).sort({ createdAt: 1 }).select('_id').lean();
+  if (!cs.length) return null;
+  const last = await getSetting('rr_last');
+  const next = cs[(cs.findIndex((c) => String(c._id) === last) + 1) % cs.length];
+  await setSetting('rr_last', String(next._id));
+  return next._id;
 }
 
 // ---------- list ----------
@@ -214,13 +244,20 @@ router.post('/', handle(async (req, res) => {
   const matches = await duplicates(f.phone_normalised, f.email);
   if (matches.length && !(isAdmin(req) && b.save_anyway && clean(b.save_anyway_reason))) throw dupError(req, matches);
   const me = req.user!.id;
-  const assigned = isAdmin(req) && oid(b.assigned_user_id) ? oid(b.assigned_user_id)! : new mongoose.Types.ObjectId(me);
+  let assigned: unknown = me;
+  let ruleId: string | undefined;
+  if (isAdmin(req)) {
+    const eng = oid(b.assigned_user_id) ? null : await pick('lead', { countries: (f.interested_countries ?? []).map(String), source_id: String(f.source_id ?? ''), level: f.level, city: f.city, state: f.state });
+    ruleId = eng?.rule_id;
+    assigned = oid(b.assigned_user_id) ?? (eng?.user_id ? oid(eng.user_id) : null) ?? (await fallbackOwner(f.interested_countries ?? [])) ?? me;
+  }
   const lead_code = await nextCode('L');
   const l = await Lead.create({ ...f, lead_code, assigned_user_id: assigned, created_by: me, updated_by: me });
+  await record('lead', l._id, null, assigned, me, ruleId, ruleId ? 'Assignment rule' : 'Created');
   await timeline({ lead_id: l._id, type: 'lead', description: `Lead created by ${req.user!.name} (status ${f.status})`, user_id: me });
   if (String(assigned) !== me) await notify(assigned, 'assigned', `New lead assigned to you: ${leadName(l)}`, `/leads/${l._id}`);
-  await syncFollowupTask(req, l._id);
-  // E01 acknowledgement email arrives with the email engine (PORTING.md)
+  if (l.email) await fire(req, 'E01', { lead_id: l._id }, await leadEmailCtx(l), 'New lead acknowledgement (E01)');
+  await afterStatus(req, null, l._id);
   res.json({ id: String(l._id), lead_code });
 }));
 
@@ -286,7 +323,7 @@ router.put('/:id', handle(async (req, res) => {
     await notify(update.assigned_user_id, 'assigned', `Lead transferred to you: ${leadName(l)}`, `/leads/${l._id}`);
     await mongoose.connection.collection('tasks').updateMany({ lead_id: l._id, status: { $in: ['Open', 'In progress'] } }, { $set: { assigned_to: update.assigned_user_id } });
   }
-  await syncFollowupTask(req, l._id);
+  await afterStatus(req, before, l._id);
   res.json({ ok: true });
 }));
 
@@ -300,7 +337,7 @@ router.post('/:id/followup', handle(async (req, res) => {
   if (!at || new Date(at) <= new Date()) throw bad('Follow-up must be in the future', { errors: { next_followup_at: 'Follow-up must be in the future' } });
   await Lead.updateOne({ _id: l._id }, { status: 'Follow-up', next_followup_at: new Date(at), updated_by: req.user!.id });
   await timeline({ lead_id: l._id, type: 'lead', description: `Follow-up set for ${new Date(at).toLocaleString('en-GB', { timeZone: TZ })}`, user_id: req.user!.id });
-  await syncFollowupTask(req, l._id);
+  await afterStatus(req, { status: l.status, next_followup_at: l.next_followup_at }, l._id);
   res.json({ ok: true });
 }));
 
@@ -326,7 +363,7 @@ router.post('/:id/activities', handle(async (req, res) => {
     await Lead.updateOne({ _id: l._id }, { status: 'Contacted' });
     await timeline({ lead_id: l._id, type: 'stage', description: 'Status: New to Contacted (first contact logged)', user_id: req.user!.id });
   }
-  await syncFollowupTask(req, l._id);
+  await afterStatus(req, { status: l.status, next_followup_at: l.next_followup_at }, l._id);
   res.json({ id: String(a._id) });
 }));
 

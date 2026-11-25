@@ -30,6 +30,7 @@ import consoleRoutes from "./routes/console";
 import consoleMoneyRoutes from "./routes/consoleMoney";
 import consoleCommsRoutes from "./routes/consoleComms";
 import consoleInsightsRoutes from "./routes/consoleInsights";
+import consolePeopleRoutes from "./routes/consolePeople";
 import { startDpdpJobs } from "./services/dpdp";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
@@ -127,6 +128,7 @@ app.use("/api", consoleRoutes);
 app.use("/api", consoleMoneyRoutes);
 app.use("/api", consoleCommsRoutes);
 app.use("/api", consoleInsightsRoutes);
+app.use("/api", consolePeopleRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));
