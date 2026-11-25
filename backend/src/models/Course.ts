@@ -1,104 +1,42 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-export const COURSE_LEVELS = [
-  'foundation', 'diploma', 'bachelors', 'masters', 'mba', 'phd', 'other',
-] as const;
-export type CourseLevel = (typeof COURSE_LEVELS)[number];
-
-/** A money figure that keeps the sheet's own wording alongside the number. */
-export interface IMoney {
-  /** Verbatim from the source — "6,000 EUR/year", "EUR 100". */
-  text?: string;
-  amount?: number;
-  currency?: string;
-  /** What the amount buys. Tuition is quoted per year as often as per term. */
-  per?: 'year' | 'semester' | 'term' | 'month' | 'total' | 'unknown';
-}
-
-export interface IExamRequirement {
-  /** IELTS, TOEFL, PTE, Duolingo, GRE, GMAT… */
-  name: string;
-  minScore?: number;
-  note?: string;
-}
-
+/** A course (legacy `courses` + course_intakes, course_english_requirements, course_academic_requirements). Shown to students only when Published.
+ *  own_* = the course keeps its own value instead of following the university settings. */
+export const COURSE_LEVELS = ['Bachelor', 'Master', 'MBA', 'PhD', 'Diploma', 'Foundation', 'Language course'];
+export interface CourseIntake { _id?: Types.ObjectId; intake_id?: Types.ObjectId | null; month?: number | null; year?: number | null; every_year?: boolean; open_date?: string | null; deadline?: string | null; deadline_note?: string | null }
+export interface CourseEnglish { test_type: string; min_overall?: number | null; min_band?: number | null; moi_accepted?: boolean; min_12th_english_percent?: number | null }
+export interface CourseAcademic { required_level?: string | null; min_percent?: number | null; max_backlogs?: number | null; accepted_fields?: string[]; min_work_months?: number | null; entrance_test?: string | null; note?: string | null }
 export interface ICourse extends Document {
-  university: mongoose.Types.ObjectId;
-  /** Denormalised so a filtered list needs no join. */
-  universityName: string;
-  country: string;
-
-  name: string;
-  level: CourseLevel;
-  discipline?: string;
-  link?: string;
-
-  duration?: { text?: string; months?: number };
-  applicationFee?: IMoney;
-  tuition?: IMoney;
-
-  intakes: string[];
-  deadline?: { text?: string; date?: Date };
-  exams: IExamRequirement[];
-  examText?: string;
-  gpa?: string;
-  location?: string;
-  notes?: string;
-  tags: string[];
-
-  /**
-   * Anything the source had that this schema does not name. Keeping it means a
-   * new column in next year's workbook is preserved rather than dropped, and
-   * shows up in the UI as an extra detail row without a migration.
-   */
-  extras?: Map<string, string>;
-
-  source?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  university_id: Types.ObjectId; course_uid?: string; course_code?: string; name: string; level?: string; field_of_study_id?: Types.ObjectId; field?: string; city?: string;
+  duration?: string; duration_months?: number; language?: string; tuition_fee?: number | null; tuition_fee_non_eu?: number | null; currency: string; fee_note?: string;
+  application_fee?: number | null; application_fee_currency?: string; course_link?: string; description?: string; scholarship: boolean; scholarship_text?: string;
+  status: 'Draft' | 'Published' | 'Hidden' | 'Archived'; last_verified_on?: string; internal_note?: string; external_id?: string; min_english?: number | null;
+  own_intakes: boolean; own_english: boolean; own_app_fee: boolean; own_academic: boolean; not_in_last_import: boolean; active: boolean; approved: boolean; is_deleted: boolean;
+  intakes: CourseIntake[]; english: CourseEnglish[]; academic?: CourseAcademic | null; created_by?: Types.ObjectId; updated_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
 }
-
-const MoneySchema = new Schema<IMoney>({
-  text:     String,
-  amount:   Number,
-  currency: String,
-  per: { type: String, enum: ['year', 'semester', 'term', 'month', 'total', 'unknown'], default: 'unknown' },
-}, { _id: false });
-
 const CourseSchema = new Schema<ICourse>({
-  university:     { type: Schema.Types.ObjectId, ref: 'University', required: true, index: true },
-  universityName: { type: String, required: true },
-  country:        { type: String, required: true, index: true },
-
-  name:       { type: String, required: true, trim: true },
-  level:      { type: String, enum: COURSE_LEVELS, default: 'other', index: true },
-  discipline: { type: String, trim: true, index: true },
-  link:       String,
-
-  duration: { text: String, months: Number },
-  applicationFee: MoneySchema,
-  tuition:        MoneySchema,
-
-  intakes:  { type: [String], default: [], index: true },
-  deadline: { text: String, date: Date },
-  exams:    { type: [new Schema({ name: String, minScore: Number, note: String }, { _id: false })], default: [] },
-  examText: String,
-  gpa:      String,
-  location: String,
-  notes:    String,
-  tags:     { type: [String], default: [], index: true },
-
-  extras: { type: Map, of: String },
-
-  source:   String,
-  isActive: { type: Boolean, default: true },
+  university_id: { type: Schema.Types.ObjectId, ref: 'University', required: true, index: true }, course_uid: { type: String, unique: true, sparse: true }, course_code: String,
+  name: { type: String, required: true, trim: true }, level: { type: String, index: true }, field_of_study_id: { type: Schema.Types.ObjectId, ref: 'MasterItem' }, field: String, city: String,
+  duration: String, duration_months: Number, language: String, tuition_fee: Number, tuition_fee_non_eu: Number, currency: { type: String, default: 'EUR' }, fee_note: String,
+  application_fee: Number, application_fee_currency: String, course_link: String, description: String, scholarship: { type: Boolean, default: false }, scholarship_text: String,
+  status: { type: String, default: 'Draft', index: true }, last_verified_on: String, internal_note: String, external_id: String, min_english: Number,
+  own_intakes: { type: Boolean, default: false }, own_english: { type: Boolean, default: false }, own_app_fee: { type: Boolean, default: false }, own_academic: { type: Boolean, default: false },
+  not_in_last_import: { type: Boolean, default: false }, active: { type: Boolean, default: true }, approved: { type: Boolean, default: true }, is_deleted: { type: Boolean, default: false },
+  intakes: [{ intake_id: { type: Schema.Types.ObjectId, ref: 'Intake' }, month: Number, year: Number, every_year: Boolean, open_date: String, deadline: String, deadline_note: String }],
+  english: [{ _id: false, test_type: String, min_overall: Number, min_band: Number, moi_accepted: Boolean, min_12th_english_percent: Number }],
+  academic: { type: new Schema({ required_level: String, min_percent: Number, max_backlogs: Number, accepted_fields: [String], min_work_months: Number, entrance_test: String, note: String }, { _id: false }), default: null },
+  created_by: { type: Schema.Types.ObjectId, ref: 'User' }, updated_by: { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
-
-// The importer upserts on this — re-running it updates rather than duplicates.
-CourseSchema.index({ university: 1, name: 1, level: 1 }, { unique: true });
-CourseSchema.index({ name: 'text', universityName: 'text', discipline: 'text', tags: 'text' });
-// The catalogue's default sort, and the shape of nearly every filtered query.
-CourseSchema.index({ country: 1, level: 1, 'tuition.amount': 1 });
+CourseSchema.index({ university_id: 1, name: 1, level: 1 });
 
 export default mongoose.model<ICourse>('Course', CourseSchema);
+
+/** One changed field of a course, per save or import. */
+export const CourseChange = mongoose.model('CourseChange', new Schema({
+  course_id: { type: Schema.Types.ObjectId, ref: 'Course', index: true }, batch_id: Schema.Types.ObjectId, field: String, old_value: String, new_value: String,
+  changed_by: { type: Schema.Types.ObjectId, ref: 'User' }, changed_at: { type: Date, default: Date.now },
+}));
+/** One Excel upload of one university. */
+export const CourseImportBatch = mongoose.model('CourseImportBatch', new Schema({
+  file_name: String, run_by: { type: Schema.Types.ObjectId, ref: 'User' }, run_at: { type: Date, default: Date.now }, counts: Schema.Types.Mixed, errors: Schema.Types.Mixed, mode: String,
+}, { suppressReservedKeysWarning: true }));

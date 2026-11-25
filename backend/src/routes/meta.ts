@@ -38,21 +38,20 @@ router.get('/meta', authenticate, async (req: AuthRequest, res: Response): Promi
       MasterItem.find({ type: { $nin: ['app_stage', 'visa_stage'] } }).sort({ type: 1, sort: 1, name: 1 }).lean(),
       Country.find().sort({ sort: 1, name: 1 }).lean(),
       Intake.find().sort({ year: 1, month: 1 }).lean(),
-      University.find().sort({ name: 1 }).lean(),
-      Course.find().select('name university level discipline duration tuition applicationFee link deadline isActive').sort({ name: 1 }).lean(),
+      University.find({ is_deleted: false }).sort({ name: 1 }).lean(),
+      Course.find({ is_deleted: false }).select('name university_id level field duration tuition_fee currency application_fee course_link active approved').sort({ name: 1 }).lean(),
       User.find().select('name email role isActive').sort({ name: 1 }).lean(),
       stageList('app_stage'), stageList('visa_stage'), publicUser(req.user!.id),
     ]);
     const masters: Record<string, unknown[]> = {};
     for (const i of items) (masters[i.type] ??= []).push({ id: id(i), code: i.code ?? null, name: i.name, active: i.active, ...(i.data ?? {}) });
-    const countryId = new Map(countries.map((c) => [c.name.toLowerCase(), id(c)]));
     res.json({
       user: me,
       masters,
       countries: countries.map((c) => ({ id: id(c), name: c.name, code: c.code, active: c.active, dependant_visa: c.dependant_visa, dependant_notes: c.dependant_notes, currency: c.currency, aps_required: c.aps_required })),
-      universities: unis.map((u) => ({ id: id(u), name: u.name, country_id: countryId.get(String(u.country).toLowerCase()) ?? null, city: u.city ?? null, active: u.isActive !== false, approved: true, type: u.type, website: u.website ?? null })),
-      courses: courses.map((c) => ({ id: id(c), name: c.name, university_id: String(c.university), level: c.level, field: c.discipline ?? null, duration: c.duration?.text ?? null,
-        tuition_fee: c.tuition?.amount ?? null, currency: c.tuition?.currency ?? null, application_fee: c.applicationFee?.amount ?? null, course_link: c.link ?? null, active: c.isActive !== false, approved: true })),
+      universities: unis.map((u) => ({ id: id(u), uni_code: u.uni_code ?? null, name: u.name, country_id: u.country_id ? String(u.country_id) : null, city: u.city ?? null, active: u.active, approved: u.approved, type: u.type ?? null, website: u.website ?? null })),
+      courses: courses.map((c) => ({ id: id(c), name: c.name, university_id: String(c.university_id), level: c.level ?? null, field: c.field ?? null, duration: c.duration ?? null,
+        tuition_fee: c.tuition_fee ?? null, currency: c.currency ?? null, application_fee: c.application_fee ?? null, course_link: c.course_link ?? null, active: c.active, approved: c.approved })),
       intakes: intakes.map((i) => ({ id: id(i), name: i.name, month: i.month, year: i.year, active: i.active })),
       users: users.map((u) => ({ id: id(u), name: u.name, email: u.email ?? null, status: u.isActive === false ? 'inactive' : 'active', role: clientRole(u.role) })),
       app_stages: appStages,

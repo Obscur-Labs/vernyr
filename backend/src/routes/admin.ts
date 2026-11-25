@@ -22,6 +22,7 @@ import { invalidateUser } from '../services/access';
 import { credentialConflict } from '../services/accounts';
 import { mailReady, sendMail } from '../services/mailer';
 import { env } from '../config/env';
+import { nextUniCode, nextCourseUid } from '../services/catalogue';
 import { EmailTemplate, EmailTemplateVersion, type IEmailTemplate } from '../models/Email';
 import { HARD_CC, WHITELIST, getTemplate, seedTemplates, invalidPlaceholders, htmlToText, sendTest } from '../services/email';
 import { getSetting } from '../models/Audit';
@@ -178,13 +179,13 @@ router.get('/masters/:type', handle(async (req, res) => {
   if (t === 'countries') { res.json((await Country.find().sort({ sort: 1, name: 1 }).lean()).map((c) => withId(json(c)))); return; }
   if (t === 'intakes') { res.json((await Intake.find().sort({ year: 1, month: 1 }).lean()).map((c) => withId(json(c)))); return; }
   if (t === 'universities') {
-    const countries = await Country.find().lean();
-    res.json((await University.find().sort({ name: 1 }).lean()).map((u) => ({ ...withId(json(u)), country_id: countries.find((c) => c.name === u.country)?._id ?? null, active: u.isActive !== false, approved: true })));
+    const countries = await Country.find().select('name').lean();
+    res.json((await University.find({ is_deleted: false }).sort({ approved: 1, name: 1 }).lean()).map((u) => ({ ...withId(json(u)), country: countries.find((c) => String(c._id) === String(u.country_id))?.name ?? null })));
     return;
   }
   if (t === 'courses') {
-    res.json((await Course.find().sort({ name: 1 }).lean()).map((c) => ({ ...withId(json(c)), university: c.universityName, university_id: String(c.university), active: c.isActive !== false, approved: true,
-      tuition_fee: c.tuition?.amount ?? null, currency: c.tuition?.currency ?? null, course_link: c.link ?? null })));
+    const unis = await University.find().select('name').lean();
+    res.json((await Course.find({ is_deleted: false }).sort({ approved: 1, name: 1 }).lean()).map((c) => ({ ...withId(json(c)), university: unis.find((u) => String(u._id) === String(c.university_id))?.name ?? null })));
     return;
   }
   if (t === 'checklists') {
@@ -208,21 +209,19 @@ async function masterSave(req: AuthRequest, t: string, id: string | null, b: Rec
   }
   if (t === 'universities') {
     if (!clean(b.name) || !oid(b.country_id)) throw bad('Name and country are required');
-    const country = await Country.findById(oid(b.country_id)).lean();
-    const name = clean(b.name, 150)!;
-    const f = { name, country: country?.name, city: clean(b.city, 80), website: clean(b.website, 300), type: ['public', 'private'].includes(b.type) ? b.type : 'unknown', isActive: active,
-      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') };
-    return id ? (await University.updateOne({ _id: oid(id) }, f), id) : String((await University.create(f))._id);
+    const f = { name: clean(b.name, 150), country_id: oid(b.country_id), city: clean(b.city, 80), website: clean(b.website, 300), type: b.type || undefined, active,
+      approved: b.approved === undefined ? true : !!b.approved };
+    return id ? (await University.updateOne({ _id: oid(id) }, f), id) : String((await University.create({ ...f, uni_code: await nextUniCode(oid(b.country_id)), created_by: req.user!.id }))._id);
   }
   if (t === 'courses') {
     if (!clean(b.name) || !oid(b.university_id)) throw bad('Course name and university are required');
     if (b.course_link && !/^https?:\/\//.test(b.course_link)) throw fieldErr('course_link', 'Must start with http:// or https://');
     const u = await University.findById(oid(b.university_id)).lean();
     if (!u) throw fieldErr('university_id', 'University not found');
-    const f = { name: clean(b.name, 150), university: u._id, universityName: u.name, country: u.country, level: b.level || 'other', discipline: clean(b.field, 100),
-      duration: { text: clean(b.duration, 50) }, tuition: { amount: num(b.tuition_fee), currency: b.currency || 'EUR' }, applicationFee: { amount: num(b.application_fee), currency: b.currency || 'EUR' },
-      link: clean(b.course_link, 500), intakes: b.intakes || [], isActive: active };
-    return id ? (await Course.updateOne({ _id: oid(id) }, f), id) : String((await Course.create(f))._id);
+    const f = { name: clean(b.name, 150), university_id: u._id, level: b.level || undefined, field: clean(b.field, 100), duration: clean(b.duration, 50), language: b.language || undefined,
+      tuition_fee: num(b.tuition_fee) ?? null, currency: b.currency || 'EUR', application_fee: num(b.application_fee) ?? null, min_english: num(b.min_english) ?? null,
+      course_link: clean(b.course_link, 500), active, approved: b.approved === undefined ? true : !!b.approved };
+    return id ? (await Course.updateOne({ _id: oid(id) }, f), id) : String((await Course.create({ ...f, course_uid: await nextCourseUid(u), created_by: req.user!.id }))._id);
   }
   if (t === 'intakes') {
     if (!clean(b.name) || !num(b.month) || !num(b.year)) throw bad('Name, month and year are required');

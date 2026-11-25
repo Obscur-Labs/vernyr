@@ -286,7 +286,7 @@ function intakeOptions() {
 // GET /api/auth/config: what the student sign-up form offers
 router.get('/config', lookupLimiter, async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const fromCatalogue = (await University.distinct('country')).filter(Boolean).sort();
+    const fromCatalogue = (await Country.find({ _id: { $in: await University.distinct('country_id', { is_deleted: false }) } }).select('name').lean()).map((c) => c.name).sort();
     res.json({ signup: true, countries: fromCatalogue.length ? fromCatalogue : DEFAULT_COUNTRIES, intakes: intakeOptions() });
   } catch (err) {
     serverError(res, err);

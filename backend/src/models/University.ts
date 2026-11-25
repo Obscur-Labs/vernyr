@@ -1,41 +1,21 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-/** A course catalogue is country → university → course. This is the middle. */
-export interface IUniversity extends Document {
-  name: string;
-  slug: string;
-  country: string;
-  countryCode?: string;
-  city?: string;
-  website?: string;
-  type: 'public' | 'private' | 'unknown';
-  logoUrl?: string;
-  notes?: string;
-  /** Where the row came from — a workbook name, or 'manual'. */
-  source?: string;
-  isActive: boolean;
-  courseCount: number;
-  createdAt: string;
-  updatedAt: string;
+/** A university (legacy `universities`): one country, a University ID (DE-001), a logo, and the course settings every course of it follows. */
+export interface UniDefaults {
+  intakes: { intake_id: string; open_date?: string | null; deadline?: string | null; deadline_note?: string | null }[];
+  english: { test_type: string; min_overall?: number | null; min_band?: number | null; moi_accepted?: boolean; min_12th_english_percent?: number | null }[];
+  application_fee?: number | null; application_fee_currency?: string; currency?: string | null; language?: string | null;
+  academic: { required_level?: string | null; min_percent?: number | null; max_backlogs?: number | null; min_work_months?: number | null; entrance_test?: string | null };
 }
-
+export interface IUniversity extends Document {
+  name: string; short_name?: string; uni_code?: string; country_id?: Types.ObjectId; city?: string; website?: string; type?: string; active: boolean; approved: boolean;
+  logo_url?: string; logo_public_id?: string; logo_updated_at?: Date; course_defaults?: UniDefaults; is_deleted: boolean; created_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
+}
 const UniversitySchema = new Schema<IUniversity>({
-  name:      { type: String, required: true, trim: true },
-  slug:      { type: String, required: true, index: true },
-  country:   { type: String, required: true, trim: true, index: true },
-  countryCode: { type: String, uppercase: true, trim: true },
-  city:      { type: String, trim: true },
-  website:   { type: String, trim: true },
-  type:      { type: String, enum: ['public', 'private', 'unknown'], default: 'unknown' },
-  logoUrl:   String,
-  notes:     String,
-  source:    String,
-  isActive:    { type: Boolean, default: true },
-  courseCount: { type: Number, default: 0 },
+  name: { type: String, required: true, trim: true }, short_name: String, uni_code: { type: String, unique: true, sparse: true }, country_id: { type: Schema.Types.ObjectId, ref: 'Country', index: true },
+  city: String, website: String, type: String, active: { type: Boolean, default: true }, approved: { type: Boolean, default: true },
+  logo_url: String, logo_public_id: String, logo_updated_at: Date, course_defaults: Schema.Types.Mixed, is_deleted: { type: Boolean, default: false },
+  created_by: { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
-
-// One university per name per country — the importer upserts on this.
-UniversitySchema.index({ country: 1, slug: 1 }, { unique: true });
-UniversitySchema.index({ name: 'text', country: 'text', city: 'text' });
 
 export default mongoose.model<IUniversity>('University', UniversitySchema);

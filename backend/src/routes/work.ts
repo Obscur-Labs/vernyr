@@ -95,7 +95,7 @@ async function shortlistWarnings(s: IStudent, row: Record<string, any>, N: Names
   if (row.deadline && row.deadline < istDate()) w.push({ code: 'R3', level: 'grey', text: 'Deadline passed' });
   if (row.tuition_fee && s.prefs?.budget_tuition_eur && (row.currency || 'EUR') === 'EUR' && Number(row.tuition_fee) > Number(s.prefs.budget_tuition_eur)) w.push({ code: 'R4', level: 'orange', text: 'Above budget' });
   const course = oid(row.course_id) ? await Course.findById(oid(row.course_id)).lean() : null;
-  const minIelts = course?.exams?.find((e) => /ielts/i.test(e.name ?? ''))?.minScore;
+  const minIelts = course?.min_english;
   if (minIelts) {
     const best = s.tests.map(ieltsEquivalent).filter((x): x is number => x !== null).sort((a, b) => b - a)[0];
     if (best !== undefined && best < minIelts) w.push({ code: 'R5', level: 'orange', text: `English score below requirement (needs IELTS ${minIelts} or equivalent)` });

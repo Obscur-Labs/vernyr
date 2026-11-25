@@ -43,7 +43,6 @@
     "migrate:blank-credentials": "npm run migrate:blank-credentials -w backend",
     "migrate:split-accounts": "npm run migrate:split-accounts -w backend",
     "migrate:counsellors": "npm run migrate:counsellors -w backend",
-    "import:courses": "npm run import:courses -w backend",
     "test:security": "npm run test:security -w backend",
     "clean": "rimraf node_modules backend/node_modules crm/node_modules portal/node_modules partner/node_modules backend/dist crm/.next portal/.next partner/.next website/.next"
   },

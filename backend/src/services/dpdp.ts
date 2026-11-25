@@ -4,6 +4,7 @@ import Student from '../models/Student';
 import PortalAccount from '../models/PortalAccount';
 import { Application } from '../models/Work';
 import University from '../models/University';
+import { Country } from '../models/Master';
 import { PrivacyNotice, Processor, type IBreach } from '../models/Privacy';
 import { AuditLog, getSetting, setSetting } from '../models/Audit';
 import { isEmail, istDate, fmtDateTime } from './crm';
@@ -102,9 +103,10 @@ export async function runRetention(by?: string) {
 
 // ---------- s.11(1)(b): who the person's data was shared with ----------
 export async function sharedWith(studentId?: unknown) {
-  const unis = studentId ? await University.find({ _id: { $in: await Application.distinct('university_id', { student_id: studentId, is_deleted: false }) } }).sort({ name: 1 }).select('name country').lean() : [];
+  const unis = studentId ? await University.find({ _id: { $in: await Application.distinct('university_id', { student_id: studentId, is_deleted: false }) } }).sort({ name: 1 }).select('name country_id').lean() : [];
+  const countries = await Country.find({ _id: { $in: unis.map((u) => u.country_id).filter(Boolean) } }).select('name').lean();
   const procs = await Processor.find({ active: true }).sort({ name: 1 }).lean();
-  return { universities: unis.map((u) => ({ name: u.name, country: u.country, what: 'Your application and the documents needed for it' })),
+  return { universities: unis.map((u) => ({ name: u.name, country: countries.find((c) => String(c._id) === String(u.country_id))?.name ?? null, what: 'Your application and the documents needed for it' })),
     processors: procs.map((x) => ({ name: x.name, what: x.service, location: x.location })) };
 }
 

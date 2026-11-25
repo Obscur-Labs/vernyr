@@ -22,7 +22,7 @@ async function contextCard(type?: string, id?: string) {
   if (!type || !id || !CONTEXT.includes(type) || !Types.ObjectId.isValid(id)) return null;
   const uni = async (u: unknown) => (u ? (await University.findById(u).select('name').lean())?.name ?? '' : '');
   const course = async (c: unknown) => (c ? (await Course.findById(c).select('name').lean())?.name ?? '' : '');
-  if (type === 'course') { const c = await Course.findById(id).lean(); return c && { type, id, title: c.name, sub: await uni(c.university), link: `/courses/${id}` }; }
+  if (type === 'course') { const c = await Course.findById(id).lean(); return c && { type, id, title: c.name, sub: await uni(c.university_id), link: `/courses/${id}` }; }
   if (type === 'shortlist') { const s = await Shortlist.findById(id).lean(); return s && { type, id, title: s.course_name_text || (await course(s.course_id)), sub: await uni(s.university_id), link: '/shortlist' }; }
   if (type === 'application') { const a = await Application.findById(id).lean(); return a && { type, id, title: `${a.application_code}: ${a.course_name_text || (await course(a.course_id))}`, sub: await uni(a.university_id), link: `/applications/${id}` }; }
   if (type === 'request') { const r = await ApplicationRequest.findById(id).lean(); return r && { type, id, title: `${r.request_code}: ${r.course_name || (await course(r.course_id))}`, sub: await uni(r.university_id), link: '/applications' }; }

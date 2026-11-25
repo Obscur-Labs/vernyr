@@ -59,9 +59,10 @@ router.get('/leads/:id/portal', handle(async (req, res) => {
   const N = await workNames();
   const requests = await ApplicationRequest.find({ student_user_id: su._id, is_deleted: false }).sort({ createdAt: -1 }).lean();
   const saved = await SavedCourse.find({ student_user_id: su._id, removed_at: null }).lean();
-  const courses = await Course.find({ _id: { $in: saved.map((x) => x.course_id) } }).select('name universityName').lean();
+  const courses = await Course.find({ _id: { $in: saved.map((x) => x.course_id) } }).select('name university_id').lean();
+  const unis = await University.find({ _id: { $in: courses.map((c) => c.university_id) } }).select('name').lean();
   res.json({ ...portalInfo(su), requests: await Promise.all(requests.map((q) => reqOut(q as never, N))),
-    saved: courses.map((c) => ({ id: String(c._id), name: c.name, uni: c.universityName })) });
+    saved: courses.map((c) => ({ id: String(c._id), name: c.name, uni: unis.find((u) => String(u._id) === String(c.university_id))?.name ?? '' })) });
 }));
 
 // ---------- C2: Student Requests (S35) ----------
@@ -118,7 +119,7 @@ router.get('/portal-requests/:id', handle(async (req, res) => {
     o.summary = (await academicSummary(s)).line;
     const c = q.course_id ? await Course.findById(q.course_id).lean() : null;
     o.warnings = await shortlistWarnings(s, { country_id: q.country_id, university_id: q.university_id, course_id: q.course_id, level: q.level, intake_id: q.intake_id,
-      tuition_fee: c?.tuition?.amount, currency: c?.tuition?.currency, deadline: q.deadline }, N);
+      tuition_fee: c?.tuition_fee, currency: c?.currency, deadline: q.deadline }, N);
   }
   res.json(o);
 }));
@@ -141,7 +142,7 @@ router.post('/portal-requests/:id/accept', handle(async (req, res) => {
   const appId = await createApplication(req, s, b, sl?._id);
   if (sl) await Shortlist.updateOne({ _id: sl._id }, { status: 'Converted to application', application_id: appId, updated_by: req.user!.id });
   else await Shortlist.create({ student_id: s._id, country_id: q.country_id, university_id: q.university_id, course_id: q.course_id, level: q.level, intake_id: q.intake_id,
-    tuition_fee: c?.tuition?.amount, currency: c?.tuition?.currency, deadline: q.deadline, status: 'Converted to application', application_id: appId,
+    tuition_fee: c?.tuition_fee, currency: c?.currency, deadline: q.deadline, status: 'Converted to application', application_id: appId,
     student_response: 'Accepted', student_response_at: q.createdAt, created_by: req.user!.id });
   const before = q.status;
   q.set({ status: 'Accepted', application_id: appId, reviewed_by: req.user!.id, reviewed_at: new Date() }); await q.save();
@@ -373,21 +374,29 @@ router.get('/students/:id/saved-courses', handle(async (req, res) => {
   if (!su) { res.json([]); return; }
   const saved = await SavedCourse.find({ student_user_id: su._id, removed_at: null }).sort({ saved_at: -1 }).lean();
   const courses = await Course.find({ _id: { $in: saved.map((x) => x.course_id) } }).lean();
+  const unis = await University.find({ _id: { $in: courses.map((c) => c.university_id) } }).select('name country_id').lean();
+  const N = await workNames();
   const inShort = new Set((await Shortlist.distinct('course_id', { student_id: s._id, is_deleted: false })).map(String));
-  res.json(saved.map((x) => { const c = courses.find((k) => String(k._id) === String(x.course_id)); return c && {
-    course_id: String(c._id), name: c.name, level: c.level, university: c.universityName, country: c.country, tuition_fee: c.tuition?.amount ?? null, currency: c.tuition?.currency ?? null,
-    saved_at: x.saved_at, in_shortlist: inShort.has(String(c._id)) }; }).filter(Boolean));
+  res.json(saved.map((x) => {
+    const c = courses.find((k) => String(k._id) === String(x.course_id));
+    const u = c && unis.find((y) => String(y._id) === String(c.university_id));
+    return c && { course_id: String(c._id), name: c.name, level: c.level, university: u?.name ?? '', country: N.name(u?.country_id), tuition_fee: c.tuition_fee ?? null, currency: c.currency ?? null,
+      saved_at: x.saved_at, in_shortlist: inShort.has(String(c._id)) };
+  }).filter(Boolean));
 }));
 router.post('/students/:id/saved-courses/:cid/add', handle(async (req, res) => {
   need(req, 'shortlist', 'add');
   const s = await loadStudent(req, req.params.id);
   const c = await Course.findById(oid(req.params.cid)).lean();
   if (!c) throw notFound('Course');
+  const uni = await University.findById(c.university_id).lean();
   const intake = oid(req.body?.intake_id) ?? s.prefs?.intake_id;
   if (!intake) throw fieldErr('intake_id', 'Choose the intake');
-  const sl = await Shortlist.create({ student_id: s._id, university_id: c.university, course_id: c._id, level: c.level || 'Master', intake_id: intake, tuition_fee: c.tuition?.amount,
-    currency: c.tuition?.currency, status: 'Student agreed', student_response: 'Accepted', student_response_at: new Date(), shared_at: new Date(), created_by: req.user!.id });
-  await timeline({ student_id: s._id, type: 'profile', description: `Saved course added to shortlist: ${c.universityName} ${c.name}`, user_id: req.user!.id });
+  const ci = (c.intakes ?? []).find((i) => String(i.intake_id) === String(intake));
+  const sl = await Shortlist.create({ student_id: s._id, country_id: uni?.country_id, university_id: c.university_id, course_id: c._id, level: c.level || 'Master', intake_id: intake, tuition_fee: c.tuition_fee,
+    currency: c.currency, application_fee: c.application_fee, deadline: ci?.deadline, course_link: c.course_link, language: c.language, status: 'Student agreed', student_response: 'Accepted',
+    student_response_at: new Date(), shared_at: new Date(), created_by: req.user!.id });
+  await timeline({ student_id: s._id, type: 'profile', description: `Saved course added to shortlist: ${uni?.name} ${c.name}`, user_id: req.user!.id });
   res.json({ id: String(sl._id) });
 }));
 

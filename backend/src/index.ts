@@ -15,7 +15,6 @@ import leadRoutes from "./routes/leads";
 import studentRoutes from "./routes/students";
 import messageRoutes from "./routes/messages";
 import accessRoutes from "./routes/access";
-import catalogueRoutes from "./routes/catalogue";
 import metaRoutes from "./routes/meta";
 import coreRoutes from "./routes/core";
 import workRoutes from "./routes/work";
@@ -26,6 +25,7 @@ import appointmentRoutes from "./routes/appointments";
 import rewardRoutes from "./routes/rewards";
 import invoiceRoutes from "./routes/invoices";
 import privacyRoutes from "./routes/privacy";
+import catalogueRoutes, { logoRoute } from "./routes/catalogue";
 import { startDpdpJobs } from "./services/dpdp";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
@@ -83,13 +83,14 @@ app.post("/api/webhooks/email", async (req, res) => {
   for (const e of events) if (await webhook(String(e?.message_id || e?.["smtp-id"] || ""), String(e?.status || ""))) n++;
   res.json({ updated: n });
 });
+// university logos are public (not personal data)
+app.get("/api/logos/:id", (req, res) => { logoRoute(req, res).catch(() => res.status(500).end()); });
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/access", accessRoutes);
-app.use("/api/catalogue", catalogueRoutes);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.
@@ -117,6 +118,7 @@ app.use("/api", appointmentRoutes);
 app.use("/api", rewardRoutes);
 app.use("/api", invoiceRoutes);
 app.use("/api/admin", privacyRoutes);
+app.use("/api", catalogueRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));
