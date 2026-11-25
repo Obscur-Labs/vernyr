@@ -10,6 +10,8 @@ import { EmailLog } from '../models/Email';
 import { audit } from '../models/Audit';
 import { HARD_CC, resend } from '../services/email';
 import { ctxForStudent } from '../services/portalCtx';
+import { summaryPdf, recordPdf, evidenceCertificate, latestSigned } from '../services/studentPdfs';
+import { readLocked } from '../services/signing';
 import { out as infoOut, save as infoSave } from '../services/infoForm';
 import { can } from '../config/clientPerms';
 import {
@@ -539,6 +541,44 @@ router.post('/:id/comments/:cid/pin', handle(async (req, res) => {
   if (!c) throw new HttpError(404, 'Comment not found');
   c.is_pinned = !c.is_pinned; await c.save();
   res.json({ ok: true, is_pinned: c.is_pinned });
+}));
+
+// ---------- student PDFs ----------
+const sendPdf = (res: import('express').Response, buf: Buffer, name: string, inline = false) => {
+  res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${name}"`); res.send(buf);
+};
+router.get('/:id/summary.pdf', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  const buf = await summaryPdf(s, req.user!.name);
+  await audit(req, 'Download', 'Student', s._id, s.student_code + ' profile summary PDF');
+  sendPdf(res, buf, `${s.student_code}_profile_summary.pdf`, true);
+}));
+// one PDF with everything that happened for this student, first contact to today, chat included
+router.get('/:id/full-record.pdf', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  const out = await recordPdf(s, req.user!.name);
+  await audit(req, 'Export', 'Student', s._id, `${s.student_code} full record PDF (${out.entries} entries)`);
+  sendPdf(res, out.bytes, `${s.student_code}-full-record-${new Date().toISOString().slice(0, 10)}.pdf`);
+}));
+router.get('/:id/consent-certificate.pdf', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  const row = await latestSigned(s);
+  if (!row) throw new HttpError(404, 'The student has not signed the Student Declaration & Consent in the portal yet');
+  const buf = await readLocked(row);
+  await audit(req, 'Export', 'ConsentRecord', s._id, `${s.student_code} signed consent PDF downloaded`);
+  sendPdf(res, buf, `${s.student_code}-signed-consent.pdf`);
+}));
+// evidence certificate for court (Bharatiya Sakshya Adhiniyam 2023, s.63(4); earlier Evidence Act s.65B): Admin / Manager only
+router.get('/:id/evidence-certificate.pdf', handle(async (req, res) => {
+  if (!['admin', 'manager'].includes(req.user!.role)) throw new HttpError(403, 'Only Admin or Manager can make an evidence certificate');
+  const s = await loadStudent(req, req.params.id);
+  const row = await latestSigned(s);
+  if (!row) throw new HttpError(404, 'The student has not signed the Student Declaration & Consent in the portal yet');
+  const me = await User.findById(req.user!.id).select('name staff_code username').lean();
+  const buf = await evidenceCertificate(row, { name: me?.name ?? req.user!.name, staff_code: me?.staff_code, username: me?.username });
+  await audit(req, 'Export', 'ConsentRecord', s._id, `${s.student_code} evidence certificate (BSA s.63) for ${row.doc_code}`);
+  sendPdf(res, buf, `${row.doc_code}-evidence-certificate.pdf`);
 }));
 
 export { transfer };

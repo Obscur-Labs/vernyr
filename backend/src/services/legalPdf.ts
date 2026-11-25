@@ -165,3 +165,4 @@ export async function documentPdf(d: { title: string; version: string; body: str
   return Buffer.from(await finishDoc(w, `${d.title}, version ${d.version} | SHA-256 ${String(d.body_hash).slice(0, 16)} | Euroverse Service LLP (La Europa Education), LLPIN ACY-5677`).save({ useObjectStreams: false }));
 }
 export { GREY };
+export const finish = async (w: Writer, footer: string) => Buffer.from(await finishDoc(w, footer).save({ useObjectStreams: false }));
