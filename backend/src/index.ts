@@ -1,4 +1,6 @@
 import { env } from "./config/env";
+import crypto from "crypto";
+import { webhook, startEmailWorker, seedTemplates } from "./services/email";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -65,6 +67,16 @@ connectDB();
 setupSocket(io);
 
 // Routes
+// provider delivery webhooks: shared token, compared in constant time
+app.post("/api/webhooks/email", async (req, res) => {
+  const want = process.env.EMAIL_WEBHOOK_TOKEN, got = String(req.headers["x-webhook-token"] || req.query.token || "");
+  const h = (v: string) => crypto.createHash("sha256").update(v).digest();
+  if (!want || !got || !crypto.timingSafeEqual(h(got), h(want))) { res.status(403).end(); return; }
+  const events = Array.isArray(req.body) ? req.body : [req.body];
+  let n = 0;
+  for (const e of events) if (await webhook(String(e?.message_id || e?.["smtp-id"] || ""), String(e?.status || ""))) n++;
+  res.json({ updated: n });
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);
@@ -102,6 +114,8 @@ app.use((_req, res) => res.status(404).json({ message: "Not found" }));
 app.use(uploadErrorHandler);
 
 server.listen(env.port, () => {
+  startEmailWorker();
+  seedTemplates().catch((e) => console.error("[email templates]", e));
   console.log(`StudyCRM backend running on port ${env.port} (mode: ${env.mode})`);
   console.log(`Allowed browser origins: ${env.allowedOrigins.join(", ") || "(none)"}`);
   if (!isCloudinaryConfigured()) {

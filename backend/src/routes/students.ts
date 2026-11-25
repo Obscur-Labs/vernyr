@@ -6,6 +6,9 @@ import Lead from '../models/Lead';
 import User from '../models/User';
 import { Country, Intake, MasterItem } from '../models/Master';
 import { Timeline } from '../models/Timeline';
+import { EmailLog } from '../models/Email';
+import { audit } from '../models/Audit';
+import { HARD_CC, resend } from '../services/email';
 import { can } from '../config/clientPerms';
 import {
   HttpError, bad, fieldErr, handle, need, isAdmin, seesAll, oid, sid, clean, num, normPhone, isEmail, escRx,
@@ -425,12 +428,40 @@ router.get('/:id/timeline', handle(async (req, res) => {
     .map((x) => ({ ...x, id: String(x._id), _id: undefined, created_at: x.createdAt, user_name: nameIn(names, x.user_id) })));
 }));
 
-// ---------- email log: filled by the email engine (PORTING.md) ----------
+// ---------- email log ----------
 router.get('/:id/emails', handle(async (req, res) => {
   need(req, 'emails', 'view');
   const s = await loadStudent(req, req.params.id);
-  const rows = await col('emaillogs').find({ $or: [{ student_id: s._id }, ...(s.lead_id ? [{ lead_id: s.lead_id }] : [])] }).sort({ queued_at: -1 }).toArray();
+  const rows = await EmailLog.find({ $or: [{ student_id: s._id }, ...(s.lead_id ? [{ lead_id: s.lead_id }] : [])] }).sort({ queued_at: -1 }).select('-parts -body_html -body_text').lean();
   res.json({ rows: rows.map((e) => ({ ...e, id: String(e._id), _id: undefined })), thread_root: s.email_thread_root_id ?? null, email_status: s.email_status, paused: s.emails_paused });
+}));
+
+router.get('/:id/emails/:eid', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  const e = await EmailLog.findOne({ _id: oid(req.params.eid), $or: [{ student_id: s._id }, ...(s.lead_id ? [{ lead_id: s.lead_id }] : [])] }).lean();
+  if (!e) throw new HttpError(404, 'Email not found');
+  const names = await userNames();
+  res.json({ ...e, id: String(e._id), _id: undefined, parts: undefined, cc_addr: e.cc_addr || HARD_CC, triggered_by_name: nameIn(names, e.triggered_by) });
+}));
+router.post('/:id/emails/:eid/resend', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  if (!can(req.user!.role, 'profile', 'edit') && !can(req.user!.role, 'documents', 'edit')) throw new HttpError(403, 'You do not have access to this record');
+  const e = await EmailLog.findOne({ _id: oid(req.params.eid), student_id: s._id });
+  if (!e) throw new HttpError(404, 'Email not found');
+  if (s.email_status === 'Bounced') throw bad('The student email bounced. Please correct the email address first.');
+  const id = await resend(e._id, req.user!.id);
+  if (s.email) await EmailLog.updateOne({ _id: id }, { to_addr: s.email });
+  await audit(req, 'Update', 'EmailLog', e._id, 'Resend ' + (e.update_title || e.trigger_code));
+  res.json({ id });
+}));
+router.post('/:id/emails/:eid/cancel', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  const e = await EmailLog.findOne({ _id: oid(req.params.eid), student_id: s._id });
+  if (!e || !['Queued', 'Retrying'].includes(e.status)) throw bad('Only queued emails can be cancelled');
+  e.status = 'Cancelled'; await e.save();
+  await timeline({ student_id: s._id, type: 'email', description: `Queued email cancelled: ${e.update_title}`, user_id: req.user!.id });
+  await audit(req, 'Update', 'EmailLog', e._id, 'Cancel ' + e.update_title);
+  res.json({ ok: true });
 }));
 
 // ---------- comments & pinned notes (internal: never trigger an email) ----------

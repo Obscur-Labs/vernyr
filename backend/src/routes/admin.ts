@@ -22,6 +22,9 @@ import { invalidateUser } from '../services/access';
 import { credentialConflict } from '../services/accounts';
 import { mailReady, sendMail } from '../services/mailer';
 import { env } from '../config/env';
+import { EmailTemplate, EmailTemplateVersion, type IEmailTemplate } from '../models/Email';
+import { HARD_CC, WHITELIST, getTemplate, seedTemplates, invalidPlaceholders, htmlToText, sendTest } from '../services/email';
+import { getSetting } from '../models/Audit';
 
 /** The client's minimum Admin (Section 14) + Export (15.3) (legacy/server/routes/admin.js). Manager: reports and exports only. */
 const router = Router();
@@ -259,7 +262,6 @@ router.put('/masters/:type/:id', handle(async (req, res) => {
 }));
 
 // ---------- settings ----------
-const HARD_CC = 'laeuropaapplication@gmail.com';
 router.post('/mail/verify', handle(async (req, res) => {
   if (!mailReady()) { res.json({ ok: false, message: `Email is in ${env.mail.provider} mode: set MAIL_PROVIDER=smtp and SMTP_* on the server to send real email.` }); return; }
   let out = { ok: true, message: `Connected to ${env.mail.host}` };
@@ -383,6 +385,65 @@ router.get('/export/:entity', handle(async (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="la-europa-${ent}-${istDate()}.xlsx"`);
   await wb.xlsx.write(res);
   res.end();
+}));
+
+// ---------- email templates (13.6): whitelisted placeholders, fixed CC, versions ----------
+router.get('/templates', handle(async (_req, res) => {
+  await seedTemplates();
+  const names = await userNames();
+  const rows = await EmailTemplate.find().sort({ trigger_code: 1 }).lean();
+  res.json({ cc: HARD_CC, e21_not_interested: (await getSetting('e21_not_interested')) === '1', whitelist: [...WHITELIST].filter((p) => p !== 'verified_documents_items'),
+    rows: rows.map((t) => ({ ...withId(t as never), audience: t.audience || 'Student', last_edited_by: nameIn(names, t.updated_by), last_edited_at: t.updatedAt })) });
+}));
+const template = async (code: string) => { const t = await getTemplate(code); if (!t) throw new HttpError(404, 'Template not found'); return t; };
+const snapshot = (t: IEmailTemplate, by: unknown) => EmailTemplateVersion.create({ template_id: t._id, version: t.version, update_title: t.update_title, body_html: t.body_html, is_active: t.is_active, saved_by: by });
+router.get('/templates/:code', handle(async (req, res) => {
+  const t = await template(req.params.code);
+  const names = await userNames();
+  const versions = await EmailTemplateVersion.find({ template_id: t._id }).sort({ version: -1 }).lean();
+  res.json({ ...withId(t.toObject() as never), cc: HARD_CC, versions: versions.map((v) => ({ ...withId(v as never), saved_by_name: nameIn(names, v.saved_by) })) });
+}));
+router.put('/templates/:code', handle(async (req, res) => {
+  const t = await template(req.params.code);
+  const b = req.body ?? {};
+  const before = { update_title: t.update_title, is_active: t.is_active };
+  if (b.update_title !== undefined || b.body_html !== undefined) {
+    const title = String(b.update_title ?? t.update_title), html = String(b.body_html ?? t.body_html);
+    if (!clean(title)) throw fieldErr('update_title', 'Update title is required');
+    if (!clean(html)) throw fieldErr('body_html', 'Body is required');
+    const badP = invalidPlaceholders(title + ' ' + html);
+    if (badP.length) throw bad(`These placeholders are not allowed: ${badP.map((p) => '{' + p + '}').join(', ')}. Only whitelisted placeholders can be used.`, { errors: { body_html: 'Not allowed: ' + badP.join(', ') } });
+    if (/laeuropaapplication@gmail\.com|\bcc\s*:/i.test(html)) throw bad('CC is fixed by the system and cannot be set in a template');
+    const safe = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son\w+="[^"]*"/gi, '').replace(/javascript:/gi, '');
+    await snapshot(t, t.updated_by);
+    t.set({ update_title: clean(title, 200), body_html: safe, body_text: htmlToText(safe), version: t.version + 1 });
+  }
+  if (b.is_active !== undefined) t.is_active = !!b.is_active;
+  t.set({ updated_by: req.user!.id });
+  await t.save();
+  if (b.e21_not_interested !== undefined && t.trigger_code === 'E21') await setSetting('e21_not_interested', b.e21_not_interested ? '1' : '0', req.user!.id);
+  await audit(req, 'Template edit', 'EmailTemplate', t._id, t.trigger_code, before, { update_title: t.update_title, is_active: t.is_active });
+  res.json({ ok: true });
+}));
+router.post('/templates/:code/restore', handle(async (req, res) => {
+  const t = await template(req.params.code);
+  const v = await EmailTemplateVersion.findOne({ _id: oid(req.body?.version_id), template_id: t._id });
+  if (!v) throw new HttpError(404, 'Version not found');
+  await snapshot(t, req.user!.id);
+  t.set({ update_title: v.update_title, body_html: v.body_html, body_text: htmlToText(v.body_html), version: t.version + 1, updated_by: req.user!.id });
+  await t.save();
+  await audit(req, 'Template edit', 'EmailTemplate', t._id, `${t.trigger_code} restored v${v.version}`);
+  res.json({ ok: true });
+}));
+router.post('/templates/:code/test', handle(async (req, res) => {
+  const t = await template(req.params.code);
+  const b = req.body ?? {};
+  const draft = b.update_title || b.body_html ? { update_title: String(b.update_title || t.update_title), body_html: String(b.body_html || t.body_html) } : null;
+  if (draft) { const badP = invalidPlaceholders(draft.update_title + draft.body_html); if (badP.length) throw bad('Not allowed placeholders: ' + badP.join(', ')); }
+  const me = await User.findById(req.user!.id).lean();
+  const r = await sendTest(t.trigger_code, { id: req.user!.id, name: me?.name ?? 'Admin', email: me?.email }, draft);
+  await audit(req, 'Template edit', 'EmailTemplate', t._id, `${t.trigger_code} test email sent`);
+  res.json({ ok: true, to: me?.email, cc: HARD_CC, status: r.status });
 }));
 
 export default router;
