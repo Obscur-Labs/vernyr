@@ -23,12 +23,19 @@ export { USERNAME_RE, blankToUndefined };
 
 export interface IUser extends AccountBase, Document {
   role: StaffRole;
+  /** Counsellor ID LE-CS-0001 / staff ID LE-ST-0001: never changes. */
+  staff_code?: string;
+  designation?: string;
+  reports_to?: mongoose.Types.ObjectId;
 }
 
 const UserSchema = new Schema<IUser>(
   {
     ...accountFields,
     role: { type: String, enum: STAFF_ROLES, default: 'counsellor' },
+    staff_code: { type: String, unique: true, sparse: true },
+    designation: String,
+    reports_to: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },
 );

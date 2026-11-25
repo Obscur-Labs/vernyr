@@ -55,9 +55,18 @@ Toolkit in `crm/src/le/` mirrors the client's `core.js`: `form.tsx` (field descr
 `meta.ts` (`/api/meta` + `M` helpers), `Shell.tsx`, `format.ts`. Ported screens live in `crm/src/app/(le)/`; the dump's page is deleted when its replacement lands.
 Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`, `routes/leads.ts`, `config/clientPerms.ts`).
 
-| Screen | Status |
+| Backend module | Status |
 |---|---|
-| Shell, `/api/meta`, `/api/me`, masters (sources, stages, countries, intakes, document types) | done |
-| Leads: list, filters, chips, saved views, add / edit, duplicate popup, detail, status flow, call log, follow-up, delete | done |
-| Leads: convert to student, bulk assign, CSV import, Excel export, merge | with Students |
-| Students, Applications & Visa, Documents, Tasks, Dashboard, Appointments, Chat, Requests, Courses, Admin console | next, in this order |
+| Masters, /api/meta, /api/me, client permission matrix (admin, counsellor, manager) | done |
+| Leads (list, CRUD, duplicates, status flow, call log, follow-up task, convert) | done |
+| Students (profile tabs, transfer, timeline, comments, pinned notes) | done |
+| Core: dashboard, tasks, notifications, search, my profile | done |
+| Shortlist, applications (one Application & Visa flow), documents, fees, visa | done |
+| Admin: users, masters, templates, settings, audit, reports, export; counsellors; walk-in QR | next |
+| Email engine (queue, templates E01 to E49, thread, hard CC) replacing the fire() hook | next |
+| Portal staff side, appointments, promotions, wallet, GST invoices, DPDP, course search, admin console | after |
+
+| CRM screen (client UI) | Status |
+|---|---|
+| Shell, Leads | done |
+| Everything else | after the backend |

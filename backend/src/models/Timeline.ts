@@ -23,3 +23,10 @@ export async function nextCode(kind: 'L' | 'S' | 'A' | 'V') {
   const c = await Counter.findByIdAndUpdate(`${kind}-${year}`, { $inc: { value: 1 } }, { upsert: true, new: true });
   return `LE-${kind}-${year}-${String(c!.value).padStart(5, '0')}`;
 }
+
+/** Counsellor ID LE-CS-0001 / staff ID LE-ST-0001 (legacy ids.nextStaffCode): one series each, never reused. */
+export async function nextStaffCode(counsellor: boolean) {
+  const key = counsellor ? 'CS' : 'ST';
+  const c = await Counter.findByIdAndUpdate(`staff-${key}`, { $inc: { value: 1 } }, { upsert: true, new: true });
+  return `LE-${key}-${String(c!.value).padStart(4, '0')}`;
+}
