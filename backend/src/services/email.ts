@@ -379,9 +379,9 @@ export async function webhook(messageId: string, status: string) {
 }
 
 /** Security emails (codes, password changed): to the person only, no CC, own subject, not in the thread; the code is masked in the log. */
-export async function sendSecurity(o: { to: string; subject: string; text: string; masked?: string; student_id?: unknown; lead_id?: unknown }) {
+export async function sendSecurity(o: { to: string; subject: string; text: string; masked?: string; student_id?: unknown; lead_id?: unknown; attachments?: { filename: string; content: Buffer | string; contentType?: string }[] }) {
   const log = await EmailLog.create({ student_id: o.student_id, lead_id: o.lead_id, trigger_code: 'SEC', email_type: 'security', update_title: o.subject, to_addr: o.to, cc_addr: '',
     subject: o.subject, body_text: o.masked || o.text, status: 'Sending', queued_at: new Date(), parts: [] });
-  try { const r = await send({ to: o.to, subject: o.subject, text: o.text }); await EmailLog.updateOne({ _id: log._id }, { status: r.status, sent_at: new Date(), attempts: 1 }); }
+  try { const r = await send({ to: o.to, subject: o.subject, text: o.text, attachments: o.attachments }); await EmailLog.updateOne({ _id: log._id }, { status: r.status, sent_at: new Date(), attempts: 1 }); }
   catch (e) { await EmailLog.updateOne({ _id: log._id }, { status: 'Failed', error: String((e as Error).message).slice(0, 300), attempts: 1 }); }
 }

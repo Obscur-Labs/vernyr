@@ -16,7 +16,7 @@ const transport = env.mail.provider === 'smtp'
 
 export interface Mail {
   to: string; subject: string; text: string; html?: string; from?: string; cc?: string[]; replyTo?: string;
-  messageId?: string; inReplyTo?: string; references?: string; attachments?: { filename: string; content: Buffer }[];
+  messageId?: string; inReplyTo?: string; references?: string; attachments?: { filename: string; content: Buffer | string; contentType?: string }[];
 }
 /** A permanent failure (bad address, mailbox gone): the address is marked Bounced and not retried. */
 export class HardBounce extends Error { hard = true; }

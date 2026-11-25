@@ -45,6 +45,7 @@ const TZ = 'Asia/Kolkata';
 export const istDate = (d: Date = new Date()) => d.toLocaleDateString('en-CA', { timeZone: TZ });
 export const istDayStart = (day: string) => new Date(`${day}T00:00:00+05:30`);
 export const addDays = (day: string, n: number) => istDate(new Date(+istDayStart(day) + n * 86_400_000 + 3_600_000));
+export const fmtTime = (d: Date | string) => new Date(d).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: true });
 export const fmtDateTime = (d: Date | string) => new Date(d).toLocaleString('en-GB', { timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
 export const timeline = (e: { lead_id?: unknown; student_id?: unknown; type: string; description: string; data?: unknown; user_id?: string }) => Timeline.create(e);
