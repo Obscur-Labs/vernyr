@@ -173,9 +173,10 @@ function fields(b: Record<string, any>, src: string) { // eslint-disable-line @t
 async function duplicates(phone?: string, email?: string, excludeLeadId?: unknown) {
   if (!phone && !email) return [];
   const L = await lookups();
-  const students = await Student.find({ $or: [...(phone ? [{ 'personal.phone': new RegExp(`${phone}$`) }] : []), ...(email ? [{ 'personal.email': email }] : [])] }).lean();
-  const out: Record<string, unknown>[] = students.map((s) => ({ kind: 'student', id: String(s._id), code: (s as Record<string, unknown>).student_code ?? '', name: s.personal?.name, status: s.stage,
-    assigned_user_id: s.counsellors?.[0] ? String(s.counsellors[0]) : null, counsellor: nameOf(L.u, s.counsellors?.[0]) }));
+  const students = await Student.find({ is_deleted: false, $or: [...(phone ? [{ phone_normalised: phone }] : []), ...(email ? [{ email }] : [])] }).lean();
+  const out: Record<string, unknown>[] = students.map((s) => ({ kind: 'student', id: String(s._id), code: s.student_code,
+    name: [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' '), status: s.status, lead_id: s.lead_id ? String(s.lead_id) : null,
+    assigned_user_id: s.primary_counsellor_id ? String(s.primary_counsellor_id) : null, counsellor: nameOf(L.u, s.primary_counsellor_id) }));
   const leads = await Lead.find({ is_deleted: false, merged_into: null, _id: { $ne: excludeLeadId ?? null },
     $or: [...(phone ? [{ phone_normalised: phone }] : []), ...(email ? [{ email }] : [])] }).lean();
   for (const l of leads) out.push({ kind: 'lead', id: String(l._id), code: l.lead_code, name: leadName(l), status: l.status,
@@ -328,4 +329,31 @@ router.delete('/:id', handle(async (req, res) => {
   await Lead.updateOne({ _id: l._id }, { is_deleted: true, updated_by: req.user!.id });
   await timeline({ lead_id: l._id, type: 'lead', description: `Lead deleted by ${req.user!.name}: ${reason}`, user_id: req.user!.id });
   res.json({ ok: true });
+}));
+
+// ---------- convert to student (only Interested leads) ----------
+router.post('/:id/convert', handle(async (req, res) => {
+  need(req, 'convert', 'add');
+  const l = await loadLead(req, req.params.id);
+  if (l.status !== 'Interested') throw bad('Only leads with status Interested can be converted');
+  const em = req.body?.email ? String(req.body.email).trim().toLowerCase() : l.email;
+  if (!em || !isEmail(em)) throw bad('A valid email is required before converting, because emails go to the student', { errors: { email: 'A valid email is required' } });
+  const matches = (await duplicates(l.phone_normalised, em, l._id)).filter((m) => m.kind === 'student' || m.id !== String(l._id));
+  if (matches.length && !(isAdmin(req) && req.body?.save_anyway && clean(req.body.save_anyway_reason))) throw dupError(req, matches);
+  const counsellor = isAdmin(req) && oid(req.body?.primary_counsellor_id) ? oid(req.body.primary_counsellor_id)! : l.assigned_user_id;
+  const student_code = await nextCode('S');
+  const s = await Student.create({
+    student_code, lead_id: l._id, first_name: l.first_name, last_name: l.last_name, country_code: l.country_code, phone: l.phone, phone_normalised: l.phone_normalised,
+    whatsapp: l.is_whatsapp ? l.phone : undefined, email: em, city: l.city, state: l.state, source_id: l.source_id, sub_agent_id: l.sub_agent_id,
+    primary_counsellor_id: counsellor, pinned_notes: l.notes_internal, status: 'Active',
+    prefs: { country_ids: l.interested_countries ?? [], course: l.course_interest, level: l.level, intake_id: l.intake_id, languages: [], aps_needed: null },
+    assignment_history: [{ role_type: 'primary', to_user_id: counsellor, reason: `Converted from lead ${l.lead_code}`, changed_by: req.user!.id }],
+    created_by: req.user!.id, updated_by: req.user!.id,
+  });
+  await Lead.updateOne({ _id: l._id }, { status: 'Converted', converted_student_id: s._id, email: em, updated_by: req.user!.id });
+  await mongoose.connection.collection('tasks').updateMany({ lead_id: l._id }, { $set: { student_id: s._id } });
+  await timeline({ lead_id: l._id, type: 'stage', description: `Converted to student ${student_code}`, user_id: req.user!.id });
+  await timeline({ student_id: s._id, type: 'stage', description: `Student registered from lead ${l.lead_code} by ${req.user!.name}`, user_id: req.user!.id });
+  // E02 welcome email, the portal invite and moving the lead's portal account arrive with the email engine / portal (PORTING.md)
+  res.json({ student_id: String(s._id), student_code });
 }));

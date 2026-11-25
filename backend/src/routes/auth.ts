@@ -10,6 +10,8 @@ import { CodeError, cancelCodes, checkCode, issueCode, maskEmail, resendCode, us
 import { passwordProblem } from '../services/passwords';
 import Student from '../models/Student';
 import University from '../models/University';
+import { Country, Intake } from '../models/Master';
+import { nextCode } from '../models/Timeline';
 import { authenticate, can, may, AuthRequest } from '../middleware/auth';
 import { invalidateUser, loadPrincipal } from '../services/access';
 import {
@@ -328,10 +330,16 @@ router.post('/signup', signupLimiter, async (req: AuthRequest, res: Response): P
     if (await PortalAccount.exists({ phone })) { res.status(409).json({ message: 'This mobile number is already registered. Please log in.', errors: { phone: 'Already registered' } }); return; }
 
     const name = [first, last].filter(Boolean).join(' ');
+    // The client's portal makes a lead account here (converted later by the counsellor); that moves with the portal port (PORTING.md)
+    const [countryDoc, intakeDoc] = await Promise.all([
+      b.country ? Country.findOne({ name: str(b.country, 60) }).select('_id').lean() : null,
+      b.intake ? Intake.findOne({ name: str(b.intake, 20) }).select('_id').lean() : null,
+    ]);
     const student = await Student.create({
-      personal: { name, email, phone },
-      stage: 'inquiry',
-      preferences: { countries: b.country ? [str(b.country, 60)] : [], intake: str(b.intake, 20) || undefined },
+      student_code: await nextCode('S'),
+      first_name: first, last_name: last || undefined, email, country_code: cc, phone: phoneDigits, phone_normalised: phoneDigits.slice(-10),
+      whatsapp: b.is_whatsapp ? phoneDigits : undefined, status: 'Active',
+      prefs: { country_ids: countryDoc ? [countryDoc._id] : [], intake_id: intakeDoc?._id, languages: [] },
       signup: {
         source: b.walkin ? 'walkin' : 'portal',
         isWhatsapp: !!b.is_whatsapp,
@@ -343,7 +351,7 @@ router.post('/signup', signupLimiter, async (req: AuthRequest, res: Response): P
       },
     });
     const user = await PortalAccount.create({ name, email, phone, password, role: 'student', studentId: student._id, presetKey: 'student', isActive: true });
-    student.userId = user._id;
+    student.user_id = user._id as typeof student.user_id;
     await student.save();
     logActivity(req, {
       action: 'register', entity: 'Student', entityId: student._id,
