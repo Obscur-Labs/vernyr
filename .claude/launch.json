@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "api", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:backend"], "port": 5000 },
+    { "name": "crm", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:crm"], "port": 3000 },
+    { "name": "portal", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:portal"], "port": 3001 },
+    { "name": "website", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:website"], "port": 3002 },
+    { "name": "partner", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:partner"], "port": 3003 }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "name": "vernyr",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "crm",
+    "portal",
+    "partner",
+    "website"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,crm,portal,website -c blue,green,magenta,cyan \"npm:dev:backend\" \"npm:dev:crm\" \"npm:dev:portal\" \"npm:dev:website\"",
+    "dev:all": "concurrently -n backend,crm,portal,partner,website -c blue,green,magenta,yellow,cyan \"npm:dev:backend\" \"npm:dev:crm\" \"npm:dev:portal\" \"npm:dev:partner\" \"npm:dev:website\"",
+    "dev:backend": "npm run dev -w backend",
+    "dev:crm": "npm run dev -w crm",
+    "dev:portal": "npm run dev -w portal",
+    "dev:partner": "npm run dev -w partner",
+    "dev:website": "npm run dev -w website",
+    "build": "npm run build:backend && npm run build:crm && npm run build:portal && npm run build:partner && npm run build:website",
+    "build:backend": "npm run build -w backend",
+    "build:crm": "npm run build -w crm",
+    "build:portal": "npm run build -w portal",
+    "build:partner": "npm run build -w partner",
+    "build:website": "npm run build -w website",
+    "start": "concurrently -n backend,crm,portal,website -c blue,green,magenta,cyan \"npm:start:backend\" \"npm:start:crm\" \"npm:start:portal\" \"npm:start:website\"",
+    "start:backend": "npm run start -w backend",
+    "start:crm": "npm run start -w crm",
+    "start:portal": "npm run start -w portal",
+    "start:partner": "npm run start -w partner",
+    "start:website": "npm run start -w website",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:crm && npm run typecheck:portal && npm run typecheck:partner && npm run typecheck:website",
+    "typecheck:backend": "tsc --noEmit -p backend",
+    "typecheck:crm": "tsc --noEmit -p crm",
+    "typecheck:portal": "tsc --noEmit -p portal",
+    "typecheck:partner": "tsc --noEmit -p partner",
+    "typecheck:website": "tsc --noEmit -p website",
+    "doctor": "node scripts/doctor.mjs",
+    "deploy:env": "node scripts/deploy-env.mjs",
+    "bootstrap": "npm run bootstrap -w backend",
+    "seed": "npm run seed -w backend",
+    "migrate:usernames": "npm run migrate:usernames -w backend",
+    "migrate:roles": "npm run migrate:roles -w backend",
+    "migrate:blank-credentials": "npm run migrate:blank-credentials -w backend",
+    "migrate:split-accounts": "npm run migrate:split-accounts -w backend",
+    "migrate:counsellors": "npm run migrate:counsellors -w backend",
+    "import:courses": "npm run import:courses -w backend",
+    "test:security": "npm run test:security -w backend",
+    "clean": "rimraf node_modules backend/node_modules crm/node_modules portal/node_modules partner/node_modules backend/dist crm/.next portal/.next partner/.next website/.next"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

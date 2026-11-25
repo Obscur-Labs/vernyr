@@ -1,0 +1,55 @@
+# Render blueprint for the Vernyr API (backend/).
+#
+# The repo is an npm-workspaces monorepo: the service builds from the repo root,
+# `npm ci` resolves the single root lockfile, and only the backend is compiled.
+# The four Next apps (crm, portal, partner, website) deploy on Vercel, see DEPLOY.md.
+#
+# Secrets are `sync: false`: Render asks for them on the first deploy and never
+# stores them in git. `npm run deploy:env` writes them ready to paste.
+services:
+  - type: web
+    name: studycrm-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+    # Only redeploy the API when backend code or the dependencies change.
+    buildFilter:
+      paths:
+        - backend/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+        - .node-version
+    # --include=dev: Render sets NODE_ENV=production, which would skip typescript.
+    buildCommand: npm ci --include=dev && npm run build:backend
+    startCommand: npm run start:backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MODE
+        value: live
+      # Must name the database: .../vernyr?appName=Cluster0 (never the local one)
+      - key: LIVE_MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # Must match NEXT_PUBLIC_LIVE_* in crm/.env, portal/.env and partner/.env
+      - key: LIVE_CLIENT_CRM_URL
+        sync: false
+      - key: LIVE_CLIENT_STUDENT_URL
+        sync: false
+      - key: LIVE_CLIENT_PARTNER_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: vernyr-docs

@@ -1,0 +1,45 @@
+{
+  "name": "vernyr-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "ts-node src/seed.ts",
+    "bootstrap": "ts-node src/scripts/bootstrap.ts",
+    "migrate:usernames": "ts-node src/scripts/backfillUsernames.ts",
+    "migrate:roles": "ts-node src/scripts/consolidateRoles.ts",
+    "migrate:blank-credentials": "ts-node src/scripts/clearBlankCredentials.ts",
+    "migrate:split-accounts": "ts-node src/scripts/splitPortalAccounts.ts",
+    "migrate:counsellors": "ts-node src/scripts/backfillCounsellors.ts",
+    "import:courses": "ts-node src/scripts/importCourses.ts",
+    "test:security": "node scripts/security-smoke.js"
+  },
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
+    "express-validator": "^7.1.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.1",
+    "multer": "^2.3.0",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.14.2",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

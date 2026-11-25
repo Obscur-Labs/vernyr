@@ -1,0 +1,1229 @@
+'use client';
+
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
+import api from '@/lib/api';
+import { fileHref, openStoredFile } from '@/lib/media';
+import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/context/ToastContext';
+import type { Conversation, ConversationParticipant, Message, Student, DocType, FormField } from '@/types';
+import { DocRequestCard, FormRequestCard, FormResponseCard, ReplyQuote, Ticks } from '@/components/chat/MessageCards';
+import { RequestDocsModal, RequestFormModal } from '@/components/chat/RequestModals';
+import { ACCEPT, AttachmentTray, DropOverlay, useFileDrop, useStagedFiles } from '@/components/chat/Attachments';
+import { ComposerEmojiButton, Icon, MessageGesture, ReactionChips, useMessageActions } from '@/components/chat/MessageActions';
+import {
+  ChatIcon, ClipboardIcon, DocumentTextIcon, EyeIcon, InboxIcon, LockIcon,
+  PaperclipIcon, PlusIcon,
+} from '@/components/icons';
+
+import { apiOrigin, apiUrl } from '@/lib/config';
+
+/* ─── helpers ─────────────────────────────────────────────────────────────── */
+function getOther(conv: Conversation, myId: string) {
+  return conv.participants.find(p => p._id !== myId) ?? conv.participants[0];
+}
+
+/**
+ * A conversation is a room around one student's case: the student on one side,
+ * the counsellor working it on the other. Naming it after "the other
+ * participant" only reads correctly for the two people in it — an admin
+ * observing sees whichever of them happens to sort first. So the room is
+ * described by who is *in* it, not by who the viewer is not.
+ */
+interface Room {
+  /** The case this room is about. */
+  title: string;
+  student?: ConversationParticipant;
+  /** Staff side — the counsellor, or whoever else holds the case. */
+  staff?: ConversationParticipant;
+  /** Everyone, student first, for avatars and the participant line. */
+  members: ConversationParticipant[];
+}
+
+function getRoom(conv: Conversation, myId: string): Room {
+  const student = conv.participants.find(p => p.role === 'student');
+  const staff   = conv.participants.find(p => p.role === 'counsellor')
+    ?? conv.participants.find(p => p._id !== student?._id);
+
+  // The Student record's name wins over the login's: the account may be named
+  // after whoever opened it, the record is named after the applicant.
+  const title = conv.studentId?.personal?.name
+    ?? student?.name
+    ?? getOther(conv, myId)?.name
+    ?? 'Conversation';
+
+  const members = [student, staff].filter(Boolean) as ConversationParticipant[];
+  const rest = conv.participants.filter(p => !members.some(m => m._id === p._id));
+
+  return { title, student, staff, members: [...members, ...rest] };
+}
+
+/** "Priya Nair & Sam Okafor" — who is in the room, in one line. */
+const roomMembers = (room: Room) => room.members.map(m => m.name).join('  ·  ');
+
+function getInitials(name: string) {
+  return (name ?? '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function shortPreview(text?: string) {
+  if (!text) return '';
+  return text.length > 45 ? text.slice(0, 42) + '…' : text;
+}
+
+/** One-line preview of any message (for reply quotes) */
+function msgPreview(msg: Message): string {
+  if (msg.type === 'file')             return msg.fileName ?? 'File';
+  if (msg.type === 'document_request') return 'Documents requested';
+  if (msg.type === 'form_request')     return msg.meta?.title ?? 'Details requested';
+  if (msg.type === 'form_response')    return 'Details submitted';
+  return msg.text ?? '';
+}
+
+function senderIdOf(msg: Message): string {
+  return typeof msg.senderId === 'object' ? (msg.senderId as { _id: string })._id : msg.senderId;
+}
+
+/* ─── FileMessage bubble content ──────────────────────────────────────────── */
+function FileContent({ msg, isMe, onOpen }: { msg: Message; isMe: boolean; onOpen: () => void }) {
+  const ext    = msg.fileName?.split('.').pop()?.toLowerCase() ?? '';
+  const isImg  = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+  const href   = fileHref(msg.fileUrl);
+  const docId  = msg.meta?.documentId;
+
+  return (
+    <div className="space-y-1.5">
+      {isImg ? (
+        <button type="button" onClick={onOpen} className="block" aria-label={`Open ${msg.fileName ?? 'image'}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={href} alt={msg.fileName} className="max-w-[200px] rounded-lg" />
+        </button>
+      ) : (
+        <button type="button" onClick={onOpen} className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20' : 'bg-accent/15'}`}>
+            <svg viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${isMe ? 'text-white' : 'text-accent-ink'}`}>
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium truncate max-w-[150px]">{msg.fileName}</p>
+            <p className={`text-xs ${isMe ? 'text-white/70' : 'text-t3'}`}>Click to open</p>
+          </div>
+        </button>
+      )}
+      {docId && (
+        <Link
+          href={`/documents?doc=${docId}`}
+          className={`inline-flex min-h-[32px] items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline ${isMe ? 'text-white/90' : 'text-accent-ink'}`}
+        >
+          Open in Documents
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd"/></svg>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/* ─── Desktop hover affordances beside a bubble ───────────────────────────── */
+function HoverActions({
+  canReply, onReply, onMore,
+}: { canReply: boolean; onReply: () => void; onMore: (e: React.MouseEvent) => void }) {
+  const btn = 'flex h-8 w-8 items-center justify-center rounded-full text-t3 transition hover:bg-muted hover:text-accent-ink';
+  return (
+    <div className="hidden shrink-0 items-center self-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 md:flex">
+      {canReply && (
+        <button type="button" onClick={onReply} title="Reply" aria-label="Reply" className={btn}>
+          <Icon name="reply" className="h-4 w-4" />
+        </button>
+      )}
+      <button type="button" onClick={onMore} title="More actions" aria-label="More actions" className={btn}>
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" /></svg>
+      </button>
+    </div>
+  );
+}
+
+/* ─── Room avatars ────────────────────────────────────────────────────────── */
+/** Two overlapping discs — the visual shorthand for "a room, not a person". */
+function RoomAvatars({ room, online, size = 40 }: { room: Room; online?: boolean; size?: number }) {
+  const [first, second] = room.members;
+  const small = Math.round(size * 0.66);
+
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size + small * 0.45, height: size }}>
+      <div
+        className="absolute left-0 top-0 rounded-full bg-accent/20 text-accent-ink font-bold flex items-center justify-center"
+        style={{ width: size, height: size, fontSize: size * 0.32 }}
+      >
+        {first ? getInitials(first.name) : '?'}
+      </div>
+      {second && (
+        <div
+          className="absolute rounded-full bg-muted text-t2 font-bold flex items-center justify-center ring-2 ring-surface"
+          style={{
+            width: small, height: small, fontSize: small * 0.36,
+            left: size * 0.62, top: size - small,
+          }}
+          title={second.name}
+        >
+          {getInitials(second.name)}
+        </div>
+      )}
+      {online && (
+        <span
+          className="absolute rounded-full bg-emerald-500 ring-2 ring-surface"
+          style={{ width: 10, height: 10, left: size * 0.72, top: -1 }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── Skeletons ───────────────────────────────────────────────────────────── */
+function ConvSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-4 py-3.5 border-b border-line">
+          <div className="w-10 h-10 rounded-full bg-muted animate-pulse flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 bg-muted animate-pulse rounded w-2/5" />
+            <div className="h-2.5 bg-muted animate-pulse rounded w-3/5" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function MsgSkeleton() {
+  return (
+    <div className="space-y-4 px-5 py-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className={`flex gap-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+          {i % 2 === 0 && <div className="w-7 h-7 rounded-full bg-muted animate-pulse flex-shrink-0 self-end" />}
+          <div className={`h-10 bg-muted animate-pulse rounded-2xl ${i % 2 === 0 ? 'w-52 rounded-bl-md' : 'w-44 rounded-br-md'}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Main chat inner component ───────────────────────────────────────────── */
+function ChatInner() {
+  const { user } = useAuthStore();
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const withUserId   = searchParams.get('with');
+
+  const [conversations,  setConversations]  = useState<Conversation[]>([]);
+  const [activeConv,     setActiveConv]     = useState<Conversation | null>(null);
+  const [messages,       setMessages]       = useState<Message[]>([]);
+  const [input,          setInput]          = useState('');
+  const [loading,        setLoading]        = useState(true);
+  const [msgLoading,     setMsgLoading]     = useState(false);
+  const [sending,        setSending]        = useState(false);
+  const [uploading,      setUploading]      = useState(false);
+  const [otherTyping,    setOtherTyping]    = useState(false);
+  const [isTyping,       setIsTyping]       = useState(false);
+  const [search,         setSearch]         = useState('');
+  const [mobileView,     setMobileView]     = useState<'list' | 'messages'>('list');
+  const [onlineIds,      setOnlineIds]      = useState<Set<string>>(new Set());
+  const [inRoomIds,      setInRoomIds]      = useState<Set<string>>(new Set());
+  const [replyTo,        setReplyTo]        = useState<Message | null>(null);
+  const [editing,        setEditing]        = useState<Message | null>(null);
+  const [plusOpen,       setPlusOpen]       = useState(false);
+  const [docsModal,      setDocsModal]      = useState(false);
+  const [formModal,      setFormModal]      = useState(false);
+  const [modalBusy,      setModalBusy]      = useState(false);
+  const [studentRec,     setStudentRec]     = useState<Student | null>(null);
+  const [zipBusy,        setZipBusy]        = useState(false);
+
+  const socketRef      = useRef<Socket | null>(null);
+  const bottomRef      = useRef<HTMLDivElement>(null);
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const inputRef       = useRef<HTMLInputElement>(null);
+  const typingTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeConvRef  = useRef<string | null>(null);
+  const actionsRef     = useRef<ReturnType<typeof useMessageActions> | null>(null);
+  const router         = useRouter();
+
+  const myId = user?._id ?? '';
+  // The admin observes every conversation but cannot take part in one.
+  const readOnly = !!user && user.role === 'admin';
+
+  const rejectFile = useCallback((message: string) => toast(message, 'error'), [toast]);
+  const { staged, add: stageFiles, remove: unstageFile, clear: clearStaged } = useStagedFiles(rejectFile);
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 60);
+  }, []);
+
+  const markRead = useCallback((convId: string) => {
+    if (readOnly) return;   // observers never mark anything read
+    api.post(`/messages/${convId}/read`).catch(() => {});
+  }, [readOnly]);
+
+  /** Join the open thread's room and learn who else has it open. */
+  const joinThread = useCallback((convId: string) => {
+    socketRef.current?.emit('join_room', convId, (res?: { ok: boolean; viewers: string[] }) => {
+      if (res?.ok && activeConvRef.current === convId) setInRoomIds(new Set(res.viewers));
+    });
+  }, []);
+
+  /** Pull the thread again — after a reconnect or coming back to the tab, to catch anything missed. */
+  const refreshThread = useCallback((convId: string) => {
+    api.get<Message[]>(`/messages/${convId}`)
+      .then(res => {
+        if (activeConvRef.current !== convId) return;
+        setMessages(res.data);
+        markRead(convId);
+      })
+      .catch(() => {});
+  }, [markRead]);
+
+  /* ── Load conversations on mount ───────────────────────────────────────── */
+  useEffect(() => {
+    api.get<Conversation[]>('/messages/conversations')
+      .then(res => {
+        setConversations(res.data);
+        if (withUserId) {
+          const existing = res.data.find(c =>
+            c.participants.some(p => p._id === withUserId)
+          );
+          if (existing) {
+            openConversation(existing);
+          } else {
+            api.post<Conversation>('/messages/conversation', { participantId: withUserId })
+              .then(() => api.get<Conversation[]>('/messages/conversations'))
+              .then(res2 => {
+                setConversations(res2.data);
+                const found = res2.data.find(c =>
+                  c.participants.some(p => p._id === withUserId)
+                );
+                if (found) openConversation(found);
+              })
+              .catch(() => toast('Could not open conversation', 'error'));
+          }
+        }
+      })
+      .catch(() => toast('Could not load conversations', 'error'))
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withUserId]);
+
+  /* ── Socket connection ─────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!user) return;
+    const token  = localStorage.getItem('crm_token');
+    const socket = io(apiOrigin, { auth: { token } });
+    socketRef.current = socket;
+
+    let connectedBefore = false;
+    socket.on('connect', () => {
+      socket.emit('get_presence', (online: string[]) => setOnlineIds(new Set(online)));
+      const cid = activeConvRef.current;
+      if (cid) {
+        joinThread(cid);
+        if (connectedBefore) refreshThread(cid);
+      }
+      connectedBefore = true;
+    });
+
+    socket.on('room_presence', ({ roomId, userId, inRoom }: { roomId: string; userId: string; inRoom: boolean }) => {
+      if (roomId !== activeConvRef.current) return;
+      setInRoomIds(prev => {
+        const next = new Set(prev);
+        if (inRoom) next.add(userId); else next.delete(userId);
+        return next;
+      });
+      if (!inRoom && userId !== myId) setOtherTyping(false);
+    });
+
+    socket.on('presence', ({ userId, online }: { userId: string; online: boolean }) => {
+      setOnlineIds(prev => {
+        const next = new Set(prev);
+        if (online) next.add(userId); else next.delete(userId);
+        return next;
+      });
+    });
+
+    socket.on('receive_message', (msg: Message) => {
+      const cid = msg.conversationId;
+
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c._id === cid);
+        if (idx === -1) return prev;
+        const updated: Conversation = {
+          ...prev[idx],
+          lastMessage: {
+            text:      msgPreview(msg),
+            senderId:  senderIdOf(msg),
+            createdAt: msg.createdAt,
+          },
+          updatedAt: msg.createdAt,
+        };
+        return [updated, ...prev.filter((_, i) => i !== idx)];
+      });
+
+      if (activeConvRef.current === cid) {
+        setMessages(prev => prev.some(m => m._id === msg._id) ? prev : [...prev, msg]);
+        // I'm looking at this conversation, so anything arriving is read
+        if (senderIdOf(msg) !== myId) markRead(cid);
+        scrollToBottom();
+      }
+    });
+
+    socket.on('message_updated', (msg: Message) => {
+      if (activeConvRef.current === msg.conversationId) {
+        setMessages(prev => prev.map(m => m._id === msg._id ? { ...m, ...msg } : m));
+        actionsRef.current?.onMessageUpdated(msg);
+      }
+    });
+
+    socket.on('message_starred', (e: { messageId: string; starred: boolean }) => actionsRef.current?.onStarredEvent(e));
+
+    socket.on('messages_read', ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+      if (activeConvRef.current === conversationId && userId !== myId) {
+        setMessages(prev => prev.map(m =>
+          m.readBy?.includes(userId) ? m : { ...m, readBy: [...(m.readBy ?? []), userId] }
+        ));
+      }
+    });
+
+    socket.on('typing', ({ userId, isTyping: t }: { userId: string; isTyping: boolean }) => {
+      if (userId !== myId) setOtherTyping(t);
+    });
+
+    // Counsellor reassignment: refresh the list and pick up archived flags
+    socket.on('conversations_changed', () => {
+      api.get<Conversation[]>('/messages/conversations').then(res => {
+        setConversations(res.data);
+        const cur = res.data.find(c => c._id === activeConvRef.current);
+        if (cur) setActiveConv(prev => (prev ? { ...prev, archived: cur.archived } : prev));
+      }).catch(() => {});
+    });
+
+    socket.on('conversation_archived', ({ conversationId }: { conversationId: string }) => {
+      setConversations(prev => prev.map(c => c._id === conversationId ? { ...c, archived: true } : c));
+      if (activeConvRef.current === conversationId) {
+        setActiveConv(prev => (prev ? { ...prev, archived: true } : prev));
+      }
+    });
+
+    return () => { socket.disconnect(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  /* ── Open a conversation ───────────────────────────────────────────────── */
+  const openConversation = useCallback((conv: Conversation) => {
+    if (activeConvRef.current && socketRef.current) {
+      socketRef.current.emit('leave_room', activeConvRef.current);
+    }
+    setActiveConv(conv);
+    activeConvRef.current = conv._id;
+    setOtherTyping(false);
+    setInRoomIds(new Set());
+    setReplyTo(null);
+    setEditing(null);
+    setPlusOpen(false);
+    clearStaged();
+    setMessages([]);
+    setMsgLoading(true);
+    setMobileView('messages');
+
+    joinThread(conv._id);
+
+    api.get<Message[]>(`/messages/${conv._id}`)
+      .then(res => { setMessages(res.data); scrollToBottom(); markRead(conv._id); })
+      .catch(() => toast('Could not load messages', 'error'))
+      .finally(() => setMsgLoading(false));
+  }, [scrollToBottom, toast, markRead, clearStaged, joinThread]);
+
+  /* ── Leave the room while the tab is hidden, so the other side sees it and gets notified ── */
+  useEffect(() => {
+    const onVisibility = () => {
+      const cid = activeConvRef.current;
+      if (!cid || !socketRef.current) return;
+      if (document.visibilityState === 'hidden') {
+        socketRef.current.emit('leave_room', cid);
+      } else {
+        joinThread(cid);
+        refreshThread(cid);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [joinThread, refreshThread]);
+
+  /* ── Resolve Student record for the open conversation ──────────────────── */
+  useEffect(() => {
+    setStudentRec(null);
+    if (!activeConv) return;
+    const other = getOther(activeConv, myId);
+    if (!other || other.role !== 'student') return;
+    api.get<Student>(`/students/by-user/${other._id}`)
+      .then(res => setStudentRec(res.data))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConv?._id]);
+
+  /* ── Typing helpers ────────────────────────────────────────────────────── */
+  function emitTyping(active: boolean) {
+    if (!activeConvRef.current || !socketRef.current) return;
+    socketRef.current.emit('typing', { roomId: activeConvRef.current, userId: myId, isTyping: active });
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setInput(e.target.value);
+    if (!isTyping) { setIsTyping(true); emitTyping(true); }
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => { setIsTyping(false); emitTyping(false); }, 1500);
+  }
+
+  /* ── Send text (optionally as a reply) ─────────────────────────────────── */
+  function insertEmoji(emoji: string) {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? input.length;
+    const end = el?.selectionEnd ?? input.length;
+    setInput(input.slice(0, start) + emoji + input.slice(end));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
+  }
+
+  function startReply(msg: Message) {
+    setEditing(null);
+    setReplyTo(msg);
+    inputRef.current?.focus();
+  }
+
+  function startEdit(msg: Message) {
+    setReplyTo(null);
+    setEditing(msg);
+    setInput(msg.text ?? '');
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setInput('');
+  }
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!activeConv) return;
+
+    if (editing) {
+      const text = input.trim();
+      if (!text) return;
+      const target = editing;
+      setEditing(null);
+      setInput('');
+      if (text === target.text) return;
+      try {
+        const { data } = await api.put<Message>(`/messages/message/${target._id}`, { text });
+        setMessages(prev => prev.map(m => m._id === target._id ? { ...m, ...data } : m));
+      } catch {
+        toast('Could not edit message', 'error');
+        setEditing(target);
+        setInput(text);
+      }
+      return;
+    }
+
+    const replyForFiles = input.trim() ? null : replyTo;
+    if (staged.length) {
+      if (!(await sendStaged(replyForFiles))) return;
+      if (replyForFiles) setReplyTo(null);
+    }
+    if (!input.trim()) return;
+    const text = input.trim();
+    const reply = replyTo;
+    setInput('');
+    setReplyTo(null);
+    setSending(true);
+    emitTyping(false);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    try {
+      await api.post('/messages/send', {
+        conversationId: activeConv._id,
+        text,
+        replyTo: reply ? { messageId: reply._id } : undefined,
+      });
+    } catch {
+      toast('Failed to send message', 'error');
+      setInput(text);
+      setReplyTo(reply);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  /* ── Files: stage, preview, send ──────────────────────────────────────── */
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    stageFiles(Array.from(e.target.files ?? []));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  /** Sends staged files in order; a failure keeps it and everything after it staged. */
+  async function sendStaged(reply: Message | null = null): Promise<boolean> {
+    if (!activeConv || uploading) return false;
+    setUploading(true);
+    const token = localStorage.getItem('crm_token');
+    try {
+      for (const item of staged) {
+        const form = new FormData();
+        form.append('file', item.file);
+        form.append('conversationId', activeConv._id);
+        if (reply && item === staged[0]) form.append('replyTo', JSON.stringify({ messageId: reply._id }));
+        const res = await fetch(`${apiUrl}/messages/send-file`, {
+          method:  'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body:    form,
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || `Could not send ${item.file.name}`);
+        unstageFile(item.id);
+      }
+      scrollToBottom();
+      return true;
+    } catch (err) {
+      toast((err as Error).message, 'error');
+      return false;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  /* ── Request documents ─────────────────────────────────────────────────── */
+  async function handleRequestDocs(items: Array<{ type: DocType; label: string; note?: string }>) {
+    if (!activeConv || !studentRec) return;
+    setModalBusy(true);
+    try {
+      await api.post('/documents/requests', {
+        studentId: studentRec._id,
+        items,
+        conversationId: activeConv._id,
+      });
+      setDocsModal(false);
+      toast('Document request sent', 'success');
+    } catch {
+      toast('Failed to send request', 'error');
+    } finally {
+      setModalBusy(false);
+    }
+  }
+
+  /* ── Request details (form) ────────────────────────────────────────────── */
+  async function handleRequestForm(title: string, fields: FormField[]) {
+    if (!activeConv) return;
+    setModalBusy(true);
+    try {
+      await api.post('/messages/send', {
+        conversationId: activeConv._id,
+        type: 'form_request',
+        text: title,
+        meta: { title, fields },
+      });
+      setFormModal(false);
+      toast('Form sent', 'success');
+    } catch {
+      toast('Failed to send form', 'error');
+    } finally {
+      setModalBusy(false);
+    }
+  }
+
+  /* ── Cancel a document request item ────────────────────────────────────── */
+  async function handleCancelRequest(requestId: string) {
+    try {
+      await api.put(`/documents/requests/${requestId}/cancel`);
+      toast('Request cancelled', 'success');
+    } catch {
+      toast('Failed to cancel request', 'error');
+    }
+  }
+
+  /* ── Download all documents as ZIP ─────────────────────────────────────── */
+  async function handleDownloadZip() {
+    if (!studentRec) return;
+    setZipBusy(true);
+    try {
+      const token = localStorage.getItem('crm_token');
+      const res = await fetch(`${apiUrl}/documents/download-all/${studentRec._id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.status === 404) { toast('No documents uploaded yet', 'info'); return; }
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${studentRec.personal.name.replace(/\s+/g, '_')}_documents.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast('Failed to download documents', 'error');
+    } finally {
+      setZipBusy(false);
+    }
+  }
+
+  /* ── Derived ───────────────────────────────────────────────────────────── */
+  const filtered = conversations.filter(conv => {
+    if (!search.trim()) return true;
+    const room = getRoom(conv, myId);
+    const haystack = [room.title, ...room.members.map(m => m.name)].join(' ').toLowerCase();
+    return haystack.includes(search.toLowerCase());
+  });
+
+  const activeRoom       = activeConv ? getRoom(activeConv, myId) : null;
+  const otherParticipant = activeConv ? getOther(activeConv, myId) : null;
+  // Observers sit on the staff side: portal accounts to the left, everyone else to the right.
+  const portalIds = new Set(
+    activeConv?.participants.filter(p => p.role === 'student' || p.role === 'university').map(p => p._id) ?? [],
+  );
+  const otherOnline      = otherParticipant ? onlineIds.has(otherParticipant._id) : false;
+  const otherInRoom      = otherParticipant ? inRoomIds.has(otherParticipant._id) : false;
+  const isClosed         = !!activeConv?.archived;
+  const { dragging, dropHandlers } = useFileDrop(stageFiles, !!activeConv && !isClosed && !readOnly);
+  const canInteract = !!activeConv && !isClosed && !readOnly;
+
+  const actions = useMessageActions({
+    api,
+    convId: activeConv?._id ?? null,
+    myId,
+    messages,
+    setMessages,
+    toast,
+    preview: msgPreview,
+    canInteract,
+    canStar: !readOnly,
+    canDelete: !readOnly,
+    onReply: startReply,
+    onEdit: startEdit,
+    openFile: m => { openStoredFile(`/messages/message/${m._id}/open`).catch(() => toast('Could not open this file', 'error')); },
+    openInDocuments: m => router.push(`/documents?doc=${m.meta?.documentId}`),
+  });
+  actionsRef.current = actions;
+
+  /* ─────────────────────────────────────────────────────────────────────── */
+  return (
+    <div className="flex h-full overflow-hidden">
+
+      {/* ══ Conversation sidebar ═════════════════════════════════════════════ */}
+      <div className={`
+        ${mobileView === 'messages' ? 'hidden' : 'flex'} lg:flex
+        flex-col w-full lg:w-72 xl:w-80 border-r border-line flex-shrink-0 bg-surface
+      `}>
+        <div className="px-4 pt-5 pb-3 border-b border-line space-y-3">
+          <h1 className="text-lg font-bold text-t1">Chat</h1>
+          <div className="relative">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-t3 pointer-events-none">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
+            </svg>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search students…"
+              className="w-full bg-muted border border-line rounded-xl pl-8 pr-3 py-2 text-sm text-t1 placeholder:text-t3 focus:outline-none focus:border-accent transition"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <ConvSkeleton />
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-16 px-6">
+              <InboxIcon className="w-7 h-7 text-t3/70 mb-3" />
+              <p className="text-sm font-medium text-t2">No conversations yet</p>
+              <p className="text-xs text-t3 mt-1 leading-relaxed">
+                Open a student's profile and click&nbsp;<strong>Chat</strong> to start a conversation.
+              </p>
+            </div>
+          ) : (
+            filtered.map(conv => {
+              const room     = getRoom(conv, myId);
+              const other    = getOther(conv, myId);
+              const isActive = activeConv?._id === conv._id;
+              const lastText = conv.lastMessage?.text;
+              const lastTime = conv.lastMessage?.createdAt
+                ? fmtTime(conv.lastMessage.createdAt)
+                : '';
+              const online = other ? onlineIds.has(other._id) : false;
+
+              return (
+                <button
+                  key={conv._id}
+                  onClick={() => openConversation(conv)}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors border-b border-line last:border-0 ${
+                    isActive
+                      ? 'bg-accent/10 border-l-[3px] border-l-accent'
+                      : 'hover:bg-muted'
+                  }`}
+                >
+                  <RoomAvatars room={room} online={online} size={40} />
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className={`text-sm font-semibold truncate ${isActive ? 'text-accent-ink' : 'text-t1'}`}>
+                        {room.title}
+                      </p>
+                      {conv.archived ? (
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-t3 bg-muted border border-line rounded-full px-2 py-0.5 flex-shrink-0">Closed</span>
+                      ) : lastTime && (
+                        <span className="text-[11px] text-t3 flex-shrink-0">{lastTime}</span>
+                      )}
+                    </div>
+                    {/* Who is in the room — the line that makes it a room and
+                        not just a thread with whoever is not me. */}
+                    <p className="text-[11px] text-t3 truncate mt-0.5">
+                      {room.staff ? `with ${room.staff.name}` : 'no counsellor assigned'}
+                    </p>
+                    <p className="text-xs text-t3 truncate mt-0.5">
+                      {shortPreview(lastText) || 'No messages yet'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ══ Message pane ═════════════════════════════════════════════════════ */}
+      <div
+        className={`
+          ${mobileView === 'list' ? 'hidden' : 'flex'} lg:flex
+          relative flex-col flex-1 min-w-0 im-thread
+        `}
+        {...dropHandlers}
+      >
+        <DropOverlay show={dragging} />
+        {!activeConv ? (
+          <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <div className="w-16 h-16 rounded-2xl bg-accent/15 flex items-center justify-center mb-4">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-accent-ink">
+                <path fillRule="evenodd" d="M4.848 2.771A49.144 49.144 0 0112 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 01-3.476.383.39.39 0 00-.297.17l-2.755 4.133a.75.75 0 01-1.248 0l-2.755-4.133a.39.39 0 00-.297-.17 48.9 48.9 0 01-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <p className="text-t1 font-semibold text-base">Select a conversation</p>
+            <p className="text-t3 text-sm mt-1.5 max-w-xs leading-relaxed">
+              Choose a student from the list, or open their profile and click <strong className="text-t2">Chat</strong> to start.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Chat header */}
+            <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b im-chrome flex-shrink-0">
+              <button
+                onClick={() => setMobileView('list')}
+                className="lg:hidden p-1.5 rounded-lg text-t2 hover:bg-muted -ml-1 flex-shrink-0"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd"/>
+                </svg>
+              </button>
+              {activeRoom && <RoomAvatars room={activeRoom} online={otherOnline} size={38} />}
+
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-t1 text-sm leading-tight truncate">
+                  {activeRoom?.title ?? 'Conversation'}
+                </p>
+                {/* Both names, always — the room is the pair, and an observer
+                    needs to see whose case they are reading. */}
+                <p className="text-[11px] im-sub truncate mt-0.5">
+                  {activeRoom ? roomMembers(activeRoom) : ''}
+                </p>
+                <p className="text-xs text-t3">
+                  {isClosed
+                    ? <span className="im-sub">room closed</span>
+                    : otherTyping
+                      ? <span className="text-accent-ink">typing…</span>
+                      : (readOnly ? inRoomIds.size > 0 : otherInRoom)
+                        ? <span className="inline-flex items-center gap-1.5 font-medium text-emerald-500"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />{readOnly ? 'in the chat now' : 'in this chat'}</span>
+                        : otherOnline
+                          ? <span className="text-emerald-500">online</span>
+                          : <span className="im-sub">offline</span>}
+                </p>
+              </div>
+
+              {/* Role chips — who is who, without reading the names twice. */}
+              {activeRoom && (
+                <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                  {activeRoom.student && (
+                    <span className="chip chip-student" title={activeRoom.student.name}>Student</span>
+                  )}
+                  {activeRoom.staff && (
+                    <span className="chip chip-counsellor" title={activeRoom.staff.name}>Counsellor</span>
+                  )}
+                </div>
+              )}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={actions.openStarred}
+                  title="Starred messages"
+                  aria-label="Starred messages"
+                  className="hig-touch flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-t2 transition hover:bg-muted hover:text-amber-400"
+                >
+                  <Icon name="star" className="h-5 w-5" />
+                </button>
+              )}
+              {/* Download-all-documents ZIP */}
+              {studentRec && (
+                <button
+                  onClick={handleDownloadZip}
+                  disabled={zipBusy}
+                  title="Download all documents as ZIP"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-t2 hover:text-accent-ink hover:border-accent/40 text-xs font-semibold transition disabled:opacity-40 flex-shrink-0"
+                >
+                  {zipBusy ? (
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline">All docs (.zip)</span>
+                </button>
+              )}
+            </div>
+
+            {actions.selectionBar}
+            {actions.pinnedBar}
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto scroll-smooth overscroll-contain px-4 sm:px-5 py-4 space-y-1 min-h-0">
+              {msgLoading ? (
+                <MsgSkeleton />
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-16">
+                  <ChatIcon className="w-8 h-8 im-sub mb-3" />
+                  <p className="text-t2 font-medium">No messages yet</p>
+                  <p className="text-t3 text-sm mt-1">Send the first message!</p>
+                </div>
+              ) : (
+                <>
+                  {messages.map((msg, idx) => {
+                    const sid    = senderIdOf(msg);
+                    const isMe   = readOnly ? !portalIds.has(sid) : sid === myId;
+                    const showDate = idx === 0 ||
+                      new Date(msg.createdAt).toDateString() !== new Date(messages[idx - 1].createdAt).toDateString();
+                    const read = readOnly
+                      ? !!msg.readBy?.some(id => isMe ? portalIds.has(id) : !portalIds.has(id))
+                      : !!(otherParticipant && msg.readBy?.includes(otherParticipant._id));
+                    const isCard = msg.type === 'document_request' || msg.type === 'form_request' || msg.type === 'form_response';
+
+                    if (msg.type === 'system') {
+                      return (
+                        <div key={msg._id} className="flex justify-center my-3">
+                          <span className="text-[11px] font-semibold im-sub px-3 py-1">{msg.text}</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={msg._id}>
+                        {showDate && (
+                          <div className="flex justify-center my-3">
+                            <span className="text-[11px] font-semibold im-sub px-3 py-1 animate-chip-in">
+                              {fmtDate(msg.createdAt)}
+                            </span>
+                          </div>
+                        )}
+                        <MessageGesture
+                          id={msg._id}
+                          align={isMe ? 'right' : 'left'}
+                          selecting={actions.selecting}
+                          selected={actions.selected.has(msg._id)}
+                          canReply={canInteract && !msg.deletedForEveryone}
+                          onMenu={(x, y, touch) => actions.openMenu(msg, x, y, touch)}
+                          onReply={() => startReply(msg)}
+                          onToggleSelect={() => actions.toggleSelect(msg._id)}
+                        >
+                        <div className={`group flex ${isMe ? 'justify-end animate-msg-right' : 'justify-start animate-msg-left'} gap-1 py-1`}>
+                          {isMe && !actions.selecting && (
+                            <HoverActions
+                              canReply={canInteract && !msg.deletedForEveryone}
+                              onReply={() => startReply(msg)}
+                              onMore={e => actions.openMenu(msg, e.clientX, e.clientY, false)}
+                            />
+                          )}
+
+                          <div className={`${isCard && !msg.deletedForEveryone ? '' : 'max-w-[80%] sm:max-w-[70%]'} min-w-0 space-y-1`}>
+                            {msg.deletedForEveryone ? (
+                              <div className="flex items-center gap-2 rounded-[20px] border border-dashed px-4 py-2.5 text-sm italic im-sub" style={{ borderColor: 'var(--im-hairline)' }}>
+                                <Icon name="trash" className="h-4 w-4 shrink-0" />
+                                {isMe ? 'You deleted this message' : 'This message was deleted'}
+                              </div>
+                            ) : isCard ? (
+                              <>
+                                {msg.type === 'document_request' && (
+                                  <DocRequestCard msg={msg} isMe={isMe} onCancelItem={isMe ? handleCancelRequest : undefined} />
+                                )}
+                                {msg.type === 'form_request'  && <FormRequestCard  msg={msg} isMe={isMe} />}
+                                {msg.type === 'form_response' && <FormResponseCard msg={msg} isMe={isMe} />}
+                              </>
+                            ) : (
+                              <div className={`msg-bubble px-4 py-2.5 rounded-[20px] text-sm leading-relaxed break-words ${
+                                isMe
+                                  ? 'im-bubble-me rounded-br-[6px]'
+                                  : 'im-bubble-other rounded-bl-[6px]'
+                              }`}>
+                                {msg.replyTo && (
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); actions.jump(msg.replyTo!.messageId); }}
+                                    className="block w-full text-left"
+                                    aria-label={`Go to the message from ${msg.replyTo.senderName}`}
+                                  >
+                                    <ReplyQuote replyTo={msg.replyTo} isMe={isMe} />
+                                  </button>
+                                )}
+                                {msg.type === 'file'
+                                  ? <FileContent msg={msg} isMe={isMe} onOpen={() => { openStoredFile(`/messages/message/${msg._id}/open`).catch(() => toast('Could not open this file', 'error')); }} />
+                                  : <span className="whitespace-pre-wrap">{msg.text}</span>}
+                              </div>
+                            )}
+                            {!msg.deletedForEveryone && (
+                              <ReactionChips
+                                reactions={msg.reactions}
+                                myId={myId}
+                                align={isMe ? 'right' : 'left'}
+                                onToggle={canInteract ? e => actions.react(msg, e) : undefined}
+                              />
+                            )}
+                            <p className={`text-[11px] im-sub px-1 flex items-center gap-1 ${isMe ? 'justify-end' : ''}`}>
+                              {msg.pinnedAt && <Icon name="pin" className="h-3 w-3 text-[#0a84ff]" />}
+                              {msg.starred && <Icon name="star" className="h-3 w-3 text-amber-400" />}
+                              {msg.editedAt && !msg.deletedForEveryone && <span>edited ·</span>}
+                              {fmtTime(msg.createdAt)}
+                              {isMe && <Ticks read={read} onAccent={false} />}
+                            </p>
+                          </div>
+
+                          {!isMe && !actions.selecting && (
+                            <HoverActions
+                              canReply={canInteract && !msg.deletedForEveryone}
+                              onReply={() => startReply(msg)}
+                              onMore={e => actions.openMenu(msg, e.clientX, e.clientY, false)}
+                            />
+                          )}
+                        </div>
+                        </MessageGesture>
+                      </div>
+                    );
+                  })}
+
+                  {otherTyping && (
+                    <div className="flex items-center gap-2 py-1 animate-msg-left">
+                      <div className="flex items-center gap-1 px-4 py-3 rounded-[20px] rounded-bl-[6px] im-bubble-other">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8e8e93] typing-dot" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8e8e93] typing-dot" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#8e8e93] typing-dot" />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={bottomRef} />
+                </>
+              )}
+            </div>
+
+            {/* Composer — replaced by a notice when the conversation is closed, or when an admin is observing */}
+            {isClosed || readOnly ? (
+              readOnly && !isClosed ? (
+              <div className="flex-shrink-0 px-4 sm:px-5 py-4 im-chrome border-t">
+                <p className="flex items-center justify-center gap-2 text-sm im-sub text-center leading-relaxed">
+                  <EyeIcon className="w-4 h-4 shrink-0" />
+                  Read-only — you are viewing this conversation as an admin.
+                  Replying is left to the counsellor working the case.
+                </p>
+              </div>
+              ) : (
+              <div className="flex-shrink-0 px-4 sm:px-5 py-4 im-chrome border-t">
+                <p className="flex items-center justify-center gap-2 text-sm im-sub text-center leading-relaxed">
+                  <LockIcon className="w-4 h-4 shrink-0" />
+                  This conversation is closed — the student was reassigned to another counsellor.
+                  The history stays available.
+                </p>
+              </div>
+              )
+            ) : (
+            <>
+            <AttachmentTray
+              staged={staged}
+              onRemove={unstageFile}
+              onClear={clearStaged}
+              onAddMore={() => fileInputRef.current?.click()}
+              onSend={() => { void sendStaged(replyTo).then(ok => { if (ok && replyTo) setReplyTo(null); }); }}
+              sending={uploading}
+            />
+
+            {/* Reply / edit banner */}
+            {(replyTo || editing) && (
+              <div className={`flex-shrink-0 px-4 sm:px-5 pt-2 im-chrome ${staged.length ? '' : 'border-t'}`}>
+                <div className="flex items-center gap-2 im-quote border-l-2 border-[#0a84ff] rounded-lg pl-3 pr-1 py-1">
+                  <Icon name={editing ? 'edit' : 'reply'} className="h-4 w-4 shrink-0 text-[#0a84ff]" />
+                  <button
+                    type="button"
+                    onClick={() => actions.jump((editing ?? replyTo)!._id)}
+                    className="flex-1 min-w-0 py-1 text-left"
+                  >
+                    <p className="text-xs font-semibold text-[#0a84ff]">
+                      {editing ? 'Editing message' : `Replying to ${replyTo!.senderName}`}
+                    </p>
+                    <p className="text-xs im-sub truncate">{msgPreview((editing ?? replyTo)!)}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (editing ? cancelEdit() : setReplyTo(null))}
+                    aria-label={editing ? 'Cancel editing' : 'Cancel reply'}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg im-sub hover:opacity-70"
+                  >
+                    <Icon name="close" className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Input bar */}
+            <form
+              onSubmit={handleSend}
+              className={`flex-shrink-0 px-4 sm:px-5 py-3 im-chrome flex items-center gap-2 relative ${replyTo || editing || staged.length ? '' : 'border-t'}`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
+                accept={ACCEPT}
+                multiple
+              />
+
+              {/* Plus (attach / request) menu */}
+              <div className="relative flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPlusOpen(v => !v)}
+                  title="Attach or request"
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition ${
+                    plusOpen ? 'bg-accent text-white rotate-45' : 'text-t3 hover:text-t1 hover:bg-muted'
+                  }`}
+                >
+                  <PlusIcon className="w-5 h-5" />
+                </button>
+                {plusOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setPlusOpen(false)} />
+                    <div className="overlay-panel animate-popover-in absolute bottom-12 left-0 z-40 w-56 origin-bottom-left overflow-hidden rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
+                        disabled={uploading}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left"
+                      >
+                        <PaperclipIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
+                        <span><span className="font-semibold block">Send file</span><span className="text-xs text-t3">Or drop files on the chat</span></span>
+                      </button>
+                      {studentRec && (
+                        <button
+                          type="button"
+                          onClick={() => { setPlusOpen(false); setDocsModal(true); }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left border-t border-line"
+                        >
+                          <ClipboardIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
+                          <span><span className="font-semibold block">Request documents</span><span className="text-xs text-t3">Student uploads to their profile</span></span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { setPlusOpen(false); setFormModal(true); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-t1 hover:bg-muted transition text-left border-t border-line"
+                      >
+                        <DocumentTextIcon className="w-[18px] h-[18px] text-t3 shrink-0" />
+                        <span><span className="font-semibold block">Request details</span><span className="text-xs text-t3">In-chat form the student fills</span></span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <ComposerEmojiButton onPick={insertEmoji} />
+
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={e => { if (e.key === 'Escape') { if (editing) cancelEdit(); else setReplyTo(null); } }}
+                placeholder={editing ? 'Edit message…' : 'Message…'}
+                className="flex-1 im-field rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-[#0a84ff] transition"
+              />
+              <button
+                type="submit"
+                disabled={(!input.trim() && !staged.length) || sending || uploading}
+                aria-label="Send"
+                className="hig-touch w-10 h-10 rounded-full im-send flex items-center justify-center disabled:opacity-40 transition active:scale-95 flex-shrink-0"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 -rotate-45">
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                </svg>
+              </button>
+            </form>
+            </>
+            )}
+          </>
+        )}
+      </div>
+
+      {actions.overlays}
+
+      {/* ══ Modals ═══════════════════════════════════════════════════════════ */}
+      {docsModal && (
+        <RequestDocsModal onClose={() => setDocsModal(false)} onSubmit={handleRequestDocs} busy={modalBusy} />
+      )}
+      {formModal && (
+        <RequestFormModal onClose={() => setFormModal(false)} onSubmit={handleRequestForm} busy={modalBusy} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Page wrapper (Suspense for useSearchParams) ──────────────────────────── */
+export default function ChatPage() {
+  return (
+    <div className="h-full overflow-hidden">
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-full">
+            <p className="text-t3 text-sm">Loading…</p>
+          </div>
+        }
+      >
+        <ChatInner />
+      </Suspense>
+    </div>
+  );
+}

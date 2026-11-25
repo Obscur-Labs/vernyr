@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+backend/dist/
+crm/.next/
+student/.next/
+website/.next/
+
+# Environment files
+backend/.env
+**/.env
+**/.env.local
+
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Next.js
+**/out/
+**/.next/
+
+# TypeScript
+*.tsbuildinfo
+
+# Package manager locks (keep only one — uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+
+# User-uploaded files
+backend/uploads/
+
+# Obsidian — keep shared settings, ignore per-machine UI state
+vault/.obsidian/workspace.json
+vault/.obsidian/workspace-mobile.json
+vault/.obsidian/cache
+vault/.trash/
+
+# Client original code, kept only as the feature reference while porting (contains old data and keys)
+legacy/
+
+# deploy:env output (contains live secrets)
+deploy/out/

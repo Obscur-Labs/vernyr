@@ -1,0 +1,816 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   THE PALETTE — Vernyr indigo, dark and light
+
+   One colour, fixed. The CRM used to ship six switchable palettes; a product
+   has a colour, and this is it — the same #3853DE the marketing site and the
+   auth screens already carry, so the journey from vernyr.com into the app is
+   one surface.
+
+   The accent is two tokens, not one, because on the dark ground no single
+   value can do both of its jobs: white text needs the accent dark enough to
+   sit on (luminance <= 0.183), and accent text needs it light enough to read
+   against a card (luminance >= 0.236). Those windows do not overlap.
+
+     --color-accent      the FILL — button and chip backgrounds, white on top
+     --color-accent-ink  the INK  — accent as text, icons and links
+
+   On light they are the same value; one indigo does both there.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --color-base:       #080d1b;
+  --color-surface:    #0e1629;
+  --color-card:       #141e38;
+  --color-muted:      #1b2745;
+  --color-line:       #253255;
+  --color-t1:         #edf0ff;
+  --color-t2:         #98a2c9;
+  --color-t3:         #8690ad;
+  /* white on it 6.07:1 */
+  --color-accent:     #3853de;
+  /* on card 5.50:1 · surface 6.01:1 · base 6.46:1 */
+  --color-accent-ink: #7e8fea;
+  --background:       #080d1b;
+  --foreground:       #edf0ff;
+}
+
+:root.light {
+  --color-base:       #f0f2ff;
+  --color-surface:    #ffffff;
+  --color-card:       #f8f9ff;
+  --color-muted:      #e8ebff;
+  --color-line:       #d4d8f8;
+  --color-t1:         #0c1040;
+  --color-t2:         #48567a;
+  --color-t3:         #5f6988;
+  /* white on it 6.07:1 · as ink on white 6.07:1 · on card 5.78:1 */
+  --color-accent:     #3853de;
+  --color-accent-ink: #3853de;
+  --background:       #f0f2ff;
+  --foreground:       #0c1040;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TAILWIND MAPPING
+═══════════════════════════════════════════════════════════════ */
+@theme inline {
+  --color-base:       var(--color-base);
+  --color-surface:    var(--color-surface);
+  --color-card:       var(--color-card);
+  --color-muted:      var(--color-muted);
+  --color-line:       var(--color-line);
+  --color-t1:         var(--color-t1);
+  --color-t2:         var(--color-t2);
+  --color-t3:         var(--color-t3);
+  --color-accent:     var(--color-accent);
+  --color-accent-ink: var(--color-accent-ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BASE STYLES
+═══════════════════════════════════════════════════════════════ */
+html { color-scheme: dark; }
+html.light { color-scheme: light; }
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Thin, elegant scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-t3); }
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════════════ */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.25s ease-out both; }
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.90); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.86) translateY(4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-pop-in { animation: pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Chat typing indicator */
+@keyframes typing-dot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1); opacity: 1; }
+}
+.typing-dot { animation: typing-dot 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ═══════════════════════════════════════════════════════════════
+   CHAT SMOOTHNESS
+═══════════════════════════════════════════════════════════════ */
+/* Message entrance — slides in from the sender's side with a soft spring */
+@keyframes msg-in-left {
+  from { opacity: 0; transform: translate(-10px, 12px) scale(0.96); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+@keyframes msg-in-right {
+  from { opacity: 0; transform: translate(10px, 12px) scale(0.96); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+.animate-msg-left  { animation: msg-in-left  0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-msg-right { animation: msg-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Bubble micro-interaction — gentle lift on hover */
+.msg-bubble { transition: transform .18s cubic-bezier(.4, 0, .2, 1), box-shadow .18s ease, filter .18s ease; }
+.msg-bubble:hover { transform: translateY(-1px); filter: brightness(1.03); }
+
+/* Date chips pop softly */
+@keyframes chip-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-chip-in { animation: chip-in 0.25s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-msg-left, .animate-msg-right, .animate-chip-in { animation: none; }
+  .msg-bubble, .msg-bubble:hover { transition: none; transform: none; filter: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLASS / GLOW HELPERS
+═══════════════════════════════════════════════════════════════ */
+.glass {
+  background: color-mix(in oklch, var(--color-surface) 70%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+
+.glow-accent {
+  box-shadow: 0 0 24px color-mix(in oklch, var(--color-accent) 30%, transparent);
+}
+
+/* Sidebar active nav glow */
+.nav-active-glow {
+  box-shadow: inset 3px 0 0 var(--color-accent-ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   iMESSAGE AIR — chat theme (palette-independent)
+   CRM is dark-first: :root = dark, :root.light = light
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --im-thread:     #000000;
+  --im-other-bg:   #26262b;
+  --im-other-ink:  #f2f2f7;
+  --im-chrome:     rgba(18, 18, 20, 0.88);
+  --im-hairline:   #2a2a2e;
+  --im-field-bg:   #1c1c1e;
+  --im-field-line: #3a3a3c;
+  --im-ink:        #f2f2f7;
+  --im-sub:        #8e8e93;
+  --im-card:       #1c1c1e;
+  --im-quote:      rgba(255, 255, 255, 0.10);
+}
+:root.light {
+  --im-thread:     #ffffff;
+  --im-other-bg:   #e9e9eb;
+  --im-other-ink:  #1c1c1e;
+  --im-chrome:     rgba(249, 249, 251, 0.92);
+  --im-hairline:   #ececf0;
+  --im-field-bg:   #ffffff;
+  --im-field-line: #d8d8dc;
+  --im-ink:        #1c1c1e;
+  --im-sub:        #8e8e93;
+  --im-card:       #f4f4f6;
+  --im-quote:      rgba(0, 0, 0, 0.07);
+}
+
+.im-thread { background: var(--im-thread); }
+.im-chrome {
+  background: var(--im-chrome);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-color: var(--im-hairline) !important;
+}
+.im-bubble-me    { background: linear-gradient(180deg, #0a84ff, #0066f5); color: #ffffff; }
+.im-bubble-other { background: var(--im-other-bg); color: var(--im-other-ink); }
+.im-field {
+  background: var(--im-field-bg);
+  border: 1px solid var(--im-field-line);
+  color: var(--im-ink);
+}
+.im-field::placeholder { color: var(--im-sub); }
+.im-sub  { color: var(--im-sub); }
+.im-send { background: #0a84ff; color: #ffffff; }
+.im-send:hover:not(:disabled) { background: #0974e0; }
+.im-card { background: var(--im-card); border-color: var(--im-hairline); }
+.im-quote { background: var(--im-quote); }
+
+/* (end iMessage Air theme) */
+
+/* Guilloché watermark on the auth screens. The dark ground needs more ink than
+   the light one to read as engraving rather than smudge. */
+.engraving { color: var(--color-accent); opacity: 0.22; }
+:root.light .engraving { opacity: 0.12; }
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLE HIG LAYER
+   Apple's Human Interface Guidelines applied to the CRM: San Francisco
+   typography, the 8pt grid, concentric radii, system easing curves and
+   translucent chrome. The palette above stays the brand's own — this layer
+   governs form, rhythm and motion, not hue.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Type — SF Pro on Apple hardware, Geist everywhere else. */
+  --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+                 var(--font-geist), 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+
+  /* iOS type scale */
+  --text-caption2:  11px;
+  --text-caption1:  12px;
+  --text-footnote:  13px;
+  --text-subhead:   15px;
+  --text-body:      17px;
+  --text-title3:    20px;
+  --text-title2:    22px;
+  --text-title1:    28px;
+
+  /* 8pt grid */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
+
+  /* Concentric radii — inner + padding = outer */
+  --radius-sm:   8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-full: 9999px;
+
+  /* Apple motion */
+  --ease-default: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:  cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  --duration-instant: 100ms;
+  --duration-fast:    200ms;
+  --duration-normal:  300ms;
+
+  /* Chrome heights — the toolbar and the sidebar brand row are one line. */
+  --chrome-h:        56px;
+  --sidebar-w:      248px;
+  --sidebar-w-fold:  68px;
+}
+
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-system); }
+
+/* ── Materials ────────────────────────────────────────────────────────────
+   The macOS toolbar/sidebar vibrancy: content blurs beneath the chrome
+   rather than hiding behind an opaque plate. */
+.hig-chrome {
+  background: color-mix(in oklch, var(--color-surface) 78%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.hig-sidebar {
+  background: color-mix(in oklch, var(--color-surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .hig-chrome, .hig-sidebar { background: var(--color-surface); }
+}
+
+/* ── Press feedback ───────────────────────────────────────────────────────
+   Every Apple control acknowledges the touch before the action lands. */
+.hig-press {
+  transition: transform var(--duration-instant) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default),
+              opacity var(--duration-fast) var(--ease-default);
+}
+.hig-press:active:not(:disabled) { transform: scale(0.97); }
+
+/* ── Focus ────────────────────────────────────────────────────────────────
+   One visible ring for keyboard users, never removed without replacement. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent-ink) 45%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Grouped list ─────────────────────────────────────────────────────────
+   Settings-style rows: inset separators, 44pt minimum row height. */
+.hig-group {
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+}
+.hig-row { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.hig-row + .hig-row { box-shadow: inset 0 1px 0 var(--color-line); }
+
+/* ── Sidebar fold ─────────────────────────────────────────────────────────
+   A deliberate exception to "never animate layout properties". The fold is a
+   width change by definition, and every desktop app that ships one — Finder,
+   Xcode, VS Code — animates exactly this. Transform would slide the panel out
+   from under the content rather than making room, which is the wrong gesture.
+   It stays cheap because it is one element for 300ms, and because the labels
+   are unmounted rather than squeezed, so no text rewraps while it runs. */
+.hig-fold { transition: width var(--duration-normal) var(--ease-out); }
+.hig-fold-label {
+  transition: opacity var(--duration-fast) var(--ease-default),
+              transform var(--duration-normal) var(--ease-out);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   Every transition above collapses to an instant state change. */
+@media (prefers-reduced-motion: reduce) {
+  .hig-press, .hig-fold, .hig-fold-label { transition: none; }
+  .hig-press:active:not(:disabled) { transform: none; }
+  .animate-toast-in, .animate-fade-in, .animate-slide-in-right,
+  .animate-scale-in, .animate-pop-in { animation: none; }
+}
+
+/* ── Semantic accents ─────────────────────────────────────────────────────
+   Tailwind's `dark:` variant keys off the media query, but this app switches
+   themes with a class — so anything that must differ per theme is declared
+   here rather than as a utility. Each pair clears AA on its own ground.
+   CRM is dark-first: bare `:root` is dark, `:root.light` is light. */
+:root {
+  --color-danger:    #ff6b6b;
+  --color-danger-bg: rgba(255, 107, 107, 0.12);
+  --color-success:   #34c759;
+  --color-warning:   #ffb340;
+}
+:root.light {
+  --color-danger:    #c92a2a;
+  --color-danger-bg: rgba(201, 42, 42, 0.09);
+  --color-success:   #1a7f37;
+  --color-warning:   #9a5b00;
+}
+
+.danger-action { color: var(--color-danger); }
+.danger-action:hover { background: var(--color-danger-bg); }
+
+/* Role chips — the same pill in both themes, legible in each. */
+.chip { border-radius: var(--radius-full); padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.chip-admin      { background: rgba(99, 102, 241, 0.16); color: #a5b4fc; }
+.chip-counsellor { background: rgba(16, 185, 129, 0.16); color: #6ee7b7; }
+.chip-student    { background: rgba(14, 165, 233, 0.16); color: #7dd3fc; }
+.chip-university { background: rgba(20, 184, 166, 0.16); color: #5eead4; }
+:root.light .chip-admin      { background: rgba(79, 70, 229, 0.10);  color: #4338ca; }
+:root.light .chip-counsellor { background: rgba(5, 150, 105, 0.10);  color: #036b4b; }
+:root.light .chip-student    { background: rgba(2, 132, 199, 0.10);  color: #04618f; }
+:root.light .chip-university { background: rgba(13, 148, 136, 0.10); color: #0c6a63; }
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS COLOURS ON A LIGHT GROUND
+   Every status label in the app is written at the -400 tier, which is
+   tuned for dark surfaces: emerald-400 clears 8:1 on the dark canvas and
+   only 2.4:1 on a white card. Rather than rewrite ~90 call sites, the
+   tier itself is redefined for the light theme — Tailwind v4 compiles
+   `text-emerald-400` to `var(--color-emerald-400)`, so one override moves
+   all of them at once, tints and fills included. Each value is the ramp's
+   700 step: >= 4.5:1 as ink on white, and still legible under white ink
+   when used as a fill.
+   CRM is dark-first, so only the .light branch is corrected.
+═══════════════════════════════════════════════════════════════ */
+:root.light {
+  --color-red-300: #dc2626;
+  --color-red-400: #dc2626;
+  --color-red-500: #dc2626;
+  --color-rose-300: #be123c;
+  --color-rose-400: #be123c;
+  --color-rose-500: #be123c;
+  --color-orange-300: #c2410c;
+  --color-orange-400: #c2410c;
+  --color-orange-500: #c2410c;
+  --color-amber-300: #b45309;
+  --color-amber-400: #b45309;
+  --color-amber-500: #b45309;
+  --color-yellow-300: #a16207;
+  --color-yellow-400: #a16207;
+  --color-yellow-500: #a16207;
+  --color-green-300: #15803d;
+  --color-green-400: #15803d;
+  --color-green-500: #15803d;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #047857;
+  --color-emerald-500: #047857;
+  --color-teal-300: #0f766e;
+  --color-teal-400: #0f766e;
+  --color-teal-500: #0f766e;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0369a1;
+  --color-sky-500: #0369a1;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #1d4ed8;
+  --color-blue-500: #1d4ed8;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4338ca;
+  --color-indigo-500: #4338ca;
+  --color-violet-300: #6d28d9;
+  --color-violet-400: #6d28d9;
+  --color-violet-500: #6d28d9;
+  --color-purple-300: #7e22ce;
+  --color-purple-400: #7e22ce;
+  --color-purple-500: #7e22ce;
+}
+
+/* `slate` joins the ramp above — the application board labels a column with it. */
+:root.light {
+  --color-slate-300: #334155;
+  --color-slate-400: #334155;
+  --color-slate-500: #334155;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   OVERLAYS — modals, popovers, sheets
+   One vocabulary for everything that floats above the page. Each has a
+   matching exit so a dismissal is animated rather than cut: the component
+   holds the element mounted for the exit's duration, then unmounts.
+═══════════════════════════════════════════════════════════════ */
+@keyframes backdrop-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+
+@keyframes overlay-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.965); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes overlay-out {
+  from { opacity: 1; transform: translateY(0)   scale(1); }
+  to   { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+
+/* Popovers grow from the control that opened them, so they scale from an
+   edge rather than their own centre — set `transform-origin` at the call site. */
+@keyframes popover-in  { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes popover-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+
+/* A sheet slides from the edge it is docked to. */
+@keyframes sheet-in-right  { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes sheet-out-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(16px); } }
+
+.animate-backdrop-in  { animation: backdrop-in  var(--duration-normal) var(--ease-out) both; }
+.animate-backdrop-out { animation: backdrop-out 180ms var(--ease-default) both; }
+.animate-overlay-in   { animation: overlay-in   var(--duration-normal) var(--ease-spring) both; }
+.animate-overlay-out  { animation: overlay-out  180ms var(--ease-default) both; }
+.animate-popover-in   { animation: popover-in   var(--duration-fast) var(--ease-out) both; }
+.animate-popover-out  { animation: popover-out  150ms var(--ease-default) both; }
+.animate-sheet-in     { animation: sheet-in-right  var(--duration-normal) var(--ease-out) both; }
+.animate-sheet-out    { animation: sheet-out-right 180ms var(--ease-default) both; }
+
+/* The scrim. Heavier blur than the chrome uses — the page behind a modal is
+   out of reach, and should look it. `saturate` keeps the blur from going grey. */
+.overlay-scrim {
+  background: color-mix(in oklch, var(--color-base) 55%, transparent);
+  backdrop-filter: blur(28px) saturate(140%) brightness(0.72);
+  -webkit-backdrop-filter: blur(28px) saturate(140%) brightness(0.72);
+}
+:root.light .overlay-scrim {
+  background: color-mix(in oklch, #0c1040 26%, transparent);
+  backdrop-filter: blur(28px) saturate(120%) brightness(1.02);
+  -webkit-backdrop-filter: blur(28px) saturate(120%) brightness(1.02);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .overlay-scrim { background: color-mix(in oklch, var(--color-base) 88%, transparent); }
+}
+
+/* The floating panel itself.
+   Opaque, deliberately. It was translucent with a backdrop-filter of its own,
+   which put the scrim's `brightness(0.72)` through the panel and made every
+   dialog read as washed-out glass. The blur belongs to the scrim; the thing you
+   are reading should be a solid surface. A panel-level `backdrop-filter` also
+   makes the panel a containing block for fixed-position descendants, which
+   quietly breaks anything portalled inside it. */
+.overlay-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  box-shadow:
+    0 24px 64px -16px rgb(0 0 0 / 0.55),
+    0 8px 20px -8px rgb(0 0 0 / 0.35),
+    0 0 0 1px color-mix(in oklch, var(--color-t1) 6%, transparent) inset;
+}
+:root.light .overlay-panel {
+  box-shadow:
+    0 24px 64px -16px rgb(12 16 64 / 0.20),
+    0 8px 20px -8px rgb(12 16 64 / 0.12);
+}
+
+/* ── Accordion ────────────────────────────────────────────────────────────
+   Radix measures the panel and publishes its height as a custom property,
+   which is the only way to animate to `auto`. The keyframes below are what
+   `@radix-ui/react-accordion` expects a design system to supply. */
+@keyframes accordion-down {
+  from { height: 0; opacity: 0; }
+  to   { height: var(--radix-accordion-content-height); opacity: 1; }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); opacity: 1; }
+  to   { height: 0; opacity: 0; }
+}
+.animate-accordion-down { animation: accordion-down var(--duration-normal) var(--ease-out); }
+.animate-accordion-up   { animation: accordion-up 180ms var(--ease-default); }
+
+/* ── Chart motion ─────────────────────────────────────────────────────────
+   Bars grow from their baseline, arcs sweep, lines draw themselves. */
+@keyframes bar-grow    { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes bar-grow-x  { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.chart-bar   { transform-origin: bottom; animation: bar-grow   0.6s var(--ease-out) both; }
+.chart-bar-x { transform-origin: left;   animation: bar-grow-x 0.6s var(--ease-out) both; }
+.chart-hit   { transition: opacity var(--duration-fast) var(--ease-default); }
+
+/* Recharts draws into an SVG that inherits nothing — these pin its furniture
+   to the theme rather than to its defaults. */
+.recharts-cartesian-axis-tick text { fill: var(--chart-axis); font-size: 11px; }
+.recharts-cartesian-grid line { stroke: var(--chart-grid); }
+.recharts-surface:focus, .recharts-wrapper:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-backdrop-in, .animate-backdrop-out, .animate-overlay-in, .animate-overlay-out,
+  .animate-popover-in, .animate-popover-out, .animate-sheet-in, .animate-sheet-out,
+  .animate-accordion-down, .animate-accordion-up,
+  .chart-bar, .chart-bar-x { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART PALETTE
+   A categorical ramp that holds its order in both themes. Dark gets the
+   400 tier (bright on a near-black ground), light the 600/700 tier, so a
+   series keeps its identity when the theme flips and every fill clears
+   contrast against the card behind it.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --chart-1:  #818cf8;  /* indigo  */
+  --chart-2:  #34d399;  /* emerald */
+  --chart-3:  #60a5fa;  /* blue    */
+  --chart-4:  #fbbf24;  /* amber   */
+  --chart-5:  #f472b6;  /* pink    */
+  --chart-6:  #22d3ee;  /* cyan    */
+  --chart-7:  #a78bfa;  /* violet  */
+  --chart-8:  #fb923c;  /* orange  */
+  --chart-9:  #4ade80;  /* green   */
+  --chart-10: #f87171;  /* red     */
+  --chart-11: #2dd4bf;  /* teal    */
+  --chart-12: #c084fc;  /* purple  */
+  --chart-grid: color-mix(in oklch, var(--color-line) 70%, transparent);
+  --chart-axis: var(--color-t3);
+}
+:root.light {
+  --chart-1:  #4f46e5;
+  --chart-2:  #059669;
+  --chart-3:  #2563eb;
+  --chart-4:  #b45309;
+  --chart-5:  #db2777;
+  --chart-6:  #0891b2;
+  --chart-7:  #7c3aed;
+  --chart-8:  #ea580c;
+  --chart-9:  #16a34a;
+  --chart-10: #dc2626;
+  --chart-11: #0d9488;
+  --chart-12: #9333ea;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH — paper
+   The sign-in screens carry the marketing site's ground rather than the
+   app theme, so the journey from vernyr.com into the product is one
+   surface. Redefining the tokens on the wrapper means Field, SubmitButton
+   and the guilloché all follow without knowing anything about it — and it
+   holds whichever theme the app itself is in.
+   Contrast on this ground: t1 17.6:1, t2 8.2:1, accent 5.6:1, white on
+   accent 6.1:1. t3 is 3.9:1 — borders and rules only, never text.
+═══════════════════════════════════════════════════════════════ */
+.auth-paper {
+  --color-base:    #ffffff;
+  --color-surface: rgba(255, 255, 255, 0.62);
+  --color-card:    #ffffff;
+  --color-muted:   rgba(14, 15, 21, 0.05);
+  --color-line:    rgba(14, 15, 21, 0.10);
+  --color-t1:      #0e0f15;
+  --color-t2:      #454956;
+  --color-t3:      #767b8a;
+  --color-accent:  #3853de;
+  /* On paper the accent is ink and fill alike — 6.07:1 on white. */
+  --color-accent-ink: #3853de;
+
+  color: var(--color-t1);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: #f4f5f8;
+  background-image:
+    radial-gradient(ellipse 34% 75% at 52% 30%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.55) 38%, rgba(255,255,255,0) 72%),
+    radial-gradient(ellipse 40% 56% at 3% 8%,   rgba(194,202,245,.95) 0%, rgba(194,202,245,.52) 32%, rgba(194,202,245,0) 68%),
+    radial-gradient(ellipse 34% 64% at 29% 38%, rgba(201,236,243,.85) 0%, rgba(201,236,243,.47) 32%, rgba(201,236,243,0) 68%),
+    radial-gradient(ellipse 50% 50% at 12% 63%, rgba(207,242,225,.85) 0%, rgba(207,242,225,.47) 32%, rgba(207,242,225,0) 68%),
+    radial-gradient(ellipse 48% 36% at 25% 96%, rgba(212,202,242,.90) 0%, rgba(212,202,242,.50) 32%, rgba(212,202,242,0) 68%),
+    radial-gradient(ellipse 44% 63% at 95% 10%, rgba(242,223,166,.90) 0%, rgba(242,223,166,.50) 32%, rgba(242,223,166,0) 68%),
+    radial-gradient(ellipse 43% 56% at 72% 22%, rgba(250,230,209,.80) 0%, rgba(250,230,209,.44) 32%, rgba(250,230,209,0) 68%),
+    radial-gradient(ellipse 44% 60% at 94% 55%, rgba(241,245,199,.85) 0%, rgba(241,245,199,.47) 32%, rgba(241,245,199,0) 68%),
+    radial-gradient(ellipse 51% 49% at 80% 104%, rgba(247,245,222,.90) 0%, rgba(247,245,222,.50) 32%, rgba(247,245,222,0) 68%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/* Texture, not decoration. */
+.auth-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(15,15,15,.09) .9px, transparent 1.1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, #000 40%, transparent 100%);
+}
+
+/* On paper the seal is ink on a light ground — it needs far less of it. The
+   theme-scoped rules above are `:root.dark .engraving`, which out-specifies a
+   bare `.auth-paper .engraving`; naming both roots here is what makes the
+   auth ground win whichever theme the app is sitting in. */
+.auth-paper .engraving,
+:root.light .auth-paper .engraving,
+:root.dark .auth-paper .engraving { color: #3853de; opacity: 0.10; }
+
+.auth-display {
+  font-family: var(--font-instrument), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 0.98;
+}
+.auth-display em { font-style: italic; }
+
+.auth-eyebrow {
+  font-family: var(--font-mono-face), ui-monospace, "SF Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-t2);
+}
+
+/* The sign-in plate: a white wash and a blur, no border and no shadow. */
+.auth-plate {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px);
+  border-radius: 24px;
+}
+
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(14, 15, 21, 0.14);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+  font-family: var(--font-mono-face), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-t2);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HIG TYPE SCALE + HIT AREAS
+   The tokens above declared the iOS scale; these are what let a component
+   *use* it. Before this the UI layer sized text with arbitrary values —
+   `text-[14px]`, `text-[11.5px]` — which are not steps on the scale, so the
+   vertical rhythm drifted a little on every screen that set its own.
+
+   Named for the role, not the pixel, so a component says what a line *is*
+   and the scale decides how big that is.
+═══════════════════════════════════════════════════════════════ */
+.hig-large-title { font-size: 34px; line-height: 1.06; font-weight: 700; letter-spacing: -0.022em; }
+.hig-title1      { font-size: 28px; line-height: 1.14; font-weight: 700; letter-spacing: -0.021em; }
+.hig-title2      { font-size: 22px; line-height: 1.18; font-weight: 700; letter-spacing: -0.018em; }
+.hig-title3      { font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -0.015em; }
+.hig-headline    { font-size: 17px; line-height: 1.29; font-weight: 600; letter-spacing: -0.012em; }
+.hig-body        { font-size: 17px; line-height: 1.29; font-weight: 400; letter-spacing: -0.012em; }
+.hig-callout     { font-size: 16px; line-height: 1.31; font-weight: 400; letter-spacing: -0.009em; }
+.hig-subhead     { font-size: 15px; line-height: 1.33; font-weight: 400; letter-spacing: -0.006em; }
+.hig-footnote    { font-size: 13px; line-height: 1.38; font-weight: 400; }
+.hig-caption     { font-size: 12px; line-height: 1.33; font-weight: 400; }
+.hig-caption2    { font-size: 11px; line-height: 1.27; font-weight: 400; }
+
+/* The all-caps label above a field or a metric. 11pt is the floor Apple
+   sets for tracked-out caps — smaller stops being readable once spaced. */
+.hig-label {
+  font-size: 11px;
+  line-height: 1.27;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Hit areas ────────────────────────────────────────────────────────────
+   44x44pt is the HIG minimum, and it is about the finger rather than the
+   glyph: a 36pt toolbar button is the right *visual* weight on a pointer
+   machine and the wrong target on a touchscreen. `.hig-touch` keeps the
+   drawn size and grows only the area that receives the tap, so the layout
+   is unchanged and the target is legal.
+
+   `::after` rather than padding, because padding would move the border and
+   the background with it. */
+.hig-touch { position: relative; }
+.hig-touch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  transform: translate(-50%, -50%);
+}
+/* A row of them must not have overlapping targets stealing each other's taps. */
+.hig-touch-tight::after { min-width: 40px; min-height: 40px; }
+
+/* ── Controls ─────────────────────────────────────────────────────────────
+   One height for every text control, at the 44pt minimum, so an input, a
+   select and a button standing in a row line up on both edges. */
+.hig-control { min-height: 44px; }
+.hig-control-sm { min-height: 32px; }   /* dense tables and inline filters */
+
+/* A control's radius is concentric with the card it sits in: the card is
+   16px with 16px of padding, so an inset control reads correctly at 12px. */
+.hig-field-radius { border-radius: var(--radius-md); }
+
+/* ═══════════════════════════════════════════════════════════════
+   TAILWIND'S TYPE SCALE, MOVED ONTO THE iOS SCALE
+   The app sizes most of its text with Tailwind's names — ~190 `text-xs`
+   and ~170 `text-sm` across the screens. Those names carry Tailwind's own
+   ramp (12/14/16/18/20/24), and Apple's is 11/12/13/15/17/20/22/28/34.
+   The two agree at 12 and 20 and disagree everywhere else, so half the app
+   was a pixel or two off the grid the HIG layer sets.
+
+   Redefining the steps moves every call site at once, which is the same
+   move the light-theme colour ramp above makes and for the same reason:
+   rewriting ~370 class names by hand would be a worse change with more
+   ways to go wrong. `text-sm` now means footnote, `text-base` means body.
+
+   Line heights come with them — Tailwind pairs one with each step, and a
+   size moved without its leading just re-breaks the rhythm somewhere else.
+═══════════════════════════════════════════════════════════════ */
+@theme {
+  /* Left at 12 — caption1, where it already sat. This is the app's most-used
+     step (~190 sites of metadata and labels), and dropping it to caption2
+     would shrink all of it to buy nothing: 12 is already on the scale. */
+  --text-xs: 12px;                 /* caption1 */
+  --text-xs--line-height: 1.33;
+  --text-sm: 13px;                 /* footnote */
+  --text-sm--line-height: 1.38;
+  --text-base: 15px;               /* subhead — the app's workhorse */
+  --text-base--line-height: 1.33;
+  --text-lg: 17px;                 /* body / headline */
+  --text-lg--line-height: 1.29;
+  --text-xl: 20px;                 /* title3 */
+  --text-xl--line-height: 1.25;
+  --text-2xl: 22px;                /* title2 */
+  --text-2xl--line-height: 1.18;
+  --text-3xl: 28px;                /* title1 */
+  --text-3xl--line-height: 1.14;
+  --text-4xl: 34px;                /* large title */
+  --text-4xl--line-height: 1.06;
+}
+
+/* ── Chat: jump-to flash and bottom action sheet ────────────────────────── */
+@keyframes msg-flash {
+  0%, 60% { background-color: rgba(10, 132, 255, 0.22); }
+  100%    { background-color: transparent; }
+}
+.msg-flash { animation: msg-flash 1.6s ease-out; }
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-sheet-up { animation: sheet-up 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-flash, .animate-sheet-up { animation-duration: 1ms; }
+}
