@@ -11,7 +11,7 @@ import { Modal, confirmBox, openOverlay, showError } from './ui';
 export type Vals = Record<string, any>;
 export type OptIn = string | [unknown, string] | { id: string; name: string };
 export interface Field {
-  k: string; label?: string; type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'url' | 'section' | 'select' | 'multi' | 'textarea' | 'checkbox' | 'yesno' | 'phone' | 'password' | 'datetime' | 'html' | 'file';
+  k: string; label?: string; type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'url' | 'section' | 'select' | 'multi' | 'textarea' | 'checkbox' | 'yesno' | 'phone' | 'password' | 'datetime' | 'html' | 'file' | 'color';
   req?: boolean; opts?: OptIn[] | ((v: Vals) => OptIn[]); show?: (v: Vals) => boolean; help?: string; col?: number; placeholder?: string;
   disabled?: boolean; maxlength?: number; min?: number; max?: number; step?: number; rows?: number; noBlank?: boolean; blank?: string;
   list?: string[]; ccKey?: string; multiple?: boolean; accept?: string; html?: (v: Vals, set: (k: string, v: unknown) => void) => React.ReactNode;

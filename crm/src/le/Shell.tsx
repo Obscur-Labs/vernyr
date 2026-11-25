@@ -30,13 +30,16 @@ const NAV: NavItem[] = [
   { key: 'counsellors', href: '/counsellors', label: 'Counsellors', icon: 'leads', show: () => M.admin() || M.manager() },
   { key: 'promotions', href: '/promotions', label: 'Promotions & wallet', icon: 'gift', show: () => M.admin() },
   { key: 'courses', href: '/courses', label: 'Course search', icon: 'search', show: () => true },
+  { key: 'catalogue', href: '/admin/catalogue', label: 'Course catalogue', icon: 'apps', show: () => M.admin() },
+  { key: 'reports', href: '/admin/reports', label: 'Reports', icon: 'reports', show: () => M.admin() || M.manager() },
+  { key: 'admin', href: '/admin/users', label: 'Admin Settings', icon: 'admin', show: () => M.admin() },
 ];
 // the counsellor's day first: my work, then students, then universities
 const GROUPS: [string, string[]][] = [
   ['My work', ['dashboard', 'tasks', 'appointments', 'chat', 'requests', 'documents', 'walkin']],
   ['Students', ['leads', 'students', 'counsellors', 'applications', 'courses', 'promotions']],
   ['Universities', ['uniupdates', 'unimsgs', 'catalogue']],
-  ['More', ['console']],
+  ['More', ['reports', 'admin', 'console']],
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -82,7 +85,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div></div>
     );
   }
-  const active = NAV.find((n) => path === n.href || path.startsWith(n.href + '/'))?.key;
+  const active = path.startsWith('/admin/reports') ? 'reports' : path.startsWith('/admin/catalogue') ? 'catalogue' : path.startsWith('/admin') ? 'admin' : NAV.find((n) => path === n.href || path.startsWith(n.href + '/'))?.key;
 
   return (
     <div className="le-ui in-app">
