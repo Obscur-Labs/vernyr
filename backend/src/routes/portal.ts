@@ -28,8 +28,11 @@ import * as P from '../services/profile';
 import * as CAT from '../services/catalogue';
 import * as CONSENT from '../services/consent';
 import { academicSummary } from '../services/students';
+import * as SIGN from '../services/signing';
+import { sendSecurity } from '../services/email';
 import { claim as claimPromo, checkCode, suggestedCode } from '../services/rewards';
 import { unread as chatUnread } from '../services/portalChat';
+import { CodeError } from '../services/authCodes';
 import { workNames, checklistFor, systemStage, INST_DOCS, INST_NAMES, CLOSED, type Names } from './work';
 
 /** The student portal API (legacy/server/portal/routes.js). Records of other students answer 404; responses are whitelisted "student view" objects. */
@@ -37,7 +40,7 @@ const router = Router();
 router.use(portalAuth);
 type Any = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 type PH = (req: PortalRequest, res: Response) => Promise<unknown>;
-const h = (fn: PH) => handle(fn as unknown as (req: AuthRequest, res: Response) => Promise<unknown>);
+const h = (fn: PH) => handle(async (req, res) => { try { await fn(req as PortalRequest, res); } catch (e) { if (e instanceof CodeError) throw new HttpError(e.status, e.message); throw e; } });
 const own = <T>(row: T): NonNullable<T> => { if (!row) throw notFound('Not found'); return row as NonNullable<T>; };
 const needStudent = (c: Ctx) => { if (!c.student) throw bad('Available after your registration with La Europa.', { locked: true }); return c.student; };
 const writable = (c: Ctx) => { if (c.readOnly) throw bad('Your file is currently inactive. Contact your counsellor to restart.'); };
@@ -85,10 +88,10 @@ router.get('/consent/status', h(async (req, res) => {
   const miss = await CONSENT.missing(req.su._id);
   const docs: Any = {};
   for (const t of miss) {
-    const d = t === 'student_consent' ? (await CONSENT.signPack())?.consent : await CONSENT.current(t);
+    const d = await CONSENT.publicDoc(t);
     if (!d) continue;
-    docs[t] = { id: String(d._id), type: t, title: d.title, version: d.version, body: await CONSENT.fill(d.body), body_hash: d.body_hash, ...(t === 'student_consent' ? { hash: (await CONSENT.signPack())?.hash } : {}) };
-    const k = `${req.su._id}:${d._id}`;
+    docs[t] = d;
+    const k = `${req.su._id}:${d.id}`;
     if (!views.has(k) && !req.preview) views.set(k, Date.now());
   }
   const g = guardianOf(req.c);
@@ -121,6 +124,53 @@ router.post('/consent/decline', h(async (req, res) => {
   await notifyStaff(req.c, 'portal', `${displayName(req.c)} declined the ${CONSENT.TYPES[type]}: please contact the student`);
   await portalAudit(req, 'Create', 'ConsentRecord', req.su._id, `Declined ${CONSENT.TYPES[type]}`);
   res.json({ ok: true, message: 'Your counsellor has been told and will contact you. You can read and accept the document any time to use the portal.' });
+}));
+
+// ---------- the signed Student Declaration & Consent: typed name + email code, one locked PDF ----------
+router.post('/consent/sign/code', h(async (req, res) => {
+  if (req.preview) throw bad('Staff preview cannot sign for the student.');
+  hit('otp-ip:' + req.ip, 20, 864e5);
+  const whoFor = req.body?.who === 'guardian' ? 'guardian' : 'student';
+  const o = await SIGN.sendCode(req.su, whoFor, guardianOf(req.c), req.body?.guardian_email);
+  await portalAudit(req, 'Create', 'SigningCode', req.su._id, `Signing code sent by email to the ${whoFor}`);
+  res.json(o);
+}));
+router.post('/consent/sign', h(async (req, res) => {
+  if (req.preview) throw bad('Staff preview cannot sign for the student.');
+  hit('sign:' + req.su._id, 10, 3600e3);
+  const pack = await CONSENT.signPack();
+  const started = pack ? views.get(`${req.su._id}:${pack.consent._id}`) : undefined;
+  const serverSec = started ? Math.round((Date.now() - started) / 1000) : 0;
+  const out = await SIGN.sign(req, req.su, !!guardianOf(req.c), req.body ?? {}, serverSec);
+  const rec = out.record;
+  const ver = (out.record.data as Any) ?? {};
+  const extra = { signed_document: rec.doc_code, signature_name: rec.typed_name, content_hash: rec.content_hash, server_reading_sec: serverSec };
+  const base = { suId: req.su._id, leadId: req.su.leadId };
+  await CONSENT.record(req, { ...base, type: 'student_consent', value: true, method: 'signed_email_otp', scrolled: true, timeSpent: req.body?.time_spent_sec, extra });
+  await CONSENT.record(req, { ...base, type: 'constitution', value: true, method: 'signed_with_student_consent', scrolled: !!req.body?.constitution_opened, extra });
+  // signing gives the Declaration's own consents (11.1 to 11.3); news (D) and publicity (E) are separate optional choices
+  for (const [t, sec] of [['data_processing', '11.1'], ['share_data', '11.2'], ['transfer_abroad', '11.3']]) await CONSENT.record(req, { ...base, type: t, value: true, method: 'signed_email_otp', extra: { section: sec, signed_document: rec.doc_code } });
+  for (const [k, t] of [['D', 'marketing'], ['E', 'success_stories']]) await CONSENT.record(req, { ...base, type: t, value: !!out.consents[k], method: 'portal_optional_choice', extra: { choice: k, signed_document: rec.doc_code } });
+  if (pack) views.delete(`${req.su._id}:${pack.consent._id}`);
+  await portalAudit(req, 'Create', 'SignedDocument', rec._id, `Signed ${CONSENT.TYPES.student_consent} v${ver.consent_version} + Constitution v${ver.constitution_version} (${rec.doc_code})`);
+  const line = `Student signed the Student Declaration & Consent v${ver.consent_version} (Constitution v${ver.constitution_version}) with email OTP: ${rec.doc_code}, signed PDF locked`;
+  if (req.c.student) await studentTimeline(req.c.student._id, null, 'profile', line); else if (req.c.lead) await studentTimeline(null, req.c.lead._id, 'lead', line);
+  // a copy by email to the student, and to the guardian for a student under 18
+  const att = [{ filename: `La-Europa-Signed-Consent-${rec.doc_code}.pdf`, content: out.pdf, contentType: 'application/pdf' }];
+  const body = `Thank you. You signed the La Europa Student Declaration & Consent (version ${ver.consent_version}) under the Student Constitution (version ${ver.constitution_version}) on ${fmtDateTime(rec.signed_at)} IST.\n\nDocument ID: ${rec.doc_code}\nThe signed and locked PDF is attached. You can download it again at any time in the student portal (Account).`;
+  if (req.su.email) await sendSecurity({ to: req.su.email, subject: `Your signed La Europa Student Declaration & Consent (${rec.doc_code})`, text: body, student_id: req.su.studentId, lead_id: req.su.leadId, attachments: att }).catch(() => {});
+  const g = ver.guardian as { email?: string; name?: string } | null;
+  if (g?.email) await sendSecurity({ to: g.email, subject: `Signed La Europa Student Declaration & Consent (${rec.doc_code})`, text: body.replace('Thank you. You signed', `Thank you. You and ${rec.typed_name} signed`), student_id: req.su.studentId, lead_id: req.su.leadId, attachments: att }).catch(() => {});
+  res.json({ ok: true, doc_code: rec.doc_code, signed_at: rec.signed_at, pdf_sha256: rec.pdf_sha256, pages: ver.pdf_pages, missing: await CONSENT.missing(req.su._id) });
+}));
+router.get('/consent/certificate.pdf', h(async (req, res) => {
+  const sd = await (await import('../models/Privacy')).SignedDocument.findOne({ student_user_id: req.su._id }).sort({ signed_at: -1 });
+  if (!sd) throw new HttpError(404, 'You have not signed the Student Declaration & Consent yet');
+  const pdf = await SIGN.readLocked(sd);
+  await portalAudit(req, 'Download', 'SignedDocument', sd._id, sd.doc_code);
+  res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Content-Disposition', `attachment; filename="La-Europa-Signed-Consent-${sd.doc_code}.pdf"`);
+  res.send(pdf);
 }));
 
 // ---------- photo, language ----------

@@ -34,6 +34,7 @@ import consolePeopleRoutes from "./routes/consolePeople";
 import { startDpdpJobs } from "./services/dpdp";
 import { startJobs } from "./services/jobs";
 import portalRoutes from "./routes/portal";
+import legalRoutes from "./routes/legal";
 import portalAccountRoutes from "./routes/portalAccount";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
@@ -93,6 +94,7 @@ app.post("/api/webhooks/email", async (req, res) => {
 });
 // university logos are public (not personal data)
 app.get("/api/logos/:id", (req, res) => { logoRoute(req, res).catch(() => res.status(500).end()); });
+app.use("/api/legal", legalRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);

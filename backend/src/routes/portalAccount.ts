@@ -17,7 +17,7 @@ import { getSetting } from '../models/Audit';
 import { Application, VisaCase, StudentDocument, FeeSummary, Payment, StageHistory } from '../models/Work';
 import { ApplicationRequest, PaymentSubmission, FeeInstruction, ChatMessage, NotificationPreference, AccountDeletionRequest, DataExportRequest, Referral, ConsentRecord } from '../models/Portal';
 import { ConsentDocument, PrivacyRequest } from '../models/Privacy';
-import { bad, fieldErr, notFound, handle, oid, clean, num, istDate, fmtDateTime, normPhone, isEmail, fullName } from '../services/crm';
+import { HttpError, bad, fieldErr, notFound, handle, oid, clean, num, istDate, fmtDateTime, normPhone, isEmail, fullName } from '../services/crm';
 import { fmtDate } from '../services/invoicePdf';
 import { stageList } from '../services/masters';
 import { createTask, notify, notifyAdmins } from '../services/tasks';
@@ -43,7 +43,7 @@ const router = Router();
 router.use(portalAuth);
 type Any = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const h = (fn: (req: PortalRequest, res: Response) => Promise<unknown>) => handle(async (req, res) => {
-  try { await fn(req as PortalRequest, res); } catch (e) { if (e instanceof CodeError) throw bad(e.message, { status_code: e.status }); throw e; }
+  try { await fn(req as PortalRequest, res); } catch (e) { if (e instanceof CodeError) throw new HttpError(e.status, e.message); throw e; }
 });
 const conv = (c: Ctx): CHAT.Conv => (c.student ? { student_id: c.student._id as Types.ObjectId } : { lead_id: c.lead!._id as Types.ObjectId });
 const curVer = (d: Any) => d?.versions?.find((x: Any) => String(x._id) === String(d.current_version_id));

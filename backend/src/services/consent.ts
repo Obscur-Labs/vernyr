@@ -98,3 +98,21 @@ export async function record(req: Request | null, o: { suId?: unknown; leadId?: 
 }
 /** Has this login ever signed the Student Declaration & Consent (any version)? */
 export const hasSigned = async (suId: unknown) => !!(await SignedDocument.exists({ student_user_id: suId }));
+/** The part of the Declaration that is read and signed: everything before the blank signature block and audit trail (the Portal fills those). */
+export const signText = (body: string) => String(body).split(/\n\s*_{20,}\s*\n/)[0].split(/\n(?=#{1,4} (?:\d+\.\s*)?(?:Signature|Audit trail)\b)/i)[0].trim() + '\n';
+/** A document as the portal shows it: HTML from the legal markdown, the Declaration with its optional boxes and the Constitution beside it. */
+export async function publicDoc(type: string) {
+  const { toHtml } = await import('./legalMd');
+  if (type === 'student_consent') {
+    const p = await signPack();
+    if (!p) return null;
+    const cons = toHtml(await fill(signText(p.consent.body).replace(/I, _{5,},/, 'I, **[your full name, typed below]**,')), { checkboxes: true });
+    const con = toHtml(await fill(p.constitution.body), { idPrefix: 'c-' });
+    return { id: String(p.consent._id), type, title: p.consent.title, version: p.consent.version, hash: p.hash, published_at: p.consent.published_at, html: cons.html, text: await fill(p.consent.body),
+      constitution: { id: String(p.constitution._id), title: p.constitution.title, version: p.constitution.version, hash: p.constitution.body_hash, html: con.html, toc: con.toc } };
+  }
+  const d = await current(type);
+  if (!d) return null;
+  const hh = MD_DOCS[type] ? toHtml(await fill(d.body)) : null;
+  return { id: String(d._id), type, title: d.title, version: d.version, hash: d.body_hash, published_at: d.published_at, html: hh?.html ?? null, toc: hh?.toc ?? null, text: await fill(d.body) };
+}
