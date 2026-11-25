@@ -42,6 +42,8 @@ export const env = {
   jwtSecret: required('JWT_SECRET', 'dev-only-insecure-secret'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   allowedOrigins: allowedOrigins(),
+  /** The staff CRM address: email logo and links back to the CRM. */
+  crmUrl: (read('CLIENT_CRM_URL') ?? 'http://localhost:3000').split(',')[0].trim().replace(/\/+$/, ''),
   /** The student portal address, for links in emails and the walk-in QR. */
   portalUrl: (read('CLIENT_STUDENT_URL') ?? 'http://localhost:3001').split(',')[0].trim().replace(/\/+$/, ''),
   mail: {
