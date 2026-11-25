@@ -3,18 +3,19 @@
 `legacy/` is the client's final build and the feature spec. The monorepo (from the dump) is the stack:
 Next.js 16 + TypeScript + Express + MongoDB (Mongoose) + Cloudinary + Socket.IO.
 Rule: where the two disagree on **behaviour**, legacy wins. Where they disagree on **plumbing**, the monorepo wins.
-No UI change is made without the user's approval.
+UI: the client's look is kept (user decision, 25 Nov 2026). Their CSS is copied into each app as `src/styles/le-ui.css`, every rule scoped under `.le-ui`, so a ported screen wears it while the rest of the app is untouched until its turn.
 
 ## Decisions already taken
 
 | Topic | Legacy | Monorepo | Kept |
 |---|---|---|---|
-| Database | SQLite, 164 tables | MongoDB | MongoDB (`vernyr`, `vernyr_dev`) |
+| Database | SQLite, 164 tables | MongoDB | MongoDB, one database `vernyr` (local and live) |
 | Files | AES-encrypted local disk | Cloudinary, 5-minute signed links | Cloudinary (Render has no persistent disk) |
 | Chat | 15 s polling | Socket.IO, replies, pins, reactions | Socket.IO |
 | Login transport | Cookie session + CSRF | JWT bearer | JWT (apps and API are on different subdomains) |
 | Course import | Excel upload per university in the UI | Importer script + parsers (`services/catalogue.ts`) | Monorepo parsers, plus legacy's upload screen |
 | Partner portal | Plain JS MVP | none | On hold, MVP kept in `partner/mvp-reference/` |
+| Staff login | Username; Super Admin by email + Google Authenticator | Admin by email | Username for every staff role, Admins included (user decision) |
 
 ## Behaviour conflicts (legacy wins unless the user says otherwise)
 
@@ -33,8 +34,9 @@ Each phase ends with typecheck, build, `npm run test:security` and new tests for
 
 | # | Phase | From legacy | Status |
 |---|---|---|---|
-| 0 | Foundation | repo, branch, backups, empty database, secrets, `vernyr` / `vernyr_dev`, deploy kit, `portal/` + `partner/` | done |
-| 1 | Accounts and access | roles above as presets, Super Admin, data scope, one-counsellor rule, login rules (4), audit log, settings registry | next |
+| 0 | Foundation | repo, branch, backups, empty database, secrets, database `vernyr`, deploy kit, `portal/` + `partner/` | done |
+| 1a | Sign-in (client UI) | CRM login + first-login code + forgot by code; portal login (email or mobile), sign-up with email code, guardian consent, forgot; lockout 5 / 15 min; 12 h or 7 day sessions; reset signs out every session; legal pages at portal `/legal/*` | done |
+| 1b | Accounts and access | roles above as presets, Super Admin, data scope, one-counsellor rule, idle timeout, new-device email, audit log, settings registry | next |
 | 2 | Email engine | nodemailer queue with retries, templates E01 to E49, one thread per student, hard CC `laeuropaapplication@gmail.com`, placeholder whitelist, security emails without CC | |
 | 3 | Student lifecycle | leads, conversion, Applications & Visa flow, document checklists per country / level, versions, PDF merge, tasks, comments, appointments, walk-in QR / info form | |
 | 4 | Money | service packages + instalments, discounts with approval, refunds, GST invoices (CGST + SGST in Gujarat, IGST elsewhere, FY number series), payment proof with UTR, receipts, UPI QR, PDFs (pdf-lib) | |

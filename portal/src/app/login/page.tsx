@@ -1,116 +1,61 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import api from '@/lib/api';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useToast } from '@/context/ToastContext';
-import type { StudentUser } from '@/types';
-import { VernyrSeal, VernyrMark, Wordmark } from '@/components/auth/Insignia';
-import { Field, SubmitButton } from '@/components/auth/Field';
+import api from '@/lib/api';
+import { AuthShell, Notice, PasswordField, apiMessage } from '@/components/auth/ClientAuth';
+import { OtpStep, type SignedIn } from '@/components/auth/OtpStep';
 
-export default function LoginPage() {
+function Login() {
   const router = useRouter();
+  const params = useSearchParams();
   const { setAuth } = useAuthStore();
-  const { toast } = useToast();
-
-  const [identifier, setIdentifier] = useState('');
+  const [ident, setIdent] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [otp, setOtp] = useState<{ id: string; masked: string } | null>(null);
 
-  async function handleLogin(e: React.FormEvent) {
+  const done = (d: SignedIn) => { setAuth(d.user, d.token, d.studentId); router.push('/home'); };
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    if (!ident.trim()) return setError('Enter your email or mobile');
+    setBusy(true); setError('');
     try {
-      const { data } = await api.post<{ token: string; user: StudentUser; studentId?: string }>(
-        '/auth/login',
-        { identifier, password },
-      );
-      setAuth(data.user, data.token, data.studentId);
-      router.push('/home');
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Login failed';
-      toast(msg, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }
+      const { data } = await api.post('/auth/login', { identifier: ident.trim(), password, remember, app: 'portal' });
+      if (data.otpRequired) setOtp({ id: data.otpId, masked: data.masked });
+      else done(data);
+    } catch (err) { setError(apiMessage(err)); } finally { setBusy(false); }
+  };
+
+  if (otp) return <OtpStep otpId={otp.id} masked={otp.masked} title="Verify your email" onBack={() => setOtp(null)} onDone={done} />;
 
   return (
-    <main className="auth-paper min-h-screen">
-      <div
-        aria-hidden
-        className="engraving pointer-events-none absolute left-1/2 top-1/2 z-0 w-[46rem] -translate-x-1/2 -translate-y-1/2 sm:w-[62rem]"
-      >
-        <VernyrSeal className="h-auto w-full" />
-      </div>
-
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
-        <div className="flex items-center justify-center gap-2.5 text-t1">
-          <VernyrMark className="h-9 w-9" />
-          <Wordmark className="text-[19px]" />
+    <AuthShell>
+      <form onSubmit={submit} noValidate>
+        <h2>Student login</h2>
+        <p className="muted" style={{ margin: '0 0 16px' }}>Log in to see your La Europa file.</p>
+        <Notice error={error} ok={params.get('reset') ? 'Your password has been changed. Please log in.' : undefined} />
+        <div className="f">
+          <label htmlFor="id1">Email or mobile</label>
+          <input id="id1" autoComplete="username" inputMode="email" autoFocus value={ident} onChange={(e) => setIdent(e.target.value)} />
         </div>
-
-        <div className="auth-plate mt-9 p-7 sm:p-9">
-          <h1 className="auth-display text-[2.2rem] text-balance">
-            Welcome <em>back.</em>
-          </h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-t2">
-            Pick up your application where you left it.
-          </p>
-
-          <form onSubmit={handleLogin} className="mt-8 space-y-5">
-            <Field
-              label="Username"
-              value={identifier}
-              onChange={setIdentifier}
-              placeholder="e.g. aisha.malik"
-              autoComplete="username"
-              autoFocus
-              required
-              disabled={loading}
-            />
-            <Field
-              label="Password"
-              type="password"
-              value={password}
-              onChange={setPassword}
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              required
-              disabled={loading}
-            />
-            <div className="pt-1">
-              <SubmitButton loading={loading} loadingLabel="Signing in…">
-                Sign in
-              </SubmitButton>
-            </div>
-          </form>
-
-          <p className="mt-7 border-t border-line pt-5 text-center text-[13.5px] text-t2">
-            New here?{' '}
-            <Link
-              href="/register"
-              className="rounded-sm font-semibold text-accent underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              Create an account
-            </Link>
-          </p>
+        <PasswordField id="pw1" label="Password" value={password} onChange={setPassword} />
+        <div className="row between" style={{ margin: '6px 0 10px' }}>
+          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Keep me logged in</label>
+          <Link href="/forgot">Forgot password?</Link>
         </div>
-
-        <p className="mt-7 text-center text-[12.5px] leading-relaxed text-t2">
-          Stuck? Message your counsellor, or email{' '}
-          <a
-            href="mailto:support@vernyr.com"
-            className="text-t2 underline-offset-4 hover:text-accent hover:underline"
-          >
-            support@vernyr.com
-          </a>
-        </p>
-      </div>
-    </main>
+        <button className="btn primary block" type="submit" style={{ marginTop: 10 }} disabled={busy}>{busy ? 'Logging in...' : 'Login'}</button>
+        <p style={{ marginTop: 16, textAlign: 'center' }}>New to La Europa? <Link href="/register">Sign up</Link></p>
+      </form>
+    </AuthShell>
   );
+}
+
+export default function LoginPage() {
+  return <Suspense><Login /></Suspense>;
 }

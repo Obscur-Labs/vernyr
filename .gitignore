@@ -56,3 +56,6 @@ legacy/
 
 # deploy:env output (contains live secrets)
 deploy/out/
+
+# sandbox emails (MAIL_PROVIDER=sandbox)
+backend/outbox/

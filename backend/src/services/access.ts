@@ -30,6 +30,7 @@ export interface Principal {
   permissions: PermissionMap;
   /** True when the account carries its own overrides on top of the preset. */
   hasOverrides: boolean;
+  passwordChangedAt?: Date;
 }
 
 /* ── Preset resolution ─────────────────────────────────────────────────── */
@@ -129,6 +130,7 @@ async function resolve(userId: string): Promise<Principal | null> {
     fullAccess: preset.fullAccess,
     permissions: effectivePermissions(preset, overrides),
     hasOverrides: Object.keys(overrides).length > 0,
+    passwordChangedAt: account.passwordChangedAt,
   };
 }
 

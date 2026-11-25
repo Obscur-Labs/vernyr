@@ -17,7 +17,9 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401 && typeof window !== 'undefined') {
+    // a wrong password or code is a 401 too: the sign-in screens show it instead of reloading
+    const signIn = /^\/auth\/(login|otp|forgot|reset|register-student|signup)/.test(String(err.config?.url ?? ''));
+    if (err.response?.status === 401 && typeof window !== 'undefined' && !signIn) {
       localStorage.removeItem('student_token');
       window.location.href = '/login';
     }

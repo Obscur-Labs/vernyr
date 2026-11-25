@@ -18,7 +18,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     return;
   }
 
-  let decoded: { id: string; role: string; name: string };
+  let decoded: { id: string; role: string; name: string; iat?: number };
   try {
     decoded = jwt.verify(token, env.jwtSecret) as typeof decoded;
   } catch {
@@ -32,6 +32,11 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       res.status(401).json({ message: 'Account no longer exists' });
       return;
     }
+    // a password reset ends every session signed in before it
+    if (principal.passwordChangedAt && (decoded.iat ?? 0) * 1000 < new Date(principal.passwordChangedAt).getTime() - 1000) {
+      res.status(401).json({ message: 'Your password was changed. Please sign in again.' });
+      return;
+    }
     if (!principal.isActive) {
       res.status(403).json({ message: 'This account has been deactivated' });
       return;
@@ -43,7 +48,8 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     req.principal = principal;
     next();
   } catch (err) {
-    res.status(500).json({ message: 'Could not verify access', error: err });
+    console.error('authenticate:', err);
+    res.status(500).json({ message: 'Could not verify access' });
   }
 }
 

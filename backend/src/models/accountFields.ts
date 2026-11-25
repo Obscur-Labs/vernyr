@@ -23,6 +23,12 @@ export interface AccountBase {
   permissions?: Record<string, Partial<Record<'create' | 'read' | 'update' | 'delete', boolean>>>;
   isActive: boolean;
   lastSeenAt?: Date;
+  /** Set once a code sent to the email was entered; until then an email-login account gets a code on login. */
+  emailVerifiedAt?: Date;
+  failedLogins?: number;
+  lockedUntil?: Date;
+  /** Tokens issued before this are refused (password reset logs out every session). */
+  passwordChangedAt?: Date;
   createdAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
 }
@@ -46,6 +52,10 @@ export const accountFields: SchemaDefinition = {
   permissions: { type: Schema.Types.Mixed },
   isActive: { type: Boolean, default: true },
   lastSeenAt: { type: Date },
+  emailVerifiedAt: { type: Date },
+  failedLogins: { type: Number, default: 0 },
+  lockedUntil: { type: Date },
+  passwordChangedAt: { type: Date },
 };
 
 /** Hashing, comparison and password-stripping, applied identically to both collections. */

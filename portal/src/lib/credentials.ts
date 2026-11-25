@@ -1,5 +1,5 @@
-/** Mirrors backend/src/models/User.ts — the admin signs in by email, all other roles by username. */
-export const EMAIL_LOGIN_ROLES = ['admin'];
+/** Mirrors backend/src/models/User.ts — every staff member signs in with a username. */
+export const EMAIL_LOGIN_ROLES: string[] = []; // every staff member signs in with a username
 
 export const usesEmailLogin = (role: string) => EMAIL_LOGIN_ROLES.includes(role);
 

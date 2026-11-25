@@ -10,7 +10,8 @@ Vernyr is La Europa's platform. One repo, five pieces, two hosts:
 | University partner portal (on hold) | `partner/` | Vercel | `partner.vernyr.com` |
 | Public website | `website/` | Vercel | `vernyr.com`, `www.vernyr.com` |
 
-Database: MongoDB Atlas, database `vernyr` (live) and `vernyr_dev` (local). Files: Cloudinary.
+Database: MongoDB Atlas, one database `vernyr`, used by the live API and by local development. Files: Cloudinary.
+Local work therefore changes live data. To split them later, point `LOCAL_MONGODB_URI` at `/vernyr_dev`.
 
 ## Every deploy (after the one-time setup)
 
@@ -64,30 +65,30 @@ Leave Framework, Install and Build on their defaults; each app's `vercel.json` o
 > The existing student project was pointed at `student/`. That folder is now `portal/`:
 > Vercel > that project > Settings > Build & Deployment > Root Directory > `portal`.
 
-### 5. First Admin on the live database (once)
+### 5. CRM Admins (once, then whenever you need another)
 
-From your machine, in any terminal (it connects with the LIVE_ values in `backend/.env`):
+From your machine, in any terminal:
 
 ```bash
-npm run bootstrap -- --live --email you@laeuropa.com --name "Your Name"
+npm run bootstrap -- --live
 ```
 
-Leave out `--email` and it asks. Without `--password` it prints a one-time password: sign in at `crm.vernyr.com` and change it.
-Without `--live` it creates the Admin in the local database (`vernyr_dev`).
+It asks for a username, a full name and a password (hidden; empty = generated and printed once).
+Admins sign in on `crm.vernyr.com` with that **username**, like all staff. Flags skip the questions:
+`--username yaksh --name "Yaksh" --password "..."`. Without `--live` it uses `LOCAL_MONGODB_URI`.
 
 ## Local development
 
 ```bash
 npm install
-npm run bootstrap     # first Admin in vernyr_dev (asks for the email)
+npm run bootstrap     # a CRM Admin (asks for username and password)
 npm run dev           # API :5000, crm :3000, portal :3001, website :3002
 npm run dev:all       # the same plus partner :3003
 ```
 
-`npm run seed` fills `vernyr_dev` with demo data (it wipes it first and refuses to run in live mode).
+`npm run seed` fills a database with demo data after wiping it, so it refuses to run against the live database.
 
 ## Rules that keep production safe
 
 - Never set `ENABLE_DEV_ROUTES` on Render. `deploy:env` never copies it.
-- Never point `LOCAL_MONGODB_URI` at the live database. `npm run doctor` stops you.
 - `.env` files and `deploy/out/` are git-ignored. Do not commit them or paste them into chats.

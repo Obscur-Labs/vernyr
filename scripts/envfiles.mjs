@@ -29,6 +29,8 @@ export const SERVICES = {
     fixed: { NODE_ENV: 'production', MODE: 'live' },
     keys: ['LIVE_MONGODB_URI', 'LIVE_CLIENT_CRM_URL', 'LIVE_CLIENT_STUDENT_URL', 'LIVE_CLIENT_PARTNER_URL', 'JWT_SECRET', 'JWT_EXPIRES_IN',
       'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', 'CLOUDINARY_FOLDER'],
+    // copied when set: real email (login codes, password resets, student sign-up)
+    optional: ['MAIL_PROVIDER', 'MAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS', 'MAIL_REDIRECT_TO'],
     secret: true,
   },
   crm: {

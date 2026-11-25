@@ -18,7 +18,7 @@ Vernyr is La Europa's study-abroad platform (Vernyr is the product, La Europa th
 
 ## Deploying
 
-`DEPLOY.md` is the runbook. `npm run doctor` checks every env file, `npm run deploy:env` writes what to paste into Render and Vercel, `npm run bootstrap` creates the first Admin on an empty database.
+`DEPLOY.md` is the runbook. `npm run doctor` checks every env file, `npm run deploy:env` writes what to paste into Render and Vercel, `npm run bootstrap` creates a CRM Admin (username + password, asked in the terminal).
 
 ## Commands
 
@@ -327,7 +327,7 @@ one, not a style disagreement.
 `User.role` still exists and still matters, but only for **data scoping** and
 sign-in style — never for authorization:
 
-- `admin` signs in with an email address; every other role uses a username.
+- Every staff role, `admin` included, signs in with a username (`EMAIL_LOGIN_ROLES` is empty). Students sign in with email, mobile or username.
 - `counsellor` sees every student. The book is shared: `Student.counsellors` is
   a list, anyone on it is working the case, and a counsellor may add or remove
   **themselves** on any record (`POST`/`DELETE /api/students/:id/counsellors`).

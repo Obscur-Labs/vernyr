@@ -24,9 +24,11 @@ const PortalAccountSchema = new Schema<IPortalAccount>(
   { timestamps: true },
 );
 
-/** Username always; plus the field that scopes the kind. */
+/** A login handle (students: email or username; universities: username), plus the field that scopes the kind. */
 PortalAccountSchema.pre('validate', function (next) {
-  if (!this.username) return next(new Error('A username is required for a portal account'));
+  if (!this.username && !(this.role === 'student' && this.email)) {
+    return next(new Error('A username is required for a portal account'));
+  }
   if (this.role === 'student' && !this.studentId) {
     return next(new Error('A student login must be linked to a student record'));
   }

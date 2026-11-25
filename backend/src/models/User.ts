@@ -15,8 +15,8 @@ export type UserRole = 'admin' | 'counsellor' | 'student' | 'university';
 
 export const STAFF_ROLES: StaffRole[] = ['admin', 'counsellor'];
 
-/** The admin signs in with an email address; everyone else uses a username. */
-export const EMAIL_LOGIN_ROLES: UserRole[] = ['admin'];
+/** Every staff member, Admins included, signs in with a username. */
+export const EMAIL_LOGIN_ROLES: UserRole[] = []; // every staff member signs in with a username (La Europa decision)
 export const usesEmailLogin = (role: UserRole) => EMAIL_LOGIN_ROLES.includes(role);
 
 export { USERNAME_RE, blankToUndefined };

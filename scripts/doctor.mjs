@@ -43,17 +43,22 @@ if (be) {
     else good(`Live database: ${hostOf(be.LIVE_MONGODB_URI)}/${vdb}`);
   }
   if (be.LOCAL_MONGODB_URI) {
-    if (!ldb || ldb === 'test') bad('LOCAL_MONGODB_URI names no database. Add /vernyr_dev before the "?".');
+    if (!ldb || ldb === 'test') bad('LOCAL_MONGODB_URI names no database. Add /vernyr before the "?".');
     else good(`Local database: ${hostOf(be.LOCAL_MONGODB_URI)}/${ldb}`);
   }
   if (be.LIVE_MONGODB_URI && be.LOCAL_MONGODB_URI && hostOf(be.LIVE_MONGODB_URI) === hostOf(be.LOCAL_MONGODB_URI) && ldb === vdb)
-    bad('Local and live point at the same database: local testing would change live data.');
+    warn('Local and live use the same database (vernyr): local testing changes live data, and `npm run seed` is blocked.');
 
   // ---- Secrets
   const jwt = be.JWT_SECRET || '';
   if (jwt.length < 32 || /your_|secret|changeme/i.test(jwt)) bad('JWT_SECRET is short or a placeholder. Use 48+ random bytes (npm run doctor prints one below).');
   else good('JWT_SECRET looks strong');
   if (be.ENABLE_DEV_ROUTES === 'true') warn('ENABLE_DEV_ROUTES=true in backend/.env: fine locally, it is never copied to Render by deploy:env.');
+
+  // ---- Email: login codes, password resets and student sign-up need real sending on live
+  if (be.MAIL_PROVIDER !== 'smtp') warn('MAIL_PROVIDER is not smtp: no email leaves the server (codes only appear in the logs). Students cannot verify a sign-up on live until SMTP_* is set.');
+  else if (!be.SMTP_HOST || !be.SMTP_USER || !be.SMTP_PASS || !be.MAIL_FROM) bad('MAIL_PROVIDER=smtp but SMTP_HOST, SMTP_USER, SMTP_PASS or MAIL_FROM is empty.');
+  else good(`Email: SMTP via ${be.SMTP_HOST}`);
 
   // ---- URLs
   for (const k of ['LIVE_CLIENT_CRM_URL', 'LIVE_CLIENT_STUDENT_URL', 'LIVE_CLIENT_PARTNER_URL']) if (be[k] && !/^https:\/\//.test(be[k])) bad(`${k} must start with https://`);

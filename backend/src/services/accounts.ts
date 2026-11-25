@@ -19,9 +19,10 @@ export interface AccountRef {
   universityName?: string;
   presetKey?: string;
   permissions?: unknown;
+  passwordChangedAt?: Date;
 }
 
-const SUMMARY_FIELDS = 'name role username email avatar isActive studentId universityName presetKey permissions';
+const SUMMARY_FIELDS = 'name role username email avatar isActive studentId universityName presetKey permissions passwordChangedAt';
 
 const toRef = (doc: Record<string, unknown>, kind: AccountKind): AccountRef => ({
   kind,
@@ -36,6 +37,7 @@ const toRef = (doc: Record<string, unknown>, kind: AccountKind): AccountRef => (
   universityName: doc.universityName as string | undefined,
   presetKey: doc.presetKey as string | undefined,
   permissions: doc.permissions,
+  passwordChangedAt: doc.passwordChangedAt as Date | undefined,
 });
 
 /* ── Lookup ────────────────────────────────────────────────────────────── */
@@ -62,6 +64,14 @@ export async function findAccountByCredential(identifier: string) {
 
   const portal = await PortalAccount.findOne(query).select('+password');
   if (portal) return { kind: 'portal' as const, doc: portal };
+
+  // students may also sign in with their mobile number
+  const digits = value.replace(/[\s()-]/g, '');
+  if (/^\+?\d{7,15}$/.test(digits)) {
+    const bare = digits.replace(/^\+/, '');
+    const byPhone = await PortalAccount.findOne({ phone: { $in: [digits, bare, `+${bare}`] }, isActive: true }).select('+password');
+    if (byPhone) return { kind: 'portal' as const, doc: byPhone };
+  }
 
   return null;
 }

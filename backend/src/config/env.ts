@@ -42,6 +42,18 @@ export const env = {
   jwtSecret: required('JWT_SECRET', 'dev-only-insecure-secret'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   allowedOrigins: allowedOrigins(),
+  mail: {
+    /** sandbox = written to backend/outbox and the console, nobody is emailed. smtp = real sending. */
+    provider: process.env.MAIL_PROVIDER === 'smtp' ? 'smtp' as const : 'sandbox' as const,
+    from: process.env.MAIL_FROM || 'Vernyr <no-reply@vernyr.com>',
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === '1' || Number(process.env.SMTP_PORT) === 465,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    /** Staging safety: every email goes to this one address instead. */
+    redirectTo: process.env.MAIL_REDIRECT_TO || undefined,
+  },
   cloudinary: {
     url: process.env.CLOUDINARY_URL,
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,

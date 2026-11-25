@@ -25,6 +25,7 @@ for (const [id, svc] of Object.entries(SERVICES)) {
     if (!env[k]) { missing++; lines.push(`# MISSING: ${k}=`); continue; }
     lines.push(`${k}=${env[k]}`);
   }
+  for (const k of svc.optional ?? []) if (env[k]) lines.push(`${k}=${env[k]}`);
   const file = path.join(OUT, names[id]);
   fs.writeFileSync(file, lines.join('\n') + '\n', { mode: 0o600 });
   console.log(`- ${svc.title}: deploy/out/${names[id]}${svc.secret ? '  (contains secrets: never commit or share)' : ''}`);

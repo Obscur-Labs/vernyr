@@ -34,6 +34,8 @@ export interface IStudent extends Document {
     courses: string[];
     intake?: string;
   };
+  /** What the student gave on the portal sign-up: age group, guardian, consents, codes. */
+  signup?: Record<string, unknown>;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -62,6 +64,7 @@ const StudentSchema = new Schema<IStudent>({
     courses:      { type: [String], default: [] },
     intake:       String,
   },
+  signup: { type: Schema.Types.Mixed },
   notes: String,
 }, { timestamps: true });
 

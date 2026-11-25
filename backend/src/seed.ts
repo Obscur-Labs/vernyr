@@ -18,8 +18,11 @@ import bcrypt from 'bcryptjs';
 import { env } from './config/env';
 
 // Demo data wipes collections first: never against the live database.
-if (env.mode === 'live' || process.env.NODE_ENV === 'production') {
-  console.error('Refusing to seed demo data in live mode. Use `npm run bootstrap` for the first Admin.');
+const sameDb = (a?: string, b?: string) => {
+  try { const x = new URL(a!), y = new URL(b!); return x.host === y.host && x.pathname === y.pathname; } catch { return false; }
+};
+if (env.mode === 'live' || process.env.NODE_ENV === 'production' || sameDb(env.mongoUri, process.env.LIVE_MONGODB_URI)) {
+  console.error('Refusing to seed demo data: the target is the live database. Point LOCAL_MONGODB_URI at a separate database first.');
   process.exit(1);
 }
 
