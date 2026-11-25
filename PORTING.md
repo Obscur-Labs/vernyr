@@ -48,3 +48,16 @@ Each phase ends with typecheck, build, `npm run test:security` and new tests for
 
 Legacy source map for each phase: `legacy/server/` (`auth.js`, `rbac.js`, `email.js`, `routes/*`, `admin5/*`, `portal/*`, `svcinvoice.js`, `wallet.js`, `promotions.js`, `appointments.js`, `dpdp.js`, `legal/*`) and the rules in `legacy/README.md`.
 Legacy tests (`legacy/tests/*.test.js`, 77 passing) are the acceptance list for each phase.
+
+## CRM screen by screen (current)
+
+Toolkit in `crm/src/le/` mirrors the client's `core.js`: `form.tsx` (field descriptors, formModal), `ListView.tsx`, `ui.tsx` (toast, modal, confirm),
+`meta.ts` (`/api/meta` + `M` helpers), `Shell.tsx`, `format.ts`. Ported screens live in `crm/src/app/(le)/`; the dump's page is deleted when its replacement lands.
+Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`, `routes/leads.ts`, `config/clientPerms.ts`).
+
+| Screen | Status |
+|---|---|
+| Shell, `/api/meta`, `/api/me`, masters (sources, stages, countries, intakes, document types) | done |
+| Leads: list, filters, chips, saved views, add / edit, duplicate popup, detail, status flow, call log, follow-up, delete | done |
+| Leads: convert to student, bulk assign, CSV import, Excel export, merge | with Students |
+| Students, Applications & Visa, Documents, Tasks, Dashboard, Appointments, Chat, Requests, Courses, Admin console | next, in this order |

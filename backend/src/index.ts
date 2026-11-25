@@ -22,6 +22,7 @@ import accessRoutes from "./routes/access";
 import portalAccountRoutes from "./routes/portalAccounts";
 import catalogueRoutes from "./routes/catalogue";
 import reportRoutes from "./routes/reports";
+import metaRoutes from "./routes/meta";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -83,6 +84,8 @@ app.use("/api/access", accessRoutes);
 app.use("/api/portal-accounts", portalAccountRoutes);
 app.use("/api/catalogue", catalogueRoutes);
 app.use("/api/reports", reportRoutes);
+// the client's CRM contract (legacy/server): masters, me, and the modules ported from it
+app.use("/api", metaRoutes);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.

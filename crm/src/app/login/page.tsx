@@ -31,7 +31,7 @@ function Login() {
       return;
     }
     setAuth(data.user, data.token, data.access as never);
-    router.push('/dashboard');
+    router.push('/leads');
   };
 
   const submit = async (e: React.FormEvent) => {

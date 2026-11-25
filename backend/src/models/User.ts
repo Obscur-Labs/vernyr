@@ -9,11 +9,11 @@ import {
 
 /** `users` — the people who work here. */
 
-export type StaffRole = 'admin' | 'counsellor';
+export type StaffRole = 'admin' | 'counsellor' | 'manager';
 /** Kept as the union of both collections' roles, for code that spans them. */
-export type UserRole = 'admin' | 'counsellor' | 'student' | 'university';
+export type UserRole = 'admin' | 'counsellor' | 'manager' | 'student' | 'university';
 
-export const STAFF_ROLES: StaffRole[] = ['admin', 'counsellor'];
+export const STAFF_ROLES: StaffRole[] = ['admin', 'counsellor', 'manager'];
 
 /** Every staff member, Admins included, signs in with a username. */
 export const EMAIL_LOGIN_ROLES: UserRole[] = []; // every staff member signs in with a username (La Europa decision)

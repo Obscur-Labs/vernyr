@@ -5,7 +5,6 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "seed": "ts-node src/seed.ts",
     "bootstrap": "ts-node src/scripts/bootstrap.ts",
     "migrate:usernames": "ts-node src/scripts/backfillUsernames.ts",
     "migrate:roles": "ts-node src/scripts/consolidateRoles.ts",
