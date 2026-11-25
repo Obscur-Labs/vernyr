@@ -70,3 +70,5 @@ export const ScheduledReport = mongoose.model<IScheduledReport>('ScheduledReport
   status: { type: String, default: 'Active' }, ...STD,
 }, { timestamps: true }));
 export const RestoreTest = mongoose.model('RestoreTest', new Schema({ tested_on: String, result: String, note: String, by_user: ref('User') }, { timestamps: true }));
+/** One row per reminder already sent, so a job never sends it twice; rows expire after 60 days. */
+export const ReminderSent = mongoose.model('ReminderSent', new Schema({ key: { type: String, required: true, unique: true }, createdAt: { type: Date, default: Date.now, expires: 60 * 86400 } }), 'reminderssent');

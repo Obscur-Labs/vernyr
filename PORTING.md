@@ -41,8 +41,8 @@ Each phase ends with typecheck, build, `npm run test:security` and new tests for
 | 3 | Student lifecycle | leads, conversion, Applications & Visa flow, document checklists per country / level, versions, PDF merge, tasks, comments, appointments, walk-in QR / info form | |
 | 4 | Money | service packages + instalments, discounts with approval, refunds, GST invoices (CGST + SGST in Gujarat, IGST elsewhere, FY number series), payment proof with UTR, receipts, UPI QR, PDFs (pdf-lib) | |
 | 5 | Student portal rules | profile wizard, eligibility, Apply Now requests, one signed Student Agreement & Consent with PDF, offers, wallet, referrals, promotions | |
-| 6 | Admin console | assignment engine, approvals centre, 10 standard reports + scheduled emails, sessions, backups, company profile, India DPDP module | |
-| 7 | Jobs | reminders, 9:00 AM IST summaries, 2:00 AM IST retention / backups (Render cron or in-process) | |
+| 6 | Admin console | assignment engine, approvals centre, 10 standard reports + scheduled emails, sessions, backups, company profile, India DPDP module | done |
+| 7 | Jobs | reminders, 9:00 AM IST summaries, 2:00 AM IST retention / backups (Render cron or in-process) | done |
 | 8 | Screens | new or changed UI for phases 1 to 7, each shown to the user before it is built | waits for approval |
 | 9 | Partner portal | from `partner/mvp-reference/` | on hold |
 
@@ -69,7 +69,9 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 | Legal & privacy: versioned legal documents (seeded from `backend/legal/`), consent log + export, privacy requests with deadlines, breach register + Board templates, DPDP notices, cold-lead retention, processors register | done |
 | Profile engine (sections, validation, locks after submit, change requests, lead drafts copied on convert, completion, journey) + the one Student information form, CRM tab routes | done (portal routes come with the portal) |
 | Course catalogue in the client's model (University ID / Course ID, university settings every course follows, per-university Excel, publish rules, logos), course admin, staff course search with eligibility; the dump's catalogue and importer deleted | done |
-| Admin console (`admin5/`: people, ops, money, comms, insights, registry, assign engine, approvals), jobs | next |
+| Admin console (`admin5/`: Super Admin, console permissions, settings registry, approvals, home, company, health, audit; packages, payments, refunds, reconciliation; templates, senders, email monitor, channels, announcements; checklist templates, catalogue quality, universities, standard + scheduled reports; roles grid, users, branches, teams, assignment engine + queue, bulk transfer, duplicate merge) | done (no step-up codes, sessions list or backups: JWT is stateless and Atlas keeps the snapshots; commissions wait for the partner portal) |
+| Jobs (`services/jobs.ts`): follow-up and task reminders, 9 AM IST digests and deadlines, portal reminders (E30, E18, E29, visa), expired Apply Now requests, 2 AM IST duplicate / catalogue scans, scheduled reports, approvals SLA, announcements, cleanup | done (in-process; reminders deduped in `reminderssent`) |
+| Portal-side routes (student sign-in to the new account model, profile wizard, Apply Now, meetings, offers, wallet, invoices, consent signing, chat) | next |
 
 | CRM screen (client UI) | Status |
 |---|---|

@@ -32,6 +32,7 @@ import consoleCommsRoutes from "./routes/consoleComms";
 import consoleInsightsRoutes from "./routes/consoleInsights";
 import consolePeopleRoutes from "./routes/consolePeople";
 import { startDpdpJobs } from "./services/dpdp";
+import { startJobs } from "./services/jobs";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -139,6 +140,7 @@ app.use(uploadErrorHandler);
 server.listen(env.port, () => {
   startEmailWorker();
   startDpdpJobs();
+  startJobs();
   seedTemplates().catch((e) => console.error("[email templates]", e));
   console.log(`StudyCRM backend running on port ${env.port} (mode: ${env.mode})`);
   console.log(`Allowed browser origins: ${env.allowedOrigins.join(", ") || "(none)"}`);
