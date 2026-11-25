@@ -71,7 +71,9 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 | Course catalogue in the client's model (University ID / Course ID, university settings every course follows, per-university Excel, publish rules, logos), course admin, staff course search with eligibility; the dump's catalogue and importer deleted | done |
 | Admin console (`admin5/`: Super Admin, console permissions, settings registry, approvals, home, company, health, audit; packages, payments, refunds, reconciliation; templates, senders, email monitor, channels, announcements; checklist templates, catalogue quality, universities, standard + scheduled reports; roles grid, users, branches, teams, assignment engine + queue, bulk transfer, duplicate merge) | done (no step-up codes, sessions list or backups: JWT is stateless and Atlas keeps the snapshots; commissions wait for the partner portal) |
 | Jobs (`services/jobs.ts`): follow-up and task reminders, 9 AM IST digests and deadlines, portal reminders (E30, E18, E29, visa), expired Apply Now requests, 2 AM IST duplicate / catalogue scans, scheduled reports, approvals SLA, announcements, cleanup | done (in-process; reminders deduped in `reminderssent`) |
-| Portal-side routes (student sign-in to the new account model, profile wizard, Apply Now, meetings, offers, wallet, invoices, consent signing, chat) | next |
+| Student portal API (`/api/portal`: guard with read-only preview and consent gate, me, profile wizard, dashboard, courses, shortlist, Apply Now, applications and offers, documents, payments, visa, tasks, chat, notifications, settings, privacy, my data, referrals, calendar) | done |
+| Student portal API, rest: signed Student Declaration (email code, locked PDF, certificate), invite accept and staff preview links, portal side of meetings, promotions, wallet, invoices and the information form | next |
+| `backend/scripts/security-smoke.js` | broken: still loads `models/Document` and the dump routes; rewrite against the ported API |
 
 | CRM screen (client UI) | Status |
 |---|---|
