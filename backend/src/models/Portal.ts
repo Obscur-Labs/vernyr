@@ -82,7 +82,7 @@ export const PaymentSubmission = model<IPaymentSubmission>('PaymentSubmission', 
 });
 
 // ---------- portal chat: one thread per student (or lead before conversion) ----------
-export interface ChatAttachment { _id: Types.ObjectId; file_key: string; resource_type?: string; original_name?: string; mime_type?: string; size_bytes?: number; duration_seconds?: number; saved_document_id?: Types.ObjectId }
+export interface ChatAttachment { _id: Types.ObjectId; file_key: string; public_id?: string; resource_type?: string; original_name?: string; mime_type?: string; size_bytes?: number; duration_seconds?: number; saved_document_id?: Types.ObjectId }
 export interface IChatMessage extends Document {
   student_id?: Types.ObjectId; lead_id?: Types.ObjectId; sender_type: 'staff' | 'student' | 'system'; sender_user_id?: Types.ObjectId; body?: string; context_type?: string; context_id?: string;
   channel: string; sent_at: Date; delivered_at?: Date; read_at?: Date; edited_at?: Date; deleted_at?: Date; original_body?: string; reported_at?: Date; attachments: ChatAttachment[];
@@ -90,7 +90,7 @@ export interface IChatMessage extends Document {
 export const ChatMessage = mongoose.model<IChatMessage>('ChatMessage', new Schema<IChatMessage>({
   student_id: ref('Student'), lead_id: ref('Lead'), sender_type: { type: String, required: true }, sender_user_id: Schema.Types.ObjectId, body: String, context_type: String, context_id: String,
   channel: { type: String, default: 'portal' }, sent_at: { type: Date, default: Date.now }, delivered_at: Date, read_at: Date, edited_at: Date, deleted_at: Date, original_body: String, reported_at: Date,
-  attachments: [new Schema({ file_key: { type: String, required: true }, resource_type: String, original_name: String, mime_type: String, size_bytes: Number, duration_seconds: Number, saved_document_id: ref('StudentDocument') })],
+  attachments: [new Schema({ file_key: { type: String, required: true }, public_id: String, resource_type: String, original_name: String, mime_type: String, size_bytes: Number, duration_seconds: Number, saved_document_id: ref('StudentDocument') })],
 }).index({ student_id: 1, sent_at: 1 }).index({ lead_id: 1, sent_at: 1 }), 'portalchatmessages');
 
 // ---------- notification preferences, deletion and export requests, referrals, profile drafts ----------

@@ -21,6 +21,7 @@ import coreRoutes from "./routes/core";
 import workRoutes from "./routes/work";
 import adminRoutes from "./routes/admin";
 import counsellorRoutes from "./routes/counsellors";
+import portalStaffRoutes from "./routes/portalStaff";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -106,6 +107,7 @@ app.use("/api", coreRoutes);
 app.use("/api", workRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", counsellorRoutes);
+app.use("/api", portalStaffRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));

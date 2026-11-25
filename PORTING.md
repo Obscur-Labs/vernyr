@@ -37,7 +37,7 @@ Each phase ends with typecheck, build, `npm run test:security` and new tests for
 | 0 | Foundation | repo, branch, backups, empty database, secrets, database `vernyr`, deploy kit, `portal/` + `partner/` | done |
 | 1a | Sign-in (client UI) | CRM login + first-login code + forgot by code; portal login (email or mobile), sign-up with email code, guardian consent, forgot; lockout 5 / 15 min; 12 h or 7 day sessions; reset signs out every session; legal pages at portal `/legal/*` | done |
 | 1b | Accounts and access | roles above as presets, Super Admin, data scope, one-counsellor rule, idle timeout, new-device email, audit log, settings registry | next |
-| 2 | Email engine | nodemailer queue with retries, templates E01 to E49, one thread per student, hard CC `laeuropaapplication@gmail.com`, placeholder whitelist, security emails without CC | |
+| 2 | Email engine | nodemailer queue with retries, templates E01 to E49, one thread per student, hard CC `laeuropaapplication@gmail.com`, placeholder whitelist, security emails without CC | done |
 | 3 | Student lifecycle | leads, conversion, Applications & Visa flow, document checklists per country / level, versions, PDF merge, tasks, comments, appointments, walk-in QR / info form | |
 | 4 | Money | service packages + instalments, discounts with approval, refunds, GST invoices (CGST + SGST in Gujarat, IGST elsewhere, FY number series), payment proof with UTR, receipts, UPI QR, PDFs (pdf-lib) | |
 | 5 | Student portal rules | profile wizard, eligibility, Apply Now requests, one signed Student Agreement & Consent with PDF, offers, wallet, referrals, promotions | |
@@ -62,9 +62,10 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 | Students (profile tabs, transfer, timeline, comments, pinned notes) | done |
 | Core: dashboard, tasks, notifications, search, my profile | done |
 | Shortlist, applications (one Application & Visa flow), documents, fees, visa | done |
-| Admin: users, masters, templates, settings, audit, reports, export; counsellors; walk-in QR | next |
-| Email engine (queue, templates E01 to E49, thread, hard CC) replacing the fire() hook | next |
-| Portal staff side, appointments, promotions, wallet, GST invoices, DPDP, course search, admin console | after |
+| Admin: users, masters, templates, settings, audit, reports, export; counsellors; walk-in QR | done |
+| Email engine (queue, templates E01 to E49, thread, hard CC, template admin, student email log, webhook) | done |
+| Portal staff side: invite, Apply Now requests, chat, change requests, saved courses, sharing, fee instructions, offer conditions, payment proofs, student accounts, deletion requests | done (portal "view as student" preview and the catalogue admin come with the portal and course modules) |
+| Appointments, promotions, wallet, GST invoices, DPDP, course search, university catalogue, admin console, jobs | next |
 
 | CRM screen (client UI) | Status |
 |---|---|

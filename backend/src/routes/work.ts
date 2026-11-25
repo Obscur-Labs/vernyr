@@ -799,14 +799,11 @@ function payValidate(b: Record<string, any>, receiptPresent: boolean, existing?:
   if (b.payment_for === 'Tuition fee / deposit' && !receiptPresent && !existing?.receipt_document_id) errors.receipt = 'Receipt is required for tuition fee';
   if (Object.keys(errors).length) throw bad('Please fix the highlighted fields', { errors });
 }
-router.post('/students/:id/payments', upload.single('receipt'), handle(async (req, res) => {
-  need(req, 'fees', 'add');
-  const s = await loadStudent(req, req.params.id);
-  const b = body(req);
-  payValidate(b, !!req.file);
+/** Record a payment (staff form, or a student's payment proof) and send E12 / E13. */
+async function recordPayment(req: AuthRequest, s: IStudent, b: Record<string, any>, receipt?: unknown, receiptPresent = false) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  payValidate(b, receiptPresent || !!receipt);
   if (oid(b.application_id) && !(await Application.exists({ _id: oid(b.application_id), student_id: s._id }))) throw forbidden();
-  const receipt = req.file ? (await saveAs(s._id as Types.ObjectId, 'Fee receipt', req.file, req.user!.id, { application_id: oid(b.application_id) ?? undefined })).document_id : undefined;
-  const p = await Payment.create({ student_id: s._id, application_id: oid(b.application_id) ?? undefined, payment_for: b.payment_for, amount: num(b.amount), currency: b.currency, payment_date: b.payment_date,
+  const p = await Payment.create({ payment_submission_id: oid(b.payment_submission_id) ?? undefined, student_id: s._id, application_id: oid(b.application_id) ?? undefined, payment_for: b.payment_for, amount: num(b.amount), currency: b.currency, payment_date: b.payment_date,
     mode: b.mode, paid_by: b.paid_by || undefined, reference_no: clean(b.reference_no, 100), receipt_document_id: oid(receipt) ?? undefined, instalment_no: num(b.instalment_no), remarks: clean(b.remarks, 500), created_by: req.user!.id });
   await timeline({ student_id: s._id, type: 'payment', description: `Payment recorded: ${b.payment_for} ${b.amount} ${b.currency} on ${b.payment_date} (${b.mode})`, user_id: req.user!.id });
   const fd = await feeData(s, req);
@@ -819,7 +816,15 @@ router.post('/students/:id/payments', upload.single('receipt'), handle(async (re
     email = await fire(req, 'E13', { student_id: s._id }, { amount: Number(b.amount).toLocaleString('en-IN'), currency: b.currency, payment_date: b.payment_date,
       pending_amount: fd.service.pending !== null ? fd.service.pending.toLocaleString('en-IN') : '0' }, 'Service fee payment recorded (E13)');
   }
-  res.json({ id: String(p._id), email });
+  return { id: String(p._id), email };
+}
+router.post('/students/:id/payments', upload.single('receipt'), handle(async (req, res) => {
+  need(req, 'fees', 'add');
+  const s = await loadStudent(req, req.params.id);
+  const b = body(req);
+  payValidate(b, !!req.file);
+  const receipt = req.file ? (await saveAs(s._id as Types.ObjectId, 'Fee receipt', req.file, req.user!.id, { application_id: oid(b.application_id) ?? undefined })).document_id : undefined;
+  res.json(await recordPayment(req, s, b, receipt, !!req.file));
 }));
 router.put('/payments/:pid', upload.single('receipt'), handle(async (req, res) => {
   const { row: p, student: s } = await loadChild(req, Payment, req.params.pid, 'Payment');
@@ -1014,4 +1019,5 @@ router.post('/visa/:vid/reapply', handle(async (req, res) => {
   res.json({ ok: true });
 }));
 
+export { recordPayment, createApplication, shortlistWarnings, names as workNames, loadChild };
 export default router;

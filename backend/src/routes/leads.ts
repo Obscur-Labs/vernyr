@@ -1,4 +1,6 @@
 import { Router, Response } from 'express';
+import { linkOnConvert, autoInvite } from '../services/portal';
+import { trigger } from '../services/email';
 import mongoose from 'mongoose';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import Lead, { LeadActivity, LEAD_FLOW, LEVELS, type ILead, type LeadStatus } from '../models/Lead';
@@ -339,6 +341,7 @@ router.put('/:id/activities/:aid', handle(async (req, res) => {
   res.json({ ok: true });
 }));
 
+export { scope as leadScope, loadLead };
 export default router;
 
 // ---------- delete (soft, with reason) and request access to a duplicate ----------
@@ -379,6 +382,9 @@ router.post('/:id/convert', handle(async (req, res) => {
   if (String(counsellor) !== req.user!.id) await notify(counsellor, 'assigned', `New student assigned to you: ${leadName(l)} (${student_code})`, `/students/${s._id}`);
   await timeline({ lead_id: l._id, type: 'stage', description: `Converted to student ${student_code}`, user_id: req.user!.id });
   await timeline({ student_id: s._id, type: 'stage', description: `Student registered from lead ${l.lead_code} by ${req.user!.name}`, user_id: req.user!.id });
-  // E02 welcome email, the portal invite and moving the lead's portal account arrive with the email engine / portal (PORTING.md)
+  await linkOnConvert(req, l._id, s._id);
+  // E02 is the welcome email: it starts the student's thread
+  await trigger('E02', { student_id: s._id, userId: req.user!.id, ctx: { next_step: 'Your counsellor will collect your academic details and documents, and then share course options with you.' }, immediate: true, noBatch: true });
+  await autoInvite(req, s._id);
   res.json({ student_id: String(s._id), student_code });
 }));

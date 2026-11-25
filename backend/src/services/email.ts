@@ -223,14 +223,14 @@ export async function trigger(code: string, opts: TriggerOpts) {
 }
 
 /** Fire a trigger respecting the user's "Save without notifying" choice (legacy services.fire). */
-export async function fire(req: AuthRequest, code: string, target: { student_id?: unknown; lead_id?: unknown }, ctx: Record<string, unknown>, what: string) {
+export async function fire(req: AuthRequest, code: string, target: { student_id?: unknown; lead_id?: unknown }, ctx: Record<string, unknown>, what: string, opts: { inAppTitle?: string } = {}) {
   const b = (req.body ?? {}) as Record<string, unknown>;
   if (b.notify === false || b.notify === 'false' || b.notify === '0') {
     await timeline({ ...target, type: 'email', description: `Saved without notifying: ${what}`, user_id: req.user!.id });
     await audit(req, 'Save without notifying', target.student_id ? 'Student' : 'Lead', target.student_id ?? target.lead_id, what);
     return null;
   }
-  const r = await trigger(code, { ...target, ctx, userId: req.user!.id, message: typeof b.message === 'string' ? b.message : undefined });
+  const r = await trigger(code, { ...target, ...opts, ctx, userId: req.user!.id, message: typeof b.message === 'string' ? b.message : undefined });
   return r.queued ? { id: r.id!, status: 'Queued' } : null;
 }
 
