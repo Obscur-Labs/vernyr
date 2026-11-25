@@ -29,11 +29,13 @@ const ACTIONS: Record<Level, string[]> = { F: ['view', 'add', 'edit', 'delete'],
 
 export const clientRole = (role: string): ClientRole => (role === 'admin' || role === 'manager' ? role : 'counsellor');
 
+/** Only staff hold anything in this matrix: a portal login (student, university) holds nothing, whatever the route. */
+const isStaff = (role: string) => role === 'admin' || role === 'manager' || role === 'counsellor';
 export const can = (role: string, module: string, action = 'view') =>
-  ACTIONS[MATRIX[module]?.[clientRole(role)] ?? '-'].includes(action);
+  isStaff(role) && ACTIONS[MATRIX[module]?.[clientRole(role)] ?? '-'].includes(action);
 
 /** `perms` as the client's front end reads it: { module: ['view', 'add', ...] }. */
 export const permsFor = (role: string) =>
-  Object.fromEntries(Object.keys(MATRIX).map((m) => [m, ACTIONS[MATRIX[m][clientRole(role)]]]));
+  Object.fromEntries(Object.keys(MATRIX).map((m) => [m, isStaff(role) ? ACTIONS[MATRIX[m][clientRole(role)]] : []]));
 
 export const ROLE_NAMES: Record<ClientRole, string> = { admin: 'Admin', counsellor: 'Counsellor', manager: 'Manager' };

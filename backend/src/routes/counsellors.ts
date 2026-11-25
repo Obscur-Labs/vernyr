@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Types } from 'mongoose';
 import QRCode from 'qrcode';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { authenticate, type AuthRequest } from '../middleware/auth';
+import { authenticate, staffOnly, type AuthRequest } from '../middleware/auth';
 import User from '../models/User';
 import Student from '../models/Student';
 import Lead from '../models/Lead';
@@ -18,6 +18,7 @@ import { env } from '../config/env';
 /** The client's Counsellors overview (Admin / Manager) and the office walk-in QR (legacy/server/routes/counsellors.js). */
 const router = Router();
 router.use(authenticate);
+router.use(['/counsellors', '/walkin-qr'], staffOnly);
 
 const guard = (req: AuthRequest) => { if (!['admin', 'manager'].includes(req.user!.role)) throw new HttpError(403, 'Only Admin and Manager can see the counsellors overview'); };
 const OFFER = ['conditional_offer', 'unconditional_offer', 'offer_accepted'];

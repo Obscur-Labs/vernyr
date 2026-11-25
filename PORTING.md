@@ -74,7 +74,7 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 | Student portal API (`/api/portal`: guard with read-only preview and consent gate, me, profile wizard, dashboard, courses, shortlist, Apply Now, applications and offers, documents, payments, visa, tasks, chat, notifications, settings, privacy, my data, referrals, calendar) | done |
 | Student portal API, rest: signed Student Declaration (email code, guardian code, locked PDF, certificate, public verify), invite accept, staff preview links, portal side of meetings, promotions, wallet, invoices and the information form | done (signature in Times bold italic: the handwriting font needs `@pdf-lib/fontkit`; no printable referral card, the QR comes with `/referrals`) |
 | CRM screens in the client UI | next |
-| `backend/scripts/security-smoke.js` | broken: still loads `models/Document` and the dump routes; rewrite against the ported API |
+| `backend/scripts/security-smoke.js` | rewritten against the ported API: 36 checks |
 
 | CRM screen (client UI) | Status |
 |---|---|

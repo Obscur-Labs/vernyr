@@ -85,3 +85,9 @@ export function can(module: string, action: Action) {
     next();
   };
 }
+
+/** CRM-only routers: a portal login (student, university) is refused outright. */
+export function staffOnly(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!req.user || !['admin', 'manager', 'counsellor'].includes(req.user.role)) { res.status(403).json({ message: 'Insufficient permissions' }); return; }
+  next();
+}

@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, staffOnly, AuthRequest } from '../middleware/auth';
 import User from '../models/User';
 import University from '../models/University';
 import Course from '../models/Course';
@@ -23,7 +23,7 @@ async function publicUser(userId: string) {
   };
 }
 
-router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/me', authenticate, staffOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const me = await publicUser(req.user!.id);
     if (!me) { res.status(404).json({ error: 'Not found' }); return; }
@@ -31,7 +31,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise
   } catch (err) { serverError(res, err); }
 });
 
-router.get('/meta', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/meta', authenticate, staffOnly, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await ensureMasters();
     const [items, countries, intakes, unis, courses, users, appStages, visaStages, me] = await Promise.all([
