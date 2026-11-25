@@ -38,11 +38,11 @@ export const ProfileChangeRequest = model<IProfileChangeRequest>('ProfileChangeR
 
 // ---------- consent: append-only ----------
 export interface IConsentRecord extends Document {
-  student_user_id?: Types.ObjectId; lead_id?: Types.ObjectId; consent_type: string; document_version?: string; value: string; ip?: string; user_agent?: string; createdAt: Date;
+  student_user_id?: Types.ObjectId; lead_id?: Types.ObjectId; consent_type: string; document_version?: string; value: string; ip?: string; user_agent?: string; createdAt: Date; document_id?: Types.ObjectId; document_hash?: string; method?: string; scrolled_to_end?: boolean | null; time_spent_sec?: number | null; timezone?: string; locale?: string; extra?: Record<string, unknown>; university_id?: Types.ObjectId; application_id?: Types.ObjectId;
 }
 const ConsentSchema = new Schema<IConsentRecord>({
   student_user_id: { ...ref('PortalAccount'), index: true }, lead_id: ref('Lead'), consent_type: { type: String, required: true }, document_version: String,
-  value: { type: String, required: true }, ip: String, user_agent: String,
+  value: { type: String, required: true }, ip: String, user_agent: String, document_id: Schema.Types.ObjectId, document_hash: String, method: String, scrolled_to_end: Boolean, time_spent_sec: Number, timezone: String, locale: String, extra: Schema.Types.Mixed, university_id: Schema.Types.ObjectId, application_id: Schema.Types.ObjectId,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 const appendOnly = () => { throw new Error('consent records are append-only'); };
 for (const op of ['updateOne', 'updateMany', 'findOneAndUpdate', 'deleteOne', 'deleteMany', 'findOneAndDelete', 'replaceOne'] as const) ConsentSchema.pre(op, appendOnly);

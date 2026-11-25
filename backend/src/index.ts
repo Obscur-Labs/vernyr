@@ -25,6 +25,8 @@ import portalStaffRoutes from "./routes/portalStaff";
 import appointmentRoutes from "./routes/appointments";
 import rewardRoutes from "./routes/rewards";
 import invoiceRoutes from "./routes/invoices";
+import privacyRoutes from "./routes/privacy";
+import { startDpdpJobs } from "./services/dpdp";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -114,6 +116,7 @@ app.use("/api", portalStaffRoutes);
 app.use("/api", appointmentRoutes);
 app.use("/api", rewardRoutes);
 app.use("/api", invoiceRoutes);
+app.use("/api/admin", privacyRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));
@@ -123,6 +126,7 @@ app.use(uploadErrorHandler);
 
 server.listen(env.port, () => {
   startEmailWorker();
+  startDpdpJobs();
   seedTemplates().catch((e) => console.error("[email templates]", e));
   console.log(`StudyCRM backend running on port ${env.port} (mode: ${env.mode})`);
   console.log(`Allowed browser origins: ${env.allowedOrigins.join(", ") || "(none)"}`);

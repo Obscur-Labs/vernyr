@@ -17,7 +17,7 @@ export const LEVELS = ['Bachelor', 'Master', 'MBA', 'PhD', 'Diploma', 'Foundatio
 
 export interface ILead extends Document {
   lead_code: string; first_name: string; last_name?: string; country_code: string; phone: string; phone_normalised?: string;
-  is_whatsapp: boolean; alt_phone?: string; email?: string; email_thread_root_id?: string; email_thread_subject?: string; email_refs?: string[]; portal_signed_up_at?: Date; promo_code?: string; city?: string; state?: string;
+  is_whatsapp: boolean; alt_phone?: string; email?: string; email_thread_root_id?: string; email_thread_subject?: string; email_refs?: string[]; portal_signed_up_at?: Date; promo_code?: string; erased_at?: Date; city?: string; state?: string;
   source_id: mongoose.Types.ObjectId; sub_agent_id?: mongoose.Types.ObjectId; referred_by?: string; source_details?: string;
   interested_countries: mongoose.Types.ObjectId[]; course_interest?: string; level?: string; intake_id?: mongoose.Types.ObjectId; highest_qualification?: string;
   status: LeadStatus; not_interested_reason?: string; next_followup_at?: Date; notes_internal?: string;
@@ -35,7 +35,7 @@ const LeadSchema = new Schema<ILead>({
   phone: { type: String, required: true },
   phone_normalised: { type: String, index: true },
   is_whatsapp: { type: Boolean, default: true },
-  alt_phone: String, email: { type: String, lowercase: true, trim: true, index: true }, email_thread_root_id: String, email_thread_subject: String, email_refs: { type: [String], default: [] }, portal_signed_up_at: Date, promo_code: String, city: String, state: String,
+  alt_phone: String, email: { type: String, lowercase: true, trim: true, index: true }, email_thread_root_id: String, email_thread_subject: String, email_refs: { type: [String], default: [] }, portal_signed_up_at: Date, promo_code: String, erased_at: Date, city: String, state: String,
   source_id: ref('MasterItem'), sub_agent_id: ref('MasterItem'), referred_by: String, source_details: String,
   interested_countries: { type: [{ type: Schema.Types.ObjectId, ref: 'Country' }], default: [] },
   course_interest: String, level: String, intake_id: ref('Intake'), highest_qualification: String,
