@@ -80,4 +80,5 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 |---|---|
 | Shell (top-bar search, notification bell, user menu), Leads, Dashboard, Tasks, Notifications, Search, My Profile | done |
 | Students list and profile (Information form, Shortlist, Applications & Visa, Documents, Payments with GST invoices and proofs, Tasks, Chat, Requests, Notes, Emails, History; summary, full record, signed consent and court certificate PDFs), Applications (table + kanban), Documents to verify, Visa cases, Student Requests, Chat inbox | done |
+| Counsellors (list + detail), Walk-in QR, Appointments (requests, upcoming, past, meeting hours), Course search + course detail with eligibility, Promotions and wallet (promotions, claims and vouchers, referrals, wallet requests, student wallets, voucher store, partner companies, wallet settings) | done |
 | Everything else | after the backend |

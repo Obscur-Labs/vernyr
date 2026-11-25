@@ -25,6 +25,11 @@ const NAV: NavItem[] = [
   { key: 'documents', href: '/documents', label: 'Documents to verify', icon: 'docs', show: () => M.can('documents') },
   { key: 'requests', href: '/requests', label: 'Student Requests', icon: 'apps', show: () => M.can('applications') },
   { key: 'chat', href: '/chat', label: 'Student chat', icon: 'mail', show: () => true },
+  { key: 'appointments', href: '/appointments', label: 'Appointments', icon: 'calendar', show: () => true },
+  { key: 'walkin', href: '/walkin-qr', label: 'Walk-in QR', icon: 'plus', show: () => true },
+  { key: 'counsellors', href: '/counsellors', label: 'Counsellors', icon: 'leads', show: () => M.admin() || M.manager() },
+  { key: 'promotions', href: '/promotions', label: 'Promotions & wallet', icon: 'gift', show: () => M.admin() },
+  { key: 'courses', href: '/courses', label: 'Course search', icon: 'search', show: () => true },
 ];
 // the counsellor's day first: my work, then students, then universities
 const GROUPS: [string, string[]][] = [

@@ -42,6 +42,11 @@ export async function download(url: string, filename: string, open = false) {
   }
 }
 
+/** A file the API serves, as a Blob (to share it, or put it in an <img>). */
+export async function blob(url: string) {
+  try { return (await http.get(url, { responseType: 'blob' })).data as Blob; } catch { throw new ApiError(0, { error: 'Could not load the file' }); }
+}
+
 /** POST / PUT a FormData body (uploads), with the same errors as the JSON helpers. */
 export async function SEND<T = any>(method: 'post' | 'put' | 'patch', url: string, fd: FormData): Promise<T> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try { return (await http[method](url, fd)).data as T; } catch (err) {
