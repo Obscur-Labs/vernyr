@@ -29,6 +29,7 @@ import catalogueRoutes, { logoRoute } from "./routes/catalogue";
 import consoleRoutes from "./routes/console";
 import consoleMoneyRoutes from "./routes/consoleMoney";
 import consoleCommsRoutes from "./routes/consoleComms";
+import consoleInsightsRoutes from "./routes/consoleInsights";
 import { startDpdpJobs } from "./services/dpdp";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
@@ -125,6 +126,7 @@ app.use("/api", catalogueRoutes);
 app.use("/api", consoleRoutes);
 app.use("/api", consoleMoneyRoutes);
 app.use("/api", consoleCommsRoutes);
+app.use("/api", consoleInsightsRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));

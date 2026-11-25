@@ -11,7 +11,7 @@ export interface ICourse extends Document {
   duration?: string; duration_months?: number; language?: string; tuition_fee?: number | null; tuition_fee_non_eu?: number | null; currency: string; fee_note?: string;
   application_fee?: number | null; application_fee_currency?: string; course_link?: string; description?: string; scholarship: boolean; scholarship_text?: string;
   status: 'Draft' | 'Published' | 'Hidden' | 'Archived'; last_verified_on?: string; internal_note?: string; external_id?: string; min_english?: number | null;
-  own_intakes: boolean; own_english: boolean; own_app_fee: boolean; own_academic: boolean; not_in_last_import: boolean; active: boolean; approved: boolean; is_deleted: boolean;
+  own_intakes: boolean; own_english: boolean; own_app_fee: boolean; own_academic: boolean; not_in_last_import: boolean; link_domain_warning?: boolean; link_warning_reason?: string | null; active: boolean; approved: boolean; is_deleted: boolean;
   intakes: CourseIntake[]; english: CourseEnglish[]; academic?: CourseAcademic | null; created_by?: Types.ObjectId; updated_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
 }
 const CourseSchema = new Schema<ICourse>({
@@ -21,7 +21,7 @@ const CourseSchema = new Schema<ICourse>({
   application_fee: Number, application_fee_currency: String, course_link: String, description: String, scholarship: { type: Boolean, default: false }, scholarship_text: String,
   status: { type: String, default: 'Draft', index: true }, last_verified_on: String, internal_note: String, external_id: String, min_english: Number,
   own_intakes: { type: Boolean, default: false }, own_english: { type: Boolean, default: false }, own_app_fee: { type: Boolean, default: false }, own_academic: { type: Boolean, default: false },
-  not_in_last_import: { type: Boolean, default: false }, active: { type: Boolean, default: true }, approved: { type: Boolean, default: true }, is_deleted: { type: Boolean, default: false },
+  not_in_last_import: { type: Boolean, default: false }, link_domain_warning: { type: Boolean, default: false }, link_warning_reason: String, active: { type: Boolean, default: true }, approved: { type: Boolean, default: true }, is_deleted: { type: Boolean, default: false },
   intakes: [{ intake_id: { type: Schema.Types.ObjectId, ref: 'Intake' }, month: Number, year: Number, every_year: Boolean, open_date: String, deadline: String, deadline_note: String }],
   english: [{ _id: false, test_type: String, min_overall: Number, min_band: Number, moi_accepted: Boolean, min_12th_english_percent: Number }],
   academic: { type: new Schema({ required_level: String, min_percent: Number, max_backlogs: Number, accepted_fields: [String], min_work_months: Number, entrance_test: String, note: String }, { _id: false }), default: null },

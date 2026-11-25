@@ -9,12 +9,12 @@ export interface UniDefaults {
 }
 export interface IUniversity extends Document {
   name: string; short_name?: string; uni_code?: string; country_id?: Types.ObjectId; city?: string; website?: string; type?: string; active: boolean; approved: boolean;
-  logo_url?: string; logo_public_id?: string; logo_updated_at?: Date; course_defaults?: UniDefaults; is_deleted: boolean; created_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
+  logo_url?: string; logo_public_id?: string; logo_updated_at?: Date; logo_source_note?: string; logo_approved_by?: Types.ObjectId; logo_approved_at?: Date; course_defaults?: UniDefaults; is_deleted: boolean; created_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
 }
 const UniversitySchema = new Schema<IUniversity>({
   name: { type: String, required: true, trim: true }, short_name: String, uni_code: { type: String, unique: true, sparse: true }, country_id: { type: Schema.Types.ObjectId, ref: 'Country', index: true },
   city: String, website: String, type: String, active: { type: Boolean, default: true }, approved: { type: Boolean, default: true },
-  logo_url: String, logo_public_id: String, logo_updated_at: Date, course_defaults: Schema.Types.Mixed, is_deleted: { type: Boolean, default: false },
+  logo_url: String, logo_public_id: String, logo_updated_at: Date, logo_source_note: String, logo_approved_by: { type: Schema.Types.ObjectId, ref: 'User' }, logo_approved_at: Date, course_defaults: Schema.Types.Mixed, is_deleted: { type: Boolean, default: false },
   created_by: { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 

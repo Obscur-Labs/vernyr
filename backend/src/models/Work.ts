@@ -54,11 +54,11 @@ export const StageHistory = mongoose.model<IStageHistory>('StageHistory', new Sc
 /** Which document types a student needs, by country and level (legacy checklist_items). */
 export interface IChecklistItem extends Document, Std {
   country_id?: Types.ObjectId; level?: string; document_type_id: Types.ObjectId; required: string; sort: number; active: boolean;
-  visible_student: boolean; note?: string; stage?: string; applies_existing: boolean;
+  visible_student: boolean; note?: string; stage?: string; applies_existing: boolean; condition_text?: string; expiry_check?: boolean; template_name?: string;
 }
 export const ChecklistItem = mongoose.model<IChecklistItem>('ChecklistItem', new Schema<IChecklistItem>({
   country_id: ref('Country'), level: String, document_type_id: { ...ref('MasterItem'), required: true }, required: { type: String, default: 'Yes' }, sort: { type: Number, default: 0 },
-  active: { type: Boolean, default: true }, visible_student: { type: Boolean, default: true }, note: String, stage: String, applies_existing: { type: Boolean, default: true }, ...STD,
+  active: { type: Boolean, default: true }, visible_student: { type: Boolean, default: true }, note: String, stage: String, applies_existing: { type: Boolean, default: true }, condition_text: String, expiry_check: Boolean, template_name: String, ...STD,
 }, { timestamps: true }));
 
 export interface IDocVersion { _id: Types.ObjectId; version_no: number; url: string; public_id?: string; resource_type?: string; stored_name?: string; original_name?: string;
