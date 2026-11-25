@@ -9,7 +9,7 @@ export interface ITask extends Document {
   title: string; description?: string; type: string; student_id?: Types.ObjectId; lead_id?: Types.ObjectId; application_id?: Types.ObjectId; visa_case_id?: Types.ObjectId;
   assigned_to: Types.ObjectId; assigned_by?: Types.ObjectId; due_at: Date; priority: string; status: string; reminder: string; repeat_rule: string;
   completed_at?: Date; completed_by?: Types.ObjectId; is_system: boolean; system_key?: string; reminders_sent: string[];
-  is_deleted: boolean; created_by?: Types.ObjectId; updated_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
+  is_deleted: boolean; linked_document_type_id?: Types.ObjectId; completed_by_type?: string; student_comment?: string; reopen_reason?: string; reopened_at?: Date; created_by?: Types.ObjectId; updated_by?: Types.ObjectId; createdAt: Date; updatedAt: Date;
 }
 const ref = (to: string) => ({ type: Schema.Types.ObjectId, ref: to });
 const TaskSchema = new Schema<ITask>({
@@ -19,7 +19,7 @@ const TaskSchema = new Schema<ITask>({
   priority: { type: String, default: 'Medium' }, status: { type: String, default: 'Open' }, reminder: { type: String, default: 'None' }, repeat_rule: { type: String, default: 'None' },
   completed_at: Date, completed_by: ref('User'), is_system: { type: Boolean, default: false }, system_key: { type: String, index: true },
   reminders_sent: { type: [String], default: [] },
-  is_deleted: { type: Boolean, default: false }, created_by: ref('User'), updated_by: ref('User'),
+  is_deleted: { type: Boolean, default: false }, linked_document_type_id: ref('MasterItem'), completed_by_type: String, student_comment: String, reopen_reason: String, reopened_at: Date, created_by: ref('User'), updated_by: ref('User'),
 }, { timestamps: true });
 TaskSchema.index({ assigned_to: 1, status: 1, is_deleted: 1, due_at: 1 });
 
