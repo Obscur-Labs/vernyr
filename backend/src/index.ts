@@ -34,6 +34,7 @@ import consolePeopleRoutes from "./routes/consolePeople";
 import { startDpdpJobs } from "./services/dpdp";
 import { startJobs } from "./services/jobs";
 import portalRoutes from "./routes/portal";
+import portalInviteRoutes from "./routes/portalInvite";
 import legalRoutes from "./routes/legal";
 import portalAccountRoutes from "./routes/portalAccount";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
@@ -101,6 +102,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/access", accessRoutes);
+app.use("/api/portal/auth", portalInviteRoutes);
 app.use("/api/portal", portalRoutes);
 app.use("/api/portal", portalAccountRoutes);
 

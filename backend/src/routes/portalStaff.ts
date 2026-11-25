@@ -26,6 +26,8 @@ import * as CHAT from '../services/portalChat';
 import { loadLead, leadScope } from './leads';
 import { createApplication, shortlistWarnings, workNames, loadChild, recordPayment } from './work';
 import { onProofRecorded, onProofRejected } from './invoices';
+import { previewToken } from '../middleware/portal';
+import { env } from '../config/env';
 
 /** The counsellor side of the student portal (legacy/server/routes/portal_staff.js, Portal doc C1 to C11). */
 const router = Router();
@@ -51,6 +53,22 @@ router.post('/students/:id/portal-invite', handle(async (req, res) => {
   const r = await issueInvite(s._id as Types.ObjectId, req.user!.id);
   await audit(req, 'Create', 'PortalInvite', s._id, s.student_code);
   res.json({ ok: true, link: process.env.MAIL_PROVIDER === 'smtp' ? undefined : r.link });
+}));
+// "View as student": a read-only portal session for two hours; the token rides in the URL fragment, never sent to a server
+const previewUrl = (suId: unknown, staffId: string) => `${env.portalUrl}/preview#token=${previewToken(suId, staffId)}`;
+router.post('/students/:id/portal-preview', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  const su = await suOfStudent(s._id);
+  if (!su) throw bad('This student has no portal account yet.');
+  await audit(req, 'View sensitive', 'Student', s._id, `${s.student_code} View as student (portal preview)`);
+  res.json({ url: previewUrl(su._id, req.user!.id) });
+}));
+router.post('/leads/:id/portal-preview', handle(async (req, res) => {
+  const l = await loadLead(req, req.params.id);
+  const su = await suOfLead(l._id);
+  if (!su) throw bad('This lead has no portal account.');
+  await audit(req, 'View sensitive', 'Lead', l._id, `${l.lead_code} View as student (portal preview)`);
+  res.json({ url: previewUrl(su._id, req.user!.id) });
 }));
 router.get('/leads/:id/portal', handle(async (req, res) => {
   const l = await loadLead(req, req.params.id);
