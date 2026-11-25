@@ -27,6 +27,9 @@ export interface IUser extends AccountBase, Document {
   staff_code?: string;
   designation?: string;
   reports_to?: mongoose.Types.ObjectId;
+  /** Admin console (legacy admin5): Super Admin, flags, branch / team, routing data for the assignment engine. */
+  is_super_admin?: boolean; finance?: boolean; signing_authority?: boolean; discount_approver?: boolean;
+  branch_id?: mongoose.Types.ObjectId; team_id?: mongoose.Types.ObjectId; countries?: string[]; languages?: string[]; capacity?: number; leave?: { from: string; to: string; note?: string }[];
 }
 
 const UserSchema = new Schema<IUser>(
@@ -36,6 +39,9 @@ const UserSchema = new Schema<IUser>(
     staff_code: { type: String, unique: true, sparse: true },
     designation: String,
     reports_to: { type: Schema.Types.ObjectId, ref: 'User' },
+    is_super_admin: { type: Boolean, default: false }, finance: { type: Boolean, default: false }, signing_authority: { type: Boolean, default: false }, discount_approver: { type: Boolean, default: false },
+    branch_id: { type: Schema.Types.ObjectId, ref: 'Branch' }, team_id: { type: Schema.Types.ObjectId, ref: 'Team' }, countries: { type: [String], default: undefined }, languages: { type: [String], default: undefined },
+    capacity: { type: Number, default: 0 }, leave: { type: [{ _id: false, from: String, to: String, note: String }], default: undefined },
   },
   { timestamps: true },
 );

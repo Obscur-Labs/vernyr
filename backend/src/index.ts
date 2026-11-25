@@ -26,6 +26,7 @@ import rewardRoutes from "./routes/rewards";
 import invoiceRoutes from "./routes/invoices";
 import privacyRoutes from "./routes/privacy";
 import catalogueRoutes, { logoRoute } from "./routes/catalogue";
+import consoleRoutes from "./routes/console";
 import { startDpdpJobs } from "./services/dpdp";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
@@ -119,6 +120,7 @@ app.use("/api", rewardRoutes);
 app.use("/api", invoiceRoutes);
 app.use("/api/admin", privacyRoutes);
 app.use("/api", catalogueRoutes);
+app.use("/api", consoleRoutes);
 
 // Unknown paths answer as JSON too — the frontends only ever parse JSON.
 app.use((_req, res) => res.status(404).json({ message: "Not found" }));

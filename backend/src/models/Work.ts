@@ -88,12 +88,12 @@ export const FeeSummary = mongoose.model<IFeeSummary>('FeeSummary', new Schema<I
 }, { timestamps: true }));
 export interface IPayment extends Document, Std {
   student_id: Types.ObjectId; application_id?: Types.ObjectId; payment_for: string; amount: number; currency: string; payment_date: string; mode: string;
-  paid_by?: string; reference_no?: string; receipt_document_id?: Types.ObjectId; instalment_no?: number; remarks?: string; payment_submission_id?: Types.ObjectId; invoice_id?: Types.ObjectId; receipt_no?: string;
+  paid_by?: string; reference_no?: string; receipt_document_id?: Types.ObjectId; instalment_no?: number; remarks?: string; payment_submission_id?: Types.ObjectId; invoice_id?: Types.ObjectId; receipt_no?: string; is_refund?: boolean; refund_reason?: string; refund_status?: string; approved_by?: Types.ObjectId; approved_at?: Date;
 }
 export const Payment = mongoose.model<IPayment>('Payment', new Schema<IPayment>({
   student_id: { ...ref('Student'), required: true, index: true }, application_id: ref('Application'), payment_for: { type: String, required: true }, amount: { type: Number, required: true },
   currency: { type: String, required: true }, payment_date: { type: String, required: true }, mode: { type: String, required: true }, paid_by: String, reference_no: String,
-  receipt_document_id: ref('StudentDocument'), instalment_no: Number, remarks: String, payment_submission_id: Schema.Types.ObjectId, invoice_id: Schema.Types.ObjectId, receipt_no: String, ...STD,
+  receipt_document_id: ref('StudentDocument'), instalment_no: Number, remarks: String, payment_submission_id: Schema.Types.ObjectId, invoice_id: Schema.Types.ObjectId, receipt_no: String, is_refund: { type: Boolean, default: false }, refund_reason: String, refund_status: String, approved_by: ref('User'), approved_at: Date, ...STD,
 }, { timestamps: true }));
 
 // ---------- visa (10) ----------
