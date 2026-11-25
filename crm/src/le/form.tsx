@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fromLocalInput, toLocalInput } from './format';
 import { ApiError } from './api';
 import { Modal, confirmBox, openOverlay, showError } from './ui';
@@ -11,10 +11,10 @@ import { Modal, confirmBox, openOverlay, showError } from './ui';
 export type Vals = Record<string, any>;
 export type OptIn = string | [unknown, string] | { id: string; name: string };
 export interface Field {
-  k: string; label?: string; type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'url' | 'section' | 'select' | 'multi' | 'textarea' | 'checkbox' | 'yesno' | 'phone' | 'password' | 'datetime' | 'html';
+  k: string; label?: string; type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'url' | 'section' | 'select' | 'multi' | 'textarea' | 'checkbox' | 'yesno' | 'phone' | 'password' | 'datetime' | 'html' | 'file';
   req?: boolean; opts?: OptIn[] | ((v: Vals) => OptIn[]); show?: (v: Vals) => boolean; help?: string; col?: number; placeholder?: string;
   disabled?: boolean; maxlength?: number; min?: number; max?: number; step?: number; rows?: number; noBlank?: boolean; blank?: string;
-  list?: string[]; ccKey?: string; html?: (v: Vals) => React.ReactNode;
+  list?: string[]; ccKey?: string; multiple?: boolean; accept?: string; html?: (v: Vals, set: (k: string, v: unknown) => void) => React.ReactNode;
 }
 
 const pair = (o: OptIn): [string, string] =>
@@ -26,7 +26,7 @@ const PHONE_CODES = ['+91', '+1', '+44', '+971', '+61', '+49', '+33', '+39', '+8
 export function visibleValues(fields: Field[], v: Vals): Vals {
   const out: Vals = { ...v };
   for (const f of fields) {
-    if (f.type === 'section' || f.type === 'html') continue;
+    if (f.type === 'section' || f.type === 'html' || f.type === 'file') continue;
     if (f.show && !f.show(v)) { out[f.k] = null; continue; }
     const x = v[f.k];
     if (f.type === 'datetime') out[f.k] = fromLocalInput(x);
@@ -56,7 +56,7 @@ function FieldView({ f, vals, set, error }: { f: Field; vals: Vals; set: (k: str
   const common = { id, name: f.k, disabled: f.disabled, maxLength: f.maxlength, placeholder: f.placeholder, min: f.min, max: f.max, step: f.step };
 
   if (t === 'section') return <div className={`form-section${hidden ? ' hide' : ''}`}>{f.label}</div>;
-  if (t === 'html') return <div className={`f c6${hidden ? ' hide' : ''}`}>{f.html?.(vals)}</div>;
+  if (t === 'html') return <div className={`f c6${hidden ? ' hide' : ''}`}>{f.html?.(vals, set)}</div>;
   if (t === 'checkbox') {
     return (
       <div className={cls('f check')}>
@@ -99,6 +99,8 @@ function FieldView({ f, vals, set, error }: { f: Field; vals: Vals; set: (k: str
     );
   } else if (t === 'password') {
     input = <div className="pw"><input type={shown ? 'text' : 'password'} {...common} value={v ?? ''} onChange={on} /><button type="button" onClick={() => setShown(!shown)}>{shown ? 'Hide' : 'Show'}</button></div>;
+  } else if (t === 'file') {
+    input = <input type="file" id={id} name={f.k} multiple={f.multiple} accept={f.accept} disabled={f.disabled} onChange={(e) => set(f.k, Array.from(e.target.files ?? []))} />;
   } else if (t === 'datetime') {
     // kept as the datetime-local string while editing; visibleValues() turns it into ISO
     const local = typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? v : toLocalInput(v);
@@ -124,7 +126,7 @@ function FieldView({ f, vals, set, error }: { f: Field; vals: Vals; set: (k: str
 /** formModal(): resolves with what save() returned, or null when closed. save() returning false keeps it open. */
 export function formModal<R = unknown>(o: {
   title: string; fields: Field[]; values?: Vals; size?: '' | 'sm' | 'lg' | 'xl'; saveLabel?: string; intro?: React.ReactNode;
-  save: (vals: Vals) => Promise<R | false>; extraButtons?: (doSave: (extra?: Vals) => void, vals: Vals) => React.ReactNode;
+  save: (vals: Vals) => Promise<R | false>; onChange?: (vals: Vals, prev: Vals, set: (k: string, v: unknown) => void) => void; extraButtons?: (doSave: (extra?: Vals) => void, vals: Vals) => React.ReactNode;
 }) {
   return new Promise<R | null>((resolve) => {
     let done = false;
@@ -138,6 +140,8 @@ function FormModalBody<R>({ o, close, finish }: { o: Parameters<typeof formModal
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: unknown) => setVals((s) => ({ ...s, [k]: v }));
+  const prev = useRef<Vals>(vals);
+  useEffect(() => { if (prev.current !== vals) { o.onChange?.(vals, prev.current, set); prev.current = vals; } }, [vals]); // eslint-disable-line react-hooks/exhaustive-deps
   const doSave = async (extra: Vals = {}) => {
     setBusy(true); setErrors({});
     try {
@@ -163,4 +167,16 @@ function FormModalBody<R>({ o, close, finish }: { o: Parameters<typeof formModal
       </form>
     </Modal>
   );
+}
+
+/** A form's values as multipart: scalars as strings (booleans "true" / "false"), File lists under their key. */
+export function toFormData(v: Vals) {
+  const fd = new FormData();
+  for (const [k, x] of Object.entries(v)) {
+    if (x === null || x === undefined || x === '') continue;
+    if (Array.isArray(x) && x.every((f) => f instanceof File)) x.forEach((f) => fd.append(k, f));
+    else if (Array.isArray(x)) x.forEach((y) => fd.append(k, String(y)));
+    else fd.append(k, typeof x === 'object' ? JSON.stringify(x) : String(x));
+  }
+  return fd;
 }

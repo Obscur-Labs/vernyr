@@ -10,9 +10,9 @@ import { Options } from '@/le/form';
 import { PriBadge } from '@/le/badges';
 import { showError, toast } from '@/le/ui';
 import { taskForm, type Task } from '@/le/tasks';
+import { TL_ICON } from '@/le/leads';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export const TL_ICON: Record<string, string> = { stage: '➜', document: 'D', email: '@', payment: '₹', task: '✓', note: 'N', comment: 'C', profile: 'P', lead: 'L' };
 
 // The client's Dashboard (legacy/public/js/pages/dashboard.js)
 export default function Dashboard() {
