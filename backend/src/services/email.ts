@@ -293,6 +293,8 @@ export async function processQueue() {
   } finally { running = false; }
 }
 async function sendOne(log: IEmailLog) {
+  // pre-rendered (announcements, staff notices): sent as it is, with the hard CC
+  if (!log.parts?.length && log.body_html) return sendPrebuilt(log);
   const b = await build(log);
   const person = (b.student ?? b.lead)!;
   const domain = String(env.mail.from.match(/@([^>\s]+)/)?.[1] ?? 'vernyr.com');
@@ -333,6 +335,26 @@ async function sendOne(log: IEmailLog) {
       await EmailLog.updateOne({ _id: log._id }, { status: 'Retrying', attempts, error: String((e as Error).message).slice(0, 500), next_attempt_at: new Date(Date.now() + RETRY_MIN[attempts - 1] * 60_000) });
     }
   }
+}
+async function sendPrebuilt(log: IEmailLog) {
+  const attempts = (log.attempts || 0) + 1;
+  try {
+    const r = await send({ to: String(log.to_addr), cc: [HARD_CC], subject: String(log.subject), html: log.body_html, text: log.body_text || htmlToText(log.body_html ?? '') });
+    await EmailLog.updateOne({ _id: log._id }, { status: r.status, attempts, sent_at: new Date(), cc_addr: HARD_CC, $unset: { error: 1 } });
+  } catch (e) {
+    const done = e instanceof HardBounce || attempts >= 4;
+    await EmailLog.updateOne({ _id: log._id }, done ? { status: e instanceof HardBounce ? 'Bounced' : 'Failed', attempts, error: String((e as Error).message).slice(0, 500) }
+      : { status: 'Retrying', attempts, error: String((e as Error).message).slice(0, 500), next_attempt_at: new Date(Date.now() + RETRY_MIN[attempts - 1] * 60_000) });
+  }
+}
+/** A branded email through the normal queue (announcements): always with the hard CC. */
+export async function quickEmail(o: { to: (string | undefined | null)[]; subject: string; title: string; html: string; kind?: string; by?: string }) {
+  const list = [...new Set(o.to.filter(Boolean).map((x) => String(x).toLowerCase()))];
+  if (!list.length) return null;
+  const body = page({ title: o.title, preheader: o.title, body: o.html, signature: '<p style="margin:0">Kind regards,<br><b>La Europa Education</b><br><span style="color:#5B6478">Euroverse Service LLP, trading as La Europa Education</span></p>' });
+  const log = await EmailLog.create({ trigger_code: 'ANN', channel: 'email', recipient_type: o.kind ?? 'staff', parts: [], to_addr: list.join(', '), cc_addr: HARD_CC, triggered_by: o.by, status: 'Queued', attempts: 0,
+    subject: o.subject, body_html: body, body_text: htmlToText(body), update_title: o.title, queued_at: new Date(), scheduled_at: new Date(), next_attempt_at: new Date() });
+  return String(log._id);
 }
 export function startEmailWorker() {
   setInterval(() => { processQueue().catch((e) => console.error('[email queue]', e)); }, 10_000).unref();
