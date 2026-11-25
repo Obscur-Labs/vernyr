@@ -33,6 +33,7 @@ import consoleInsightsRoutes from "./routes/consoleInsights";
 import consolePeopleRoutes from "./routes/consolePeople";
 import { startDpdpJobs } from "./services/dpdp";
 import { startJobs } from "./services/jobs";
+import portalRoutes from "./routes/portal";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -97,6 +98,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/access", accessRoutes);
+app.use("/api/portal", portalRoutes);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.

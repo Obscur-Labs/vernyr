@@ -205,3 +205,23 @@ export async function voucherFile(v: IVoucher) {
   const s = (v.snapshot ?? {}) as Partial<VoucherData>;
   return voucherPdf({ ...(s as VoucherData), voucher_code: v.voucher_code, issued_on: d8(istDate(v.given_at)), valid_from: d8(v.valid_from), valid_until: d8(v.valid_until), status: voucherStatus(v) });
 }
+
+/** Apply Now with a promotion code: the terms are recorded as a consent, the claim is kept with the request. */
+export async function claim(req: import('express').Request, code: unknown, row: { _id: unknown; request_code: string; student_id?: unknown; lead_id?: unknown; university_id?: unknown; country_id?: unknown }, su: { _id: unknown; leadId?: unknown }, leadIds: unknown[]) {
+  const { record } = await import('./consent');
+  const r = await checkCode(code, { suId: String(su._id), leadIds, university_id: row.university_id, country_id: row.country_id });
+  const p = r.promotion;
+  const consentId = await record(req, { suId: su._id, leadId: su.leadId, type: 'promotion_terms', value: true, method: 'apply_now_code',
+    extra: { code: p.code, title: p.title, request_code: row.request_code, terms: p.terms, period: `${p.starts_on} to ${p.ends_on}` } });
+  await PromotionClaim.create({ promotion_id: p._id, code: p.code, kind: p.kind, student_user_id: su._id, student_id: row.student_id, lead_id: row.lead_id, application_request_id: row._id,
+    university_id: row.university_id, country_id: row.country_id, referrer_student_user_id: r.referrer ?? undefined, consent_record_id: consentId });
+  await ApplicationRequest.updateOne({ _id: row._id }, { promo_code: p.code });
+  return p;
+}
+/** The promotion code a referred friend's referral carries, offered on Apply Now. */
+export async function suggestedCode(leadIds: unknown[]) {
+  if (!leadIds.length) return null;
+  const r = await Referral.findOne({ lead_id: { $in: leadIds }, promo_code: { $nin: [null, ''] } }).sort({ createdAt: 1 }).lean();
+  const p = r ? await Promotion.findOne({ code: r.promo_code }).lean() : null;
+  return p && live(p as unknown as IPromotion) && p.kind !== 'offer' ? p.code : null;
+}

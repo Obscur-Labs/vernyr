@@ -62,7 +62,7 @@ export const ChecklistItem = mongoose.model<IChecklistItem>('ChecklistItem', new
 }, { timestamps: true }));
 
 export interface IDocVersion { _id: Types.ObjectId; version_no: number; url: string; public_id?: string; resource_type?: string; stored_name?: string; original_name?: string;
-  mime_type?: string; size_bytes?: number; uploaded_by?: Types.ObjectId; uploaded_by_type: string; note_for_counsellor?: string; uploaded_at: Date; version_status?: string; version_reason?: string }
+  mime_type?: string; size_bytes?: number; uploaded_by?: Types.ObjectId; uploaded_by_type: string; note_for_counsellor?: string; uploaded_at: Date; version_status?: string; version_reason?: string; removed_at?: Date }
 export interface IStudentDocument extends Document, Std {
   student_id: Types.ObjectId; application_id?: Types.ObjectId; visa_case_id?: Types.ObjectId; document_type_id: Types.ObjectId; title?: string;
   status: string; rejection_reason?: string; rejection_text?: string; expiry_date?: string; versions: IDocVersion[]; current_version_id?: Types.ObjectId;
@@ -72,7 +72,7 @@ export const StudentDocument = mongoose.model<IStudentDocument>('StudentDocument
   student_id: { ...ref('Student'), required: true, index: true }, application_id: ref('Application'), visa_case_id: ref('VisaCase'),
   document_type_id: { ...ref('MasterItem'), required: true }, title: String, status: { type: String, default: 'Pending', index: true }, rejection_reason: String, rejection_text: String,
   expiry_date: String, versions: { type: [new Schema({ version_no: Number, url: String, public_id: String, resource_type: String, stored_name: String, original_name: String,
-    mime_type: String, size_bytes: Number, uploaded_by: ref('User'), uploaded_by_type: { type: String, default: 'staff' }, note_for_counsellor: String, uploaded_at: { type: Date, default: Date.now }, version_status: String, version_reason: String })], default: [] },
+    mime_type: String, size_bytes: Number, uploaded_by: ref('User'), uploaded_by_type: { type: String, default: 'staff' }, note_for_counsellor: String, uploaded_at: { type: Date, default: Date.now }, version_status: String, version_reason: String, removed_at: Date })], default: [] },
   current_version_id: Schema.Types.ObjectId, verified_by: ref('User'), verified_at: Date, remark_internal: String, requested_due: String, shared_with_student: Boolean, shared_at: Date, shared_by: ref('User'), student_removed_at: Date, linked_task_id: ref('Task'), linked_change_request_id: Schema.Types.ObjectId, staff_opened_at: Date, student_seen_at: Date, reject_count: { type: Number, default: 0 }, student_note: String, ...STD,
 }, { timestamps: true, collection: 'documents' }));
 

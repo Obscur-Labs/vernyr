@@ -96,3 +96,5 @@ export async function record(req: Request | null, o: { suId?: unknown; leadId?: 
     user_agent: req ? String(req.headers['user-agent'] ?? '').slice(0, 300) : undefined, extra: o.extra, university_id: o.universityId, application_id: o.applicationId });
   return String(r._id);
 }
+/** Has this login ever signed the Student Declaration & Consent (any version)? */
+export const hasSigned = async (suId: unknown) => !!(await SignedDocument.exists({ student_user_id: suId }));

@@ -1019,5 +1019,6 @@ router.post('/visa/:vid/reapply', handle(async (req, res) => {
   res.json({ ok: true });
 }));
 
-export { recordPayment, createApplication, shortlistWarnings, names as workNames, loadChild };
+export { recordPayment, createApplication, shortlistWarnings, names as workNames, loadChild, checklistFor, systemStage, INST_DOCS, INST_NAMES, CLOSED };
+export type { Names, CheckItem };
 export default router;
