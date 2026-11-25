@@ -8,6 +8,7 @@ import User from '../models/User';
 import Student from '../models/Student';
 import { can } from '../config/clientPerms';
 import { serverError } from '../utils/httpError';
+import { systemTask, closeSystemTask, notify } from '../services/tasks';
 
 /** The client's Inquiry / Lead management (legacy/server/routes/leads.js, Section 4), on MongoDB. */
 const router = Router();
@@ -79,6 +80,18 @@ function rowOut(l: ILead, L: Lookups) {
     intake: nameOf(L.i, l.intake_id), counsellor: nameOf(L.u, l.assigned_user_id),
     followup_state: !closed && l.next_followup_at ? (fu === today ? (past ? 'overdue' : 'today') : past ? 'overdue' : 'future') : null,
   };
+}
+
+/** The client's afterStatus(): keep the "Follow-up call" system task in step with the lead. */
+async function syncFollowupTask(req: AuthRequest, id: unknown) {
+  const l = await Lead.findById(id);
+  if (!l) return;
+  if (l.status === 'Follow-up' && l.next_followup_at && l.assigned_user_id) {
+    await systemTask(`lead-fu:${l._id}`, { title: `Follow-up call: ${leadName(l)}`, type: 'Follow-up call', lead_id: l._id, assigned_to: l.assigned_user_id,
+      due_at: l.next_followup_at, priority: 'Medium', reminder: '15 min' } as never, req.user!.id);
+  }
+  if (['Not interested', 'Converted'].includes(l.status)) await closeSystemTask(`lead-fu:${l._id}`);
+  // E03 follow-up / E21 status emails arrive with the email engine (PORTING.md)
 }
 
 // ---------- list ----------
@@ -203,7 +216,9 @@ router.post('/', handle(async (req, res) => {
   const lead_code = await nextCode('L');
   const l = await Lead.create({ ...f, lead_code, assigned_user_id: assigned, created_by: me, updated_by: me });
   await timeline({ lead_id: l._id, type: 'lead', description: `Lead created by ${req.user!.name} (status ${f.status})`, user_id: me });
-  // E01 acknowledgement / E03 follow-up email and the follow-up system task arrive with the email engine and Tasks (PORTING.md)
+  if (String(assigned) !== me) await notify(assigned, 'assigned', `New lead assigned to you: ${leadName(l)}`, `/leads/${l._id}`);
+  await syncFollowupTask(req, l._id);
+  // E01 acknowledgement email arrives with the email engine (PORTING.md)
   res.json({ id: String(l._id), lead_code });
 }));
 
@@ -265,6 +280,11 @@ router.put('/:id', handle(async (req, res) => {
     const labels = changed.map((k) => (k === 'status' ? `Status: ${before.status} to ${f.status}` : k.replace(/_id$/, '').replace(/_/g, ' ')));
     await timeline({ lead_id: l._id, type: changed.includes('status') ? 'stage' : 'lead', description: `Lead updated: ${labels.join(', ')}`, user_id: req.user!.id });
   }
+  if (update.assigned_user_id) {
+    await notify(update.assigned_user_id, 'assigned', `Lead transferred to you: ${leadName(l)}`, `/leads/${l._id}`);
+    await mongoose.connection.collection('tasks').updateMany({ lead_id: l._id, status: { $in: ['Open', 'In progress'] } }, { $set: { assigned_to: update.assigned_user_id } });
+  }
+  await syncFollowupTask(req, l._id);
   res.json({ ok: true });
 }));
 
@@ -278,6 +298,7 @@ router.post('/:id/followup', handle(async (req, res) => {
   if (!at || new Date(at) <= new Date()) throw bad('Follow-up must be in the future', { errors: { next_followup_at: 'Follow-up must be in the future' } });
   await Lead.updateOne({ _id: l._id }, { status: 'Follow-up', next_followup_at: new Date(at), updated_by: req.user!.id });
   await timeline({ lead_id: l._id, type: 'lead', description: `Follow-up set for ${new Date(at).toLocaleString('en-GB', { timeZone: TZ })}`, user_id: req.user!.id });
+  await syncFollowupTask(req, l._id);
   res.json({ ok: true });
 }));
 
@@ -303,6 +324,7 @@ router.post('/:id/activities', handle(async (req, res) => {
     await Lead.updateOne({ _id: l._id }, { status: 'Contacted' });
     await timeline({ lead_id: l._id, type: 'stage', description: 'Status: New to Contacted (first contact logged)', user_id: req.user!.id });
   }
+  await syncFollowupTask(req, l._id);
   res.json({ id: String(a._id) });
 }));
 
@@ -328,6 +350,7 @@ router.delete('/:id', handle(async (req, res) => {
   if (!reason) throw bad('A reason is required', { errors: { reason: 'Required' } });
   await Lead.updateOne({ _id: l._id }, { is_deleted: true, updated_by: req.user!.id });
   await timeline({ lead_id: l._id, type: 'lead', description: `Lead deleted by ${req.user!.name}: ${reason}`, user_id: req.user!.id });
+  await closeSystemTask(`lead-fu:${l._id}`);
   res.json({ ok: true });
 }));
 
@@ -351,7 +374,9 @@ router.post('/:id/convert', handle(async (req, res) => {
     created_by: req.user!.id, updated_by: req.user!.id,
   });
   await Lead.updateOne({ _id: l._id }, { status: 'Converted', converted_student_id: s._id, email: em, updated_by: req.user!.id });
+  await closeSystemTask(`lead-fu:${l._id}`);
   await mongoose.connection.collection('tasks').updateMany({ lead_id: l._id }, { $set: { student_id: s._id } });
+  if (String(counsellor) !== req.user!.id) await notify(counsellor, 'assigned', `New student assigned to you: ${leadName(l)} (${student_code})`, `/students/${s._id}`);
   await timeline({ lead_id: l._id, type: 'stage', description: `Converted to student ${student_code}`, user_id: req.user!.id });
   await timeline({ student_id: s._id, type: 'stage', description: `Student registered from lead ${l.lead_code} by ${req.user!.name}`, user_id: req.user!.id });
   // E02 welcome email, the portal invite and moving the lead's portal account arrive with the email engine / portal (PORTING.md)

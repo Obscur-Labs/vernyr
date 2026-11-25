@@ -12,10 +12,10 @@ import userRoutes from "./routes/users";
 import leadRoutes from "./routes/leads";
 import studentRoutes from "./routes/students";
 import messageRoutes from "./routes/messages";
-import notificationRoutes from "./routes/notifications";
 import accessRoutes from "./routes/access";
 import catalogueRoutes from "./routes/catalogue";
 import metaRoutes from "./routes/meta";
+import coreRoutes from "./routes/core";
 import devRoutes, { isDevToolsEnabled } from "./routes/dev";
 import { setupSocket } from "./socket";
 import { uploadErrorHandler } from "./middleware/upload";
@@ -67,11 +67,11 @@ app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
-app.use("/api/notifications", notificationRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/catalogue", catalogueRoutes);
 // the client's CRM contract (legacy/server): masters, me, and the modules ported from it
 app.use("/api", metaRoutes);
+app.use("/api", coreRoutes);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.
