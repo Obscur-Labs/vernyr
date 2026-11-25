@@ -42,6 +42,8 @@ export const env = {
   jwtSecret: required('JWT_SECRET', 'dev-only-insecure-secret'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   allowedOrigins: allowedOrigins(),
+  /** The student portal address, for links in emails and the walk-in QR. */
+  portalUrl: (read('CLIENT_STUDENT_URL') ?? 'http://localhost:3001').split(',')[0].trim().replace(/\/+$/, ''),
   mail: {
     /** sandbox = written to backend/outbox and the console, nobody is emailed. smtp = real sending. */
     provider: process.env.MAIL_PROVIDER === 'smtp' ? 'smtp' as const : 'sandbox' as const,
