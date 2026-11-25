@@ -378,7 +378,7 @@ router.put('/:id/activities/:aid', handle(async (req, res) => {
   res.json({ ok: true });
 }));
 
-export { scope as leadScope, loadLead };
+export { scope as leadScope, loadLead, duplicates as leadDuplicates };
 export default router;
 
 // ---------- delete (soft, with reason) and request access to a duplicate ----------

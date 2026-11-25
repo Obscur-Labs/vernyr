@@ -17,7 +17,7 @@ type App = 'crm' | 'portal' | 'partner';
 const brand = (app: App) => (app === 'crm' ? 'La Europa CRM' : 'La Europa');
 
 function text(app: App, purpose: AuthCodePurpose, code: string) {
-  return purpose === 'login'
+  return purpose !== 'reset'
     ? { subject: `Your ${brand(app)} verification code`, text: `Your ${brand(app)} verification code is ${code}.\n\nYou need it only for your first login. It is valid for 10 minutes.` }
     : { subject: `Your ${brand(app)} password reset code`, text: `Your password reset code is ${code}.\n\nIt is valid for 10 minutes. If you did not ask for this, ignore this email.` };
 }
@@ -33,15 +33,16 @@ async function sentLastHour(accountId: unknown) {
   return rows.reduce((n, r) => n + 1 + (r.resends || 0), 0);
 }
 
-export async function issueCode(opts: { accountId: mongoose.Types.ObjectId; email: string; purpose: AuthCodePurpose; app: App; remember?: boolean }) {
+export async function issueCode(opts: { accountId: mongoose.Types.ObjectId; email: string; purpose: AuthCodePurpose; app: App; remember?: boolean;
+  payload?: Record<string, unknown>; mail?: { subject: string; text: (code: string) => string } }) {
   if ((await sentLastHour(opts.accountId)) >= 6) throw new CodeError(429, 'Too many codes. Please try again in an hour.');
   // a new code cancels the older ones for the same purpose
   await AuthCode.updateMany({ accountId: opts.accountId, purpose: opts.purpose, used: false }, { used: true });
   const code = newCode();
-  const row = new AuthCode({ accountId: opts.accountId, purpose: opts.purpose, remember: !!opts.remember, codeHash: 'x', expiresAt: new Date(Date.now() + TTL_MS) });
+  const row = new AuthCode({ accountId: opts.accountId, purpose: opts.purpose, remember: !!opts.remember, codeHash: 'x', expiresAt: new Date(Date.now() + TTL_MS), destination: opts.email, payload: opts.payload });
   row.codeHash = sha(row._id.toString() + code);
   await row.save();
-  await sendMail({ to: opts.email, ...text(opts.app, opts.purpose, code) });
+  await sendMail({ to: opts.email, ...(opts.mail ? { subject: opts.mail.subject, text: opts.mail.text(code) } : text(opts.app, opts.purpose, code)) });
   return row._id.toString();
 }
 
