@@ -5,11 +5,11 @@ import type { AuthRequest } from '../middleware/auth';
 
 export interface IAuditLog extends Document {
   user_id?: Types.ObjectId; action: string; entity_type?: string; entity_id?: string; entity_label?: string;
-  old_value?: unknown; new_value?: unknown; ip?: string; user_agent?: string; createdAt: Date;
+  old_value?: unknown; new_value?: unknown; ip?: string; user_agent?: string; actor_type?: string; createdAt: Date;
 }
 const AuditSchema = new Schema<IAuditLog>({
   user_id: { type: Schema.Types.ObjectId, ref: 'User', index: true }, action: { type: String, required: true, index: true },
-  entity_type: String, entity_id: String, entity_label: String, old_value: Schema.Types.Mixed, new_value: Schema.Types.Mixed, ip: String, user_agent: String,
+  entity_type: String, entity_id: String, entity_label: String, old_value: Schema.Types.Mixed, new_value: Schema.Types.Mixed, ip: String, user_agent: String, actor_type: { type: String, default: 'staff' },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 // append-only: no update or delete through the model
 for (const op of ['updateOne', 'updateMany', 'findOneAndUpdate', 'deleteOne', 'deleteMany', 'findOneAndDelete'] as const) {

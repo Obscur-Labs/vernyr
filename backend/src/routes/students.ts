@@ -9,6 +9,8 @@ import { Timeline } from '../models/Timeline';
 import { EmailLog } from '../models/Email';
 import { audit } from '../models/Audit';
 import { HARD_CC, resend } from '../services/email';
+import { ctxForStudent } from '../services/portalCtx';
+import { out as infoOut, save as infoSave } from '../services/infoForm';
 import { can } from '../config/clientPerms';
 import {
   HttpError, bad, fieldErr, handle, need, isAdmin, seesAll, oid, sid, clean, num, normPhone, isEmail, escRx,
@@ -462,6 +464,19 @@ router.post('/:id/emails/:eid/cancel', handle(async (req, res) => {
   await timeline({ student_id: s._id, type: 'email', description: `Queued email cancelled: ${e.update_title}`, user_id: req.user!.id });
   await audit(req, 'Update', 'EmailLog', e._id, 'Cancel ' + e.update_title);
   res.json({ ok: true });
+}));
+
+// ---------- Student information: the same form the student fills on the portal ----------
+router.get('/:id/info-form', handle(async (req, res) => {
+  const s = await loadStudent(req, req.params.id);
+  res.json({ ...(await infoOut(await ctxForStudent(s), 'staff')), editable: can(req.user!.role, 'profile', 'edit') });
+}));
+router.put('/:id/info-form/:section', handle(async (req, res) => {
+  need(req, 'profile', 'edit');
+  const s = await loadStudent(req, req.params.id);
+  const r = await infoSave(await ctxForStudent(s), req.params.section, req.body, { type: 'staff', name: req.user!.name, userId: req.user!.id, req });
+  await audit(req, 'Update', 'Student', s._id, `${s.student_code} student information: ${req.params.section}`);
+  res.json(r);
 }));
 
 // ---------- comments & pinned notes (internal: never trigger an email) ----------

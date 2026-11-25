@@ -67,7 +67,7 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 | Portal staff side: invite, Apply Now requests, chat, change requests, saved courses, sharing, fee instructions, offer conditions, payment proofs, student accounts, deletion requests | done (portal "view as student" preview and the catalogue admin come with the portal and course modules) |
 | Meetings (counsellor hours, slots, accept / decline), promotions, referral rewards, vouchers (PDF), partner companies, wallet, GST invoices + receipts (PDF, UPI QR) | done (staff side; the student side comes with the portal) |
 | Legal & privacy: versioned legal documents (seeded from `backend/legal/`), consent log + export, privacy requests with deadlines, breach register + Board templates, DPDP notices, cold-lead retention, processors register | done |
-| Info form (needs the profile engine `legacy/server/portal/profile.js` first: sections, validate, locks, submit, change requests; the CRM "Student information" tab and the portal share it) | next |
+| Profile engine (sections, validation, locks after submit, change requests, lead drafts copied on convert, completion, journey) + the one Student information form, CRM tab routes | done (portal routes come with the portal) |
 | Course search, university catalogue (+ the catalogue admin from portal_staff), admin console (`admin5/`), jobs | after |
 
 | CRM screen (client UI) | Status |

@@ -64,6 +64,8 @@ export async function linkOnConvert(req: AuthRequest, leadId: Types.ObjectId, st
   su.studentId = studentId; await su.save();
   await Student.updateOne({ _id: studentId, email: { $in: [null, ''] } }, { email: su.email });
   await Student.updateOne({ _id: studentId }, { portal_status: 'Active' });
+  const { copyDraftsToStudent } = await import('./profile');
+  await copyDraftsToStudent(su, studentId);
   await SavedCourse.updateMany({ student_user_id: su._id }, { student_id: studentId });
   await ApplicationRequest.updateMany({ student_user_id: su._id }, { student_id: studentId });
   await ChatMessage.updateMany({ lead_id: leadId, student_id: null }, { student_id: studentId });
@@ -73,5 +75,5 @@ export async function linkOnConvert(req: AuthRequest, leadId: Types.ObjectId, st
   }
   const s = await Student.findById(studentId).select('student_code').lean();
   await studentNotify(su._id, `You are now registered with La Europa. Your student ID is ${s?.student_code}.`, '/home');
-  await timeline({ student_id: studentId, type: 'profile', description: 'Portal account linked to the new student file (saved courses, requests and chat moved)', user_id: req.user!.id });
+  await timeline({ student_id: studentId, type: 'profile', description: 'Portal account linked to the new student file (drafts, saved courses, requests and chat moved)', user_id: req.user!.id });
 }
