@@ -14,7 +14,7 @@ export interface IApplicationRequest extends Document, Std {
   request_code: string; student_id?: Types.ObjectId; lead_id?: Types.ObjectId; student_user_id?: Types.ObjectId; course_id?: Types.ObjectId; intake_id?: Types.ObjectId;
   university_id?: Types.ObjectId; country_id?: Types.ObjectId; level?: string; course_name?: string; deadline?: string; status: string; source_screen?: string;
   message_to_counsellor?: string; missing_documents?: string[]; eligibility_snapshot?: Record<string, unknown>; decline_reason_code?: string; decline_reason_text?: string;
-  internal_note?: string; application_id?: Types.ObjectId; reviewed_by?: Types.ObjectId; reviewed_at?: Date; cancelled_at?: Date; cancel_reason?: string; idempotency_key?: string;
+  internal_note?: string; application_id?: Types.ObjectId; reviewed_by?: Types.ObjectId; reviewed_at?: Date; cancelled_at?: Date; cancel_reason?: string; idempotency_key?: string; promo_code?: string;
 }
 export const REQUEST_OPEN = ['Requested by student', 'In review', 'Info needed'];
 export const ApplicationRequest = model<IApplicationRequest>('ApplicationRequest', {
@@ -22,7 +22,7 @@ export const ApplicationRequest = model<IApplicationRequest>('ApplicationRequest
   course_id: ref('Course'), intake_id: ref('Intake'), university_id: ref('University'), country_id: ref('Country'), level: String, course_name: String, deadline: String,
   status: { type: String, default: 'Requested by student', index: true }, source_screen: String, message_to_counsellor: String, missing_documents: [String],
   eligibility_snapshot: Schema.Types.Mixed, decline_reason_code: String, decline_reason_text: String, internal_note: String, application_id: ref('Application'),
-  reviewed_by: ref('User'), reviewed_at: Date, cancelled_at: Date, cancel_reason: String, idempotency_key: { type: String, unique: true, sparse: true },
+  reviewed_by: ref('User'), reviewed_at: Date, cancelled_at: Date, cancel_reason: String, idempotency_key: { type: String, unique: true, sparse: true }, promo_code: String,
 });
 
 // ---------- profile change requests (verified fields edited by the student) ----------
@@ -114,11 +114,11 @@ export const DataExportRequest = model<IDataExportRequest>('DataExportRequest', 
 
 export interface IReferral extends Document, Std {
   referrer_student_user_id?: Types.ObjectId; referrer_student_id?: Types.ObjectId; friend_name?: string; friend_phone?: string; friend_email?: string; interest?: string;
-  lead_id?: Types.ObjectId; status: string; reward_status?: string; consent_record_id?: Types.ObjectId;
+  lead_id?: Types.ObjectId; status: string; reward_status?: string; consent_record_id?: Types.ObjectId; promo_code?: string; reward_given_at?: Date; reward_given_by?: Types.ObjectId; reward_note?: string;
 }
 export const Referral = model<IReferral>('Referral', {
   referrer_student_user_id: ref('PortalAccount'), referrer_student_id: ref('Student'), friend_name: String, friend_phone: String, friend_email: String, interest: String,
-  lead_id: ref('Lead'), status: { type: String, default: 'Received' }, reward_status: String, consent_record_id: ref('ConsentRecord'),
+  lead_id: ref('Lead'), status: { type: String, default: 'Received' }, reward_status: String, consent_record_id: ref('ConsentRecord'), promo_code: String, reward_given_at: Date, reward_given_by: ref('User'), reward_note: String,
 });
 
 export interface IProfileDraft extends Document { student_user_id: Types.ObjectId; section: string; data: Record<string, unknown>; copied_to_student_at?: Date; updatedAt: Date }
