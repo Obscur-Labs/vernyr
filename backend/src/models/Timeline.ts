@@ -17,7 +17,7 @@ export const Timeline = mongoose.model<ITimeline>('Timeline', TimelineSchema);
 
 /** `LE-L-2026-00001`: one counter per kind and year (IST), like the client's nextCode(). */
 const CounterSchema = new Schema({ _id: String, value: { type: Number, default: 0 } });
-const Counter = mongoose.model<{ _id: string; value: number }>('Counter', CounterSchema);
+export const Counter = mongoose.model<{ _id: string; value: number }>('Counter', CounterSchema);
 export async function nextCode(kind: string) {
   const year = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric' });
   const c = await Counter.findByIdAndUpdate(`${kind}-${year}`, { $inc: { value: 1 } }, { upsert: true, new: true });

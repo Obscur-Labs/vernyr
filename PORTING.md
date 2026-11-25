@@ -65,7 +65,8 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 | Admin: users, masters, templates, settings, audit, reports, export; counsellors; walk-in QR | done |
 | Email engine (queue, templates E01 to E49, thread, hard CC, template admin, student email log, webhook) | done |
 | Portal staff side: invite, Apply Now requests, chat, change requests, saved courses, sharing, fee instructions, offer conditions, payment proofs, student accounts, deletion requests | done (portal "view as student" preview and the catalogue admin come with the portal and course modules) |
-| Appointments, promotions, wallet, GST invoices, DPDP, course search, university catalogue, admin console, jobs | next |
+| Meetings (counsellor hours, slots, accept / decline), promotions, referral rewards, vouchers (PDF), partner companies, wallet, GST invoices + receipts (PDF, UPI QR) | done (staff side; the student side comes with the portal) |
+| DPDP, privacy admin, info form, course search, university catalogue, admin console, jobs | next |
 
 | CRM screen (client UI) | Status |
 |---|---|

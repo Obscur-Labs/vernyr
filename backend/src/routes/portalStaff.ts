@@ -25,6 +25,7 @@ import { suOfStudent, suOfLead, portalInfo, issueInvite, notifyStudent } from '.
 import * as CHAT from '../services/portalChat';
 import { loadLead, leadScope } from './leads';
 import { createApplication, shortlistWarnings, workNames, loadChild, recordPayment } from './work';
+import { onProofRecorded, onProofRejected } from './invoices';
 
 /** The counsellor side of the student portal (legacy/server/routes/portal_staff.js, Portal doc C1 to C11). */
 const router = Router();
@@ -505,13 +506,16 @@ router.post('/payment-submissions/:id/record', handle(async (req, res) => {
   if (x.document_id) await StudentDocument.updateOne({ _id: x.document_id }, { status: 'Verified', verified_by: req.user!.id, verified_at: new Date(), shared_with_student: true });
   const r = await recordPayment(req, s, b, x.document_id, !!x.document_id);
   x.set({ status: 'Recorded', payment_id: r.id, reviewed_by: req.user!.id, reviewed_at: new Date() }); await x.save();
-  res.json(r);
+  // a proof against a GST invoice: the invoice is paid and its receipt is made at once
+  const receipt_no = await onProofRecorded(x, r.id, req.user!.id);
+  res.json({ ...r, receipt_no });
 }));
 router.post('/payment-submissions/:id/reject', handle(async (req, res) => {
   const { x, s } = await loadSub(req);
   const reason = clean(req.body?.reason, 300);
   if (!reason) throw fieldErr('reason', 'Reason is required (shown to the student)');
   x.set({ status: 'Rejected', reject_reason: reason, reviewed_by: req.user!.id, reviewed_at: new Date() }); await x.save();
+  await onProofRejected(x);
   await notifyStudent(s._id, `Payment proof not accepted: ${reason}`, '/payments');
   await timeline({ student_id: s._id, type: 'payment', description: `Payment proof rejected: ${reason}`, user_id: req.user!.id });
   res.json({ ok: true });

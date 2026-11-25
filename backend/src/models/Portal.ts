@@ -73,12 +73,12 @@ export const FeeInstruction = model<IFeeInstruction>('FeeInstruction', {
 // ---------- payments the student says they made (staff records or rejects) ----------
 export interface IPaymentSubmission extends Document, Std {
   student_id: Types.ObjectId; application_id?: Types.ObjectId; payment_for?: string; amount?: number; currency?: string; payment_date?: string; mode?: string; reference_no?: string;
-  document_id?: Types.ObjectId; note?: string; status: string; payment_id?: Types.ObjectId; reviewed_by?: Types.ObjectId; reviewed_at?: Date; reject_reason?: string;
+  document_id?: Types.ObjectId; note?: string; status: string; payment_id?: Types.ObjectId; reviewed_by?: Types.ObjectId; reviewed_at?: Date; reject_reason?: string; invoice_id?: Types.ObjectId; utr?: string;
 }
 export const PaymentSubmission = model<IPaymentSubmission>('PaymentSubmission', {
   student_id: { ...ref('Student'), required: true, index: true }, application_id: ref('Application'), payment_for: String, amount: Number, currency: String, payment_date: String,
   mode: String, reference_no: String, document_id: ref('StudentDocument'), note: String, status: { type: String, default: 'Submitted' }, payment_id: ref('Payment'),
-  reviewed_by: ref('User'), reviewed_at: Date, reject_reason: String,
+  reviewed_by: ref('User'), reviewed_at: Date, reject_reason: String, invoice_id: ref('ServiceInvoice'), utr: { type: String, index: true },
 });
 
 // ---------- portal chat: one thread per student (or lead before conversion) ----------
