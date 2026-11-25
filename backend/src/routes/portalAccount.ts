@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import { Types } from 'mongoose';
 import archiver from 'archiver';
 import QRCode from 'qrcode';
-import { portalAuth, type PortalRequest } from '../middleware/portal';
+import type { PortalRequest } from '../middleware/portal';
 import type { AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import Student from '../models/Student';
@@ -40,7 +40,6 @@ import { own, needStudent, writable, hit, typeInfo, docReason, studentUpload, ap
 
 /** Student portal, part 2 (legacy/server/portal/routes.js): payments, visa, tasks, chat, notifications, settings, account, privacy, referrals, calendar. */
 const router = Router();
-router.use(portalAuth);
 type Any = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const h = (fn: (req: PortalRequest, res: Response) => Promise<unknown>) => handle(async (req, res) => {
   try { await fn(req as PortalRequest, res); } catch (e) { if (e instanceof CodeError) throw new HttpError(e.status, e.message); throw e; }

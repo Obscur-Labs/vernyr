@@ -23,7 +23,7 @@ export const KINDS = {
 };
 export const SERVICES: Record<string, string> = { A: 'Service A: Country and University Selection Assistance', B: 'Service B: University / Institution Application Assistance',
   C: 'Service C: Student Visa / Residence-Permit Application Preparation Assistance' };
-const kindOf = (inv: { kind?: string }) => KINDS[(inv.kind ?? 'service') as keyof typeof KINDS] ?? KINDS.service;
+export const kindOf = (inv: { kind?: string }) => KINDS[(inv.kind ?? 'service') as keyof typeof KINDS] ?? KINDS.service;
 export const GST_RATE = 18;
 const HOME_STATE = '24'; // Gujarat
 export const STATES: [string, string][] = [['01', 'Jammu and Kashmir'], ['02', 'Himachal Pradesh'], ['03', 'Punjab'], ['04', 'Chandigarh'], ['05', 'Uttarakhand'], ['06', 'Haryana'], ['07', 'Delhi'],
@@ -78,12 +78,12 @@ async function nextNo(prefix: string, counterKey: string, fy: string) {
   const c = await Counter.findByIdAndUpdate(counterKey, { $inc: { value: 1 } }, { upsert: true, new: true });
   return `${prefix}/${fy}/${String(c!.value).padStart(4, '0')}`;
 }
-async function bank(): Promise<Record<string, string> | null> {
+export async function bank(): Promise<Record<string, string> | null> {
   const enc = await getSetting('company_bank_enc');
   if (!enc) return null;
   try { return JSON.parse(decrypt(String(enc)) ?? 'null'); } catch { return null; }
 }
-async function upiLink(inv: InvoiceRow) {
+export async function upiLink(inv: InvoiceRow) {
   const b = await bank();
   if (!b?.upi_id) return null;
   const q = new URLSearchParams({ pa: b.upi_id, pn: b.account_name || 'Euroverse Service LLP', am: inv.total.toFixed(2), cu: 'INR', tn: inv.invoice_no, tr: inv.invoice_no });
@@ -93,7 +93,7 @@ export const H: InvoiceHelpers = {
   words, bank, upiLink, kindOf, companyGstin, appUrl: () => env.portalUrl,
   proofDate: async (inv) => (await PaymentSubmission.findOne({ invoice_id: inv._id, status: 'Recorded' }).sort({ createdAt: -1 }).select('createdAt').lean())?.createdAt ?? null,
 };
-const gstLabel = (inv: Pick<IServiceInvoice, 'supply_type'>) => (inv.supply_type === 'intra' ? 'CGST 9% + SGST 9%' : inv.supply_type === 'inter' ? 'IGST 18%' : 'No GST');
+export const gstLabel = (inv: Pick<IServiceInvoice, 'supply_type'>) => (inv.supply_type === 'intra' ? 'CGST 9% + SGST 9%' : inv.supply_type === 'inter' ? 'IGST 18%' : 'No GST');
 export const invoiceOut = (inv: IServiceInvoice) => ({ ...inv.toObject(), id: String(inv._id), _id: undefined, __v: undefined, created_at: inv.createdAt, kind: inv.kind || 'service',
   kind_label: kindOf(inv).label, doc_label: kindOf(inv).doc, place: `${inv.place_of_supply} (${inv.pos_code})`, gst_label: gstLabel(inv) });
 

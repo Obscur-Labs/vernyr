@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express';
 import { Types } from 'mongoose';
-import { portalAuth, type PortalRequest } from '../middleware/portal';
+import type { PortalRequest } from '../middleware/portal';
 import type { AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import Student from '../models/Student';
@@ -37,7 +37,6 @@ import { workNames, checklistFor, systemStage, INST_DOCS, INST_NAMES, CLOSED, ty
 
 /** The student portal API (legacy/server/portal/routes.js). Records of other students answer 404; responses are whitelisted "student view" objects. */
 const router = Router();
-router.use(portalAuth);
 type Any = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 type PH = (req: PortalRequest, res: Response) => Promise<unknown>;
 const h = (fn: PH) => handle(async (req, res) => { try { await fn(req as PortalRequest, res); } catch (e) { if (e instanceof CodeError) throw new HttpError(e.status, e.message); throw e; } });
