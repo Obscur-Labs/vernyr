@@ -20,6 +20,9 @@ import { createTask, notify } from '../services/tasks';
 import { stageList } from '../services/masters';
 import { passwordProblem } from '../services/passwords';
 import { invalidateUser } from '../services/access';
+import { upload } from '../middleware/upload';
+import { uploadBuffer } from '../config/cloudinary';
+import { checkFile } from '../services/files';
 
 /** The client's core API (legacy/server/routes/core.js): dashboard, tasks, notifications, global search, my profile. */
 const router = Router();
@@ -46,9 +49,22 @@ router.put('/me', handle(async (req, res) => {
   if (!clean(b.name)) errors.name = 'Name is required';
   if (b.email && !isEmail(b.email)) errors.email = 'Enter a valid email';
   if (Object.keys(errors).length) throw bad('Please fix the highlighted fields', { errors });
-  await User.updateOne({ _id: req.user!.id }, { name: clean(b.name, 100), phone: clean(b.mobile, 20), email: b.email ? String(b.email).trim().toLowerCase() : undefined });
+  // the email is changed by an Admin only
+  const set: Record<string, unknown> = { name: clean(b.name, 100), phone: clean(b.mobile, 20), designation: clean(b.designation, 80) };
+  // simple formatting only: <b>, <i>, <br>
+  if (b.signature_html !== undefined) set.signature_html = String(b.signature_html ?? '').slice(0, 2000).replace(/<(?!\/?(b|i|br)\s*\/?>)[^>]*>/gi, '');
+  if (b.notify_email && typeof b.notify_email === 'object') set.notify_email = Object.fromEntries(Object.entries(b.notify_email).filter(([k]) => /^[a-z_]{2,30}$/.test(k)).map(([k, v]) => [k, !!v]));
+  await User.updateOne({ _id: req.user!.id }, set);
   invalidateUser(req.user!.id);
   res.json({ ok: true });
+}));
+router.post('/me/photo', upload.single('photo'), handle(async (req, res) => {
+  if (!req.file) throw bad('Choose a photo');
+  checkFile(req.file, ['jpg', 'jpeg', 'png'], 2);
+  const up = await uploadBuffer(req.file, `staff/${req.user!.id}/photo`);
+  await User.updateOne({ _id: req.user!.id }, { avatar: up.url });
+  invalidateUser(req.user!.id);
+  res.json({ ok: true, url: up.url });
 }));
 router.post('/me/password', handle(async (req, res) => {
   const u = await User.findById(req.user!.id).select('+password');

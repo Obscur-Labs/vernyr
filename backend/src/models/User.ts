@@ -26,6 +26,9 @@ export interface IUser extends AccountBase, Document {
   /** Counsellor ID LE-CS-0001 / staff ID LE-ST-0001: never changes. */
   staff_code?: string;
   designation?: string;
+  signature_html?: string;
+  /** notification types this person also gets by email */
+  notify_email?: Record<string, boolean>;
   reports_to?: mongoose.Types.ObjectId;
   /** Admin console (legacy admin5): Super Admin, flags, branch / team, routing data for the assignment engine. */
   is_super_admin?: boolean; finance?: boolean; signing_authority?: boolean; discount_approver?: boolean;
@@ -38,6 +41,8 @@ const UserSchema = new Schema<IUser>(
     role: { type: String, enum: STAFF_ROLES, default: 'counsellor' },
     staff_code: { type: String, unique: true, sparse: true },
     designation: String,
+    signature_html: String,
+    notify_email: { type: Schema.Types.Mixed },
     reports_to: { type: Schema.Types.ObjectId, ref: 'User' },
     is_super_admin: { type: Boolean, default: false }, finance: { type: Boolean, default: false }, signing_authority: { type: Boolean, default: false }, discount_approver: { type: Boolean, default: false },
     branch_id: { type: Schema.Types.ObjectId, ref: 'Branch' }, team_id: { type: Schema.Types.ObjectId, ref: 'Team' }, countries: { type: [String], default: undefined }, languages: { type: [String], default: undefined },

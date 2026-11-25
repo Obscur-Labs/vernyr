@@ -124,7 +124,7 @@ function FieldView({ f, vals, set, error }: { f: Field; vals: Vals; set: (k: str
 /** formModal(): resolves with what save() returned, or null when closed. save() returning false keeps it open. */
 export function formModal<R = unknown>(o: {
   title: string; fields: Field[]; values?: Vals; size?: '' | 'sm' | 'lg' | 'xl'; saveLabel?: string; intro?: React.ReactNode;
-  save: (vals: Vals) => Promise<R | false>; extraButtons?: (doSave: (extra?: Vals) => void) => React.ReactNode;
+  save: (vals: Vals) => Promise<R | false>; extraButtons?: (doSave: (extra?: Vals) => void, vals: Vals) => React.ReactNode;
 }) {
   return new Promise<R | null>((resolve) => {
     let done = false;
@@ -153,7 +153,7 @@ function FormModalBody<R>({ o, close, finish }: { o: Parameters<typeof formModal
   };
   return (
     <Modal title={o.title} size={o.size} close={cancel} foot={<>
-      {o.extraButtons?.(doSave)}
+      {o.extraButtons?.(doSave, vals)}
       <button className="btn" type="button" onClick={cancel}>Cancel</button>
       <button className="btn primary" type="button" disabled={busy} onClick={() => doSave()}>{o.saveLabel ?? 'Save'}</button>
     </>}>

@@ -10,13 +10,16 @@ import { Icon } from './Icon';
 import { M, useMeta } from './meta';
 import { UiHost } from './ui';
 import { initials } from './format';
+import { Bell, GlobalSearch } from './TopBar';
 
 /** The client's CRM shell (legacy/public/js/main.js renderShell): white glass top bar, ink sidebar, grouped menu. */
 
 type NavItem = { key: string; href: string; label: string; icon: string; show: () => boolean };
 // Only screens already ported to the client's design are listed; the rest join as they land (PORTING.md).
 const NAV: NavItem[] = [
+  { key: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: 'dash', show: () => true },
   { key: 'leads', href: '/leads', label: 'Leads', icon: 'leads', show: () => M.can('leads') },
+  { key: 'tasks', href: '/tasks', label: 'Tasks', icon: 'tasks', show: () => true },
 ];
 // the counsellor's day first: my work, then students, then universities
 const GROUPS: [string, string[]][] = [
@@ -76,20 +79,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className={`shell${navOpen ? ' nav-open' : ''}`}>
         <header className="topbar">
           <button className="icon-btn burger" aria-label="Menu" onClick={() => setNavOpen(!navOpen)}><Icon name="menu" /></button>
-          <Link className="logo" href="/leads">
+          <Link className="logo" href="/dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="mark" src="/brand/vernyr-icon.svg" alt="" width={34} height={34} />
             <span className="txt">La Europa <b>CRM</b></span>
           </Link>
+          <GlobalSearch />
           <div className="top-actions">
             {M.can('leads', 'add') ? <Link className="btn accent" href="/leads?new=1"><Icon name="plus" /><span>Add Lead</span></Link> : null}
+            <Bell />
             <div className="usermenu">
               <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}>
-                <span className="avatar">{initials(me.name)}</span><span className="uname">{me.name}</span>
+                <span className="avatar">{(me as { photo_url?: string }).photo_url ? <img src={(me as { photo_url?: string }).photo_url} alt="" /> : initials(me.name)}</span><span className="uname">{me.name}</span>
               </button>
               {menuOpen ? (
                 <div className="menu pop" onMouseLeave={() => setMenuOpen(false)}>
                   <div style={{ padding: '8px 10px' }} className="small"><b>{me.name}</b><br /><span className="muted">{me.username ?? me.email ?? ''}</span></div>
+                  <Link href="/profile">My Profile</Link>
+                  <Link href="/profile?pw=1">Change password</Link>
                   <button onClick={logout}>Logout</button>
                 </div>
               ) : null}

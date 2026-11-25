@@ -8,7 +8,7 @@ export default function RootPage() {
   useEffect(() => {
     const token = localStorage.getItem('crm_token');
     if (token) {
-      router.replace('/leads');
+      router.replace('/dashboard');
     } else {
       router.replace('/login');
     }

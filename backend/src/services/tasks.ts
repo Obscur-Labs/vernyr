@@ -3,15 +3,24 @@ import Notification from '../models/Notification';
 import User from '../models/User';
 import { getIo } from '../socket/emitter';
 import { timeline } from './crm';
+import { getSetting } from '../models/Audit';
+import { sendMail } from './mailer';
+import { env } from '../config/env';
 
 /** The client's createTask / systemTask / notify (legacy/server/services.js, util.js). */
 
-/** In-app notification to one staff user (legacy util.notify). Links are CRM paths, e.g. /students/<id>. */
+const MANDATORY = new Set(['email_failed', 'security', 'lockout', 'approval']);
+/** In-app notification to one staff user (legacy util.notify). Links are CRM paths, e.g. /students/<id>.
+ *  Types an Admin switched off are skipped (mandatory ones always go); the person's chosen types also arrive by email. */
 export async function notify(userId: unknown, type: string, title: string, link?: string | null) {
   if (!userId) return;
   try {
+    if (!MANDATORY.has(type)) { try { if ((JSON.parse(String((await getSetting('staff_notify_off')) ?? '[]')) as string[]).includes(type)) return; } catch { /* ignore */ } }
     const n = await Notification.create({ userId, type, title, body: '', link: link ?? undefined });
     getIo()?.to(`user:${userId}`).emit('notification', n.toObject());
+    const u = await User.findById(userId).select('email isActive notify_email').lean();
+    const prefs = u?.notify_email ?? { task_assigned: true, email_failed: true };
+    if (u?.isActive && u.email && prefs[type]) await sendMail({ to: u.email, subject: 'La Europa CRM: ' + title, text: title + (link ? `\n\nOpen: ${env.crmUrl}${link}` : '') }).catch(() => {});
   } catch { /* a notification never breaks the request */ }
 }
 export async function notifyAdmins(type: string, title: string, link?: string | null) {

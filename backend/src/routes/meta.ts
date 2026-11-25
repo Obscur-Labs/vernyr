@@ -19,7 +19,8 @@ async function publicUser(userId: string) {
   const role = clientRole(u.role);
   return {
     id: id(u), name: u.name, username: u.username ?? null, email: u.email ?? null, mobile: u.phone ?? null,
-    role, role_name: ROLE_NAMES[role], has_photo: !!u.avatar, super_admin: false, console: [] as string[],
+    role, role_name: ROLE_NAMES[role], has_photo: !!u.avatar, photo_url: u.avatar ?? null, super_admin: !!u.is_super_admin, console: [] as string[],
+    designation: u.designation ?? null, signature_html: u.signature_html ?? null, notify_email: u.notify_email ?? { task_assigned: true, email_failed: true },
   };
 }
 

@@ -78,5 +78,5 @@ Backend modules follow the client's JSON contract (`backend/src/routes/meta.ts`,
 
 | CRM screen (client UI) | Status |
 |---|---|
-| Shell, Leads | done |
+| Shell (top-bar search, notification bell, user menu), Leads, Dashboard, Tasks, Notifications, Search, My Profile | done |
 | Everything else | after the backend |
