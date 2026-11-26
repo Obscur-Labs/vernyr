@@ -50,7 +50,7 @@ function Signup() {
 
   if (otp) {
     return <OtpStep otpId={otp.id} masked={otp.masked} title="Verify your email" onBack={() => setOtp(null)}
-      onDone={(d: SignedIn) => { setAuth(d.user, d.token, d.studentId); router.push('/home'); }} />;
+      onDone={(d: SignedIn) => { setAuth(d.user, d.token, d.studentId); router.push('/dashboard'); }} />;
   }
 
   return (

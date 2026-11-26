@@ -16,6 +16,7 @@ import { nextCode } from '../models/Timeline';
 import { getSetting } from '../models/Audit';
 import { Application, VisaCase, StudentDocument, FeeSummary, Payment, StageHistory } from '../models/Work';
 import { ApplicationRequest, PaymentSubmission, FeeInstruction, ChatMessage, NotificationPreference, AccountDeletionRequest, DataExportRequest, Referral, ConsentRecord } from '../models/Portal';
+import { signedFileUrl, type MediaResourceType } from '../config/cloudinary';
 import { ConsentDocument, PrivacyRequest } from '../models/Privacy';
 import { HttpError, bad, fieldErr, notFound, handle, oid, clean, num, istDate, fmtDateTime, normPhone, isEmail, fullName } from '../services/crm';
 import { fmtDate } from '../services/invoicePdf';
@@ -315,10 +316,10 @@ router.post('/tasks/:id/done', upload.array('files', 5), h(async (req, res) => {
 // ---------- chat ----------
 const openPath = (attId: string) => `/api/portal/chatfile/${attId}`;
 router.get('/chatfile/:aid', h(async (req, res) => {
-  const a = await CHAT.attachment(req.params.aid) as Any;
-  const cv = conv(req.c) as Any;
-  if (!a || !((cv.student_id && String(a.student_id) === String(cv.student_id)) || (cv.lead_id && String(a.lead_id) === String(cv.lead_id)))) throw notFound('Not found');
-  res.json({ url: a.url });
+  const x = oid(req.params.aid) ? await CHAT.attachment(oid(req.params.aid)) : null;
+  const cv = conv(req.c) as Any, m = x?.m as Any;
+  if (!x || !((cv.student_id && String(m.student_id) === String(cv.student_id)) || (cv.lead_id && String(m.lead_id) === String(cv.lead_id)))) throw notFound('Not found');
+  res.json({ url: signedFileUrl(x.a.file_key, x.a.public_id, x.a.resource_type as MediaResourceType) });
 }));
 router.get('/chat/messages', h(async (req, res) => {
   if (!req.c.student && !req.c.lead) { res.json({ rows: [] }); return; }

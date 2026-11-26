@@ -19,7 +19,7 @@ function Login() {
   const [busy, setBusy] = useState(false);
   const [otp, setOtp] = useState<{ id: string; masked: string } | null>(null);
 
-  const done = (d: SignedIn) => { setAuth(d.user, d.token, d.studentId); router.push('/home'); };
+  const done = (d: SignedIn) => { setAuth(d.user, d.token, d.studentId); router.push('/dashboard'); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
