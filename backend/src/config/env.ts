@@ -46,6 +46,8 @@ export const env = {
   crmUrl: (read('CLIENT_CRM_URL') ?? 'http://localhost:3000').split(',')[0].trim().replace(/\/+$/, ''),
   /** The student portal address, for links in emails and the walk-in QR. */
   portalUrl: (read('CLIENT_STUDENT_URL') ?? 'http://localhost:3001').split(',')[0].trim().replace(/\/+$/, ''),
+  /** The university partner portal address, for links in partner emails. */
+  partnerUrl: (read('CLIENT_PARTNER_URL') ?? 'http://localhost:3003').split(',')[0].trim().replace(/\/+$/, ''),
   mail: {
     /** sandbox = written to backend/outbox and the console, nobody is emailed. smtp = real sending. */
     provider: process.env.MAIL_PROVIDER === 'smtp' ? 'smtp' as const : 'sandbox' as const,

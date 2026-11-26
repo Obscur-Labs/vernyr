@@ -26,6 +26,7 @@ export interface IEmailLog extends Document {
   to_addr?: string; cc_addr?: string; reply_to?: string; from_addr?: string; subject?: string; body_html?: string; body_text?: string; message_id?: string;
   in_reply_to?: string; references_hdr?: string; triggered_by?: Types.ObjectId; status: string; attempts: number; error?: string;
   queued_at: Date; scheduled_at?: Date; next_attempt_at?: Date; sent_at?: Date; delivered_at?: Date; resend_of?: Types.ObjectId;
+  university_id?: Types.ObjectId; uapp_id?: Types.ObjectId; invoice_id?: Types.ObjectId; thread_kind?: string;
 }
 export const EmailLog = mongoose.model<IEmailLog>('EmailLog', new Schema<IEmailLog>({
   student_id: { type: Schema.Types.ObjectId, ref: 'Student', index: true }, lead_id: { type: Schema.Types.ObjectId, ref: 'Lead', index: true },
@@ -34,4 +35,5 @@ export const EmailLog = mongoose.model<IEmailLog>('EmailLog', new Schema<IEmailL
   in_reply_to: String, references_hdr: String, triggered_by: { type: Schema.Types.ObjectId, ref: 'User' }, status: { type: String, default: 'Queued' },
   attempts: { type: Number, default: 0 }, error: String, queued_at: { type: Date, default: Date.now }, scheduled_at: Date, next_attempt_at: Date, sent_at: Date,
   delivered_at: Date, resend_of: { type: Schema.Types.ObjectId, ref: 'EmailLog' },
+  university_id: { type: Schema.Types.ObjectId, ref: 'University', index: true }, uapp_id: Schema.Types.ObjectId, invoice_id: Schema.Types.ObjectId, thread_kind: String,
 }).index({ status: 1, next_attempt_at: 1 }), 'emaillogs');

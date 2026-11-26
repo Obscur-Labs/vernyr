@@ -339,8 +339,14 @@ async function sendOne(log: IEmailLog) {
 async function sendPrebuilt(log: IEmailLog) {
   const attempts = (log.attempts || 0) + 1;
   try {
-    const r = await send({ to: String(log.to_addr), cc: [HARD_CC], subject: String(log.subject), html: log.body_html, text: log.body_text || htmlToText(log.body_html ?? '') });
-    await EmailLog.updateOne({ _id: log._id }, { status: r.status, attempts, sent_at: new Date(), cc_addr: HARD_CC, $unset: { error: 1 } });
+    // university and partner-staff emails: their own sender and one thread per application, invoice or university
+    const U = log.thread_kind ? await import('./uemail') : null;
+    const th = U ? await U.threadInfo(log) : null;
+    const from = U ? await U.fromAddr(log) : undefined;
+    const r = await send({ from, to: String(log.to_addr), cc: [HARD_CC], subject: String(log.subject), html: log.body_html, text: log.body_text || htmlToText(log.body_html ?? ''),
+      messageId: th?.messageId, inReplyTo: th?.inReplyTo, references: th?.references });
+    await th?.done();
+    await EmailLog.updateOne({ _id: log._id }, { status: r.status, attempts, sent_at: new Date(), cc_addr: HARD_CC, ...(th ? { message_id: th.messageId, in_reply_to: th.inReplyTo, references_hdr: th.references, from_addr: from } : {}), $unset: { error: 1 } });
   } catch (e) {
     const done = e instanceof HardBounce || attempts >= 4;
     await EmailLog.updateOne({ _id: log._id }, done ? { status: e instanceof HardBounce ? 'Bounced' : 'Failed', attempts, error: String((e as Error).message).slice(0, 500) }

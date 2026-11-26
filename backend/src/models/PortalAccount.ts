@@ -20,6 +20,9 @@ export interface IPortalAccount extends AccountBase, Document {
   inviteTokenHash?: string; inviteExpiresAt?: Date; inviteSentCount?: number; inviteDay?: string;
   profileSubmittedAt?: Date; completionPercent?: number; language?: string; referralCode?: string; lockReason?: string;
   flags?: Record<string, unknown>; pendingEmail?: string; pendingPhone?: string;
+  /** university logins (legacy uni_users) */
+  universityId?: mongoose.Types.ObjectId; uniRole?: 'admin' | 'officer' | 'viewer'; finance?: boolean; campuses?: mongoose.Types.ObjectId[]; department?: string; alerts?: string[] | null;
+  designation?: string; isMainContact?: boolean; pwHistory?: string[]; lastLoginAt?: Date;
 }
 
 const PortalAccountSchema = new Schema<IPortalAccount>(
@@ -34,6 +37,8 @@ const PortalAccountSchema = new Schema<IPortalAccount>(
     inviteTokenHash: { type: String, index: true }, inviteExpiresAt: Date, inviteSentCount: { type: Number, default: 0 }, inviteDay: String,
     profileSubmittedAt: Date, completionPercent: { type: Number, default: 0 }, language: { type: String, default: 'en' }, referralCode: { type: String, unique: true, sparse: true }, lockReason: String,
     flags: Schema.Types.Mixed, pendingEmail: String, pendingPhone: String,
+    universityId: { type: Schema.Types.ObjectId, ref: 'University', index: true }, uniRole: { type: String, enum: ['admin', 'officer', 'viewer'] }, finance: Boolean,
+    campuses: [{ type: Schema.Types.ObjectId, ref: 'Campus' }], department: String, alerts: { type: [String], default: undefined }, designation: String, isMainContact: Boolean, pwHistory: [String], lastLoginAt: Date,
   },
   { timestamps: true },
 );
@@ -46,7 +51,7 @@ PortalAccountSchema.pre('validate', function (next) {
   if (this.role === 'student' && !this.studentId && !this.leadId) {
     return next(new Error('A student login must be linked to a lead or a student record'));
   }
-  if (this.role === 'university' && !this.universityName) {
+  if (this.role === 'university' && !this.universityId && !this.universityName) {
     return next(new Error('A university login needs the institution name'));
   }
   next();

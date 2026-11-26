@@ -43,7 +43,7 @@ export async function overallStage(studentId: Types.ObjectId) {
 const score = (r: Academic) => (r.score === null || r.score === undefined ? '-' : !r.score_type || r.score_type === '%' ? `${r.score}%` : `${r.score} CGPA`);
 export const mmyyyy = (ym?: string) => { if (!ym) return ''; const [y, m] = ym.split('-'); return `${m}/${y}`; };
 
-function workExperienceTotal(rows: Work[]) {
+export function workExperienceTotal(rows: Work[]) {
   const toM = (ym: string) => { const [y, m] = ym.split('-').map(Number); return y * 12 + (m - 1); };
   const t = new Date(); const nowM = t.getFullYear() * 12 + t.getMonth();
   const iv = rows.filter((r) => r.from_month).map((r) => [toM(r.from_month), r.till_date ? nowM : r.to_month ? toM(r.to_month) : toM(r.from_month)]).sort((a, b) => a[0] - b[0]);
