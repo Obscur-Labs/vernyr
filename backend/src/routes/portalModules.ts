@@ -22,6 +22,7 @@ import { MODES, when, prefsOf, freeSlots, ics, out as apptOut, timelineFor } fro
 import { H as INV, bank, upiLink, gstLabel, kindOf, sendPdf, paymentOf } from './invoices';
 import { hit, leadIds, studentUpload, writable } from './portal';
 import { env } from '../config/env';
+import { referralCodeOf, sendCard } from '../services/qrCard';
 
 /** Student portal side of the client's modules: information form, meetings, promotions, wallet, GST invoices. */
 const router = Router();
@@ -89,7 +90,7 @@ router.get('/appointments/:file', h(async (req, res) => {
 }));
 
 // ---------- promotions and vouchers ----------
-const shareLink = (code: string | undefined, p?: IPromotion | null) => `${env.portalUrl}/signup?ref=${code ?? ''}${p ? '&promo=' + encodeURIComponent(p.code) : ''}`;
+const shareLink = (code: string | undefined, p?: IPromotion | null) => `${env.portalUrl}/register?ref=${code ?? ''}${p ? '&promo=' + encodeURIComponent(p.code) : ''}`;
 // DPDP s.9(3): no targeted offers to children
 const visible = (p: IPromotion, req: PortalRequest) => R.live(p) && !isMinor(req) && (p.audience === 'all' || (p.audience === 'students' ? !!req.su.studentId : !req.su.studentId));
 async function offerCountries(p: IPromotion) {
@@ -105,10 +106,20 @@ async function outPortal(p: IPromotion, req: PortalRequest) {
     reward: p.reward ?? null, terms: p.terms ?? null, has_image: !!p.image_url, image_url: p.image_url ?? null, starts_on: p.starts_on ?? null, ends_on: p.ends_on ?? null, live: on,
     period: p.starts_on || p.ends_on ? `${R.d8(p.starts_on) || 'now'} to ${R.d8(p.ends_on) || 'open'}` : '', scope: await R.scopeLabel(p), scope_type: p.scope_type, min_referrals: p.min_referrals || 1,
     provider: p.provider_name ?? null, provider_note: p.kind === 'offer' ? null : R.PROVIDER_NOTE(p), seen: !!(await PromotionSeen.exists({ promotion_id: p._id, student_user_id: req.su._id })),
-    share_link: on ? shareLink(req.su.referralCode, p) : null,
+    share_link: on ? shareLink(await referralCodeOf(req.su, req.preview), p) : null,
     my_progress: mine ? { counted: mine.counted, needed: mine.needed, eligible: mine.eligible, voucher: mine.reward, claims: mine.claims.map((c) => ({ university: c.university, friend: c.friend, state: c.state, counts: c.counts, closed: c.closed, applied: c.applied, visa: c.visa, enrolled: c.enrolled })) } : null };
 }
 // running offers, plus ended ones where I used the code or got a voucher
+// my referral card (logo, text, QR, my code) for printing or WhatsApp; ?promo=CODE adds the promotion
+router.get('/referrals/card.:format(pdf|png)', h(async (req, res) => {
+  const code = await referralCodeOf(req.su, req.preview);
+  const p0 = req.query.promo ? await Promotion.findOne({ code: String(req.query.promo).toUpperCase() }) : null;
+  const p = p0 && visible(p0, req) ? p0 : null;
+  const name = displayName(req.c).split(' ')[0];
+  await sendCard(res, { title: p ? p.title : 'Study abroad with La Europa Education',
+    text: p && p.reward ? `${p.reward}. Sign up with ${name}'s referral code${p.ends_on ? ` (offer until ${R.d8(p.ends_on)}, terms apply)` : ''}.` : `${name} invites you to La Europa Education. Sign up with this referral code.`,
+    url: shareLink(code, p), badge: `Code ${code}${p ? '  ·  ' + p.code : ''}`, footer: ['Scan with your phone camera to sign up'] }, `La-Europa-referral-${code}`, req.params.format);
+}));
 router.get('/promotions', h(async (req, res) => {
   await R.expire();
   const mine = new Set([...(await PromotionClaim.distinct('promotion_id', { $or: [{ student_user_id: req.su._id }, { referrer_student_user_id: req.su._id }] })), ...(await Voucher.distinct('promotion_id', { student_user_id: req.su._id }))].map(String));

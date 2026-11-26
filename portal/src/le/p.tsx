@@ -43,3 +43,10 @@ export const PStatus = ({ s }: { s: string }) => <span className={`badge ${PST[s
 export const LockedCard = ({ text }: { text?: string }) => <div className="p-card"><div className="lock-card"><div className="ic">🔒</div>{t(text || 'Available after your registration with La Europa')}</div></div>;
 export const idemKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 export const local = (h?: string | null) => String(h ?? '').replace(/^#/, '') || '/notifications';
+
+/** a link the server hands out: API files need the auth header (opened as a blob), signed file links open as they are */
+export async function openLink(url?: string | null, name = 'file') {
+  if (!url) return;
+  if (url.startsWith('/api/portal')) { const { download } = await import('./api'); const { showError } = await import('./ui'); await download(url.replace(/^\/api\/portal/, ''), name, true).catch(showError); return; }
+  window.open(url, '_blank', 'noopener');
+}

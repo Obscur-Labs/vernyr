@@ -33,6 +33,7 @@ import * as CONSENT from '../services/consent';
 import * as CHAT from '../services/portalChat';
 import { academicSummary } from '../services/students';
 import { referralStatus } from '../services/rewards';
+import { referralCodeOf } from '../services/qrCard';
 import { sharedWith, replyDays, grievanceDue } from '../services/dpdp';
 import { pick } from '../services/assign';
 import { leadDuplicates } from './leads';
@@ -619,8 +620,8 @@ router.get('/share-consents', h(async (_req, res) => res.json({ rows: [], text: 
 // ---------- referrals ----------
 router.get('/referrals', h(async (req, res) => {
   if ((await getSetting('referral_enabled')) === '0') { res.json({ enabled: false }); return; }
-  const code = req.su.referralCode;
-  const link = `${env.portalUrl}/signup?ref=${code}`;
+  const code = await referralCodeOf(req.su, req.preview);
+  const link = `${env.portalUrl}/register?ref=${code}`;
   const rows = [];
   for (const x of await Referral.find({ referrer_student_user_id: req.su._id, is_deleted: false }).sort({ createdAt: -1 }).lean()) {
     const s = await referralStatus(x as never);
