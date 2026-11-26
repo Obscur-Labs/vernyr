@@ -9,6 +9,7 @@ import { fmtDate, fmtDT } from '@/le/format';
 import { Options, formModal } from '@/le/form';
 import { StatusBadge } from '@/le/badges';
 import { toast } from '@/le/ui';
+import { LeadPortalBox } from '@/le/portalcrm';
 import { OUTCOMES, TL_ICON, deleteLead, leadForm, logCall, setFollowup, type Lead } from '@/le/leads';
 
 type Detail = {
@@ -102,6 +103,7 @@ export default function LeadDetail({ params }: { params: Promise<{ id: string }>
           </div>
         </div>
         <div className="stack">
+          <LeadPortalBox leadId={d.lead.id} />
           <div className="card"><div className="hd"><h2>Emails to this lead</h2></div><div className="bd">
             {d.emails.length ? <ul className="list-plain">{d.emails.map((e) => (
               <li key={e.id}><span className="mono small">{e.trigger_code}</span><div className="grow">{e.update_title}<div className="small muted">{fmtDT(e.sent_at || e.queued_at)}</div></div><StatusBadge s={e.status} /></li>

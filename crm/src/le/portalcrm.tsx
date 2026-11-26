@@ -231,3 +231,32 @@ export function ChangeRequests({ s, reload }: { s: Any; reload: () => void }) {
     </div></div>
   );
 }
+
+/** what a lead filled on the portal before registration (portalcrm.js leadPortalBox), with the lead's chat */
+export function LeadPortalBox({ leadId }: { leadId: string }) {
+  const [d, setD] = useState<Any | null>(null);
+  const chat = useRef<HTMLDivElement>(null);
+  useEffect(() => { GET(`/leads/${leadId}/portal`).then(setD).catch(() => setD(null)); }, [leadId]);
+  useEffect(() => { if (d && d.status !== 'No portal account' && window.location.search.includes('chat=1')) chat.current?.scrollIntoView(); }, [d]);
+  if (!d || d.status === 'No portal account') return null;
+  const p = d.draft, pe = p.personal || {};
+  const pass = p.passport?.passport ? String(p.passport.passport).slice(0, 3) + 'XXXX' + String(p.passport.passport).slice(-1) : '-';
+  const preview = async () => { try { const r = await POST(`/leads/${leadId}/portal-preview`); window.open(r.url, '_blank', 'noopener'); } catch (e) { showError(e); } };
+  const kv = (k: string, v: React.ReactNode) => <div><div className="k">{k}</div><div className="v">{v}</div></div>;
+  return (
+    <>
+      <div className="card"><div className="hd"><h2>Student portal</h2><span className={`badge ${d.status === 'Active' ? 'green' : 'orange'}`}>{d.status}</span>
+        <span className="small muted">{d.completion ?? 0}% complete{d.profile_submitted_at ? ' · submitted ' + fmtDate(d.profile_submitted_at) : ''}</span><span className="grow" /><button className="btn sm" onClick={preview}>View as student</button></div>
+        <div className="bd"><div className="info-box small" style={{ marginBottom: 8 }}>Filled by student on portal (read only). It is copied into the student file when you convert this lead.</div>
+          <div className="kv small">
+            {kv('Name', [pe.first_name, pe.middle_name, pe.last_name].filter(Boolean).join(' '))}{kv('DOB / gender', `${fmtDate(pe.dob)} ${pe.gender || ''}`)}{kv('Passport', pass)}
+            {kv('Academic', (p.academic?.records || []).map((r: Any) => `${r.level} ${r.score ?? ''}${r.score_type === '%' ? '%' : ''}`).join(', ') || '-')}
+            {kv('English', (p.english?.tests || []).map((x: Any) => `${x.test_type} ${x.overall ?? ''}`).join(', ') || '-')}{kv('Preferences', [p.preferences?.course, p.preferences?.level].filter(Boolean).join(', ') || '-')}
+          </div>
+          {d.requests.length ? <><h4 style={{ marginTop: 12 }}>Apply Now requests (held until registration)</h4>{d.requests.map((r: Any, i: number) => <div key={i} className="small">{r.code}: {r.university} {r.course} ({r.intake}) <ReqBadge s={r.status} /></div>)}</> : null}
+          {d.saved.length ? <><h4 style={{ marginTop: 12 }}>Saved courses</h4><div className="small">{d.saved.map((c: Any, i: number) => <div key={i}>{c.name} ({c.uni})</div>)}</div></> : null}
+        </div></div>
+      <div ref={chat} style={{ marginTop: 14 }}><ChatPanel base={`/leads/${leadId}/chat`} /></div>
+    </>
+  );
+}
