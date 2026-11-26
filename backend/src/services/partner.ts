@@ -85,8 +85,8 @@ export async function notifyUni(universityId: unknown, filter: Parameters<typeof
 
 // ---------- per-university settings ----------
 export const uni = (id: unknown) => University.findById(id);
-export const uniName = (u?: Pick<IUniversity, 'display_name' | 'name'> | null) => (u && (u.display_name || u.name)) || '';
-export const shortName = (u?: Pick<IUniversity, 'short_name' | 'display_name' | 'name'> | null) => (u && (u.short_name || u.display_name || u.name)) || '';
+export const uniName = (u?: { display_name?: string; name?: string } | null) => (u && (u.display_name || u.name)) || '';
+export const shortName = (u?: { short_name?: string; display_name?: string; name?: string } | null) => (u && (u.short_name || u.display_name || u.name)) || '';
 export async function activeAgreement(universityId: unknown) {
   const today = istDate();
   return PartnerAgreement.findOne({ university_id: universityId, is_deleted: false, status: { $in: ['Active', 'Expiring soon'] }, start_date: { $lte: today }, $or: [{ end_date: null }, { end_date: { $exists: false } }, { end_date: { $gte: today } }] }).sort({ start_date: -1 }).lean();

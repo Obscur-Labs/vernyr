@@ -36,7 +36,7 @@ const CLOSED = ['rejected', 'withdrawn', 'offer_declined'];
 const OFFER_STAGES = ['offer_accepted', 'tuition_paid', 'enrolment_confirmed'];
 
 /** id -> name across masters, countries, intakes, universities, courses (legacy masterName). */
-async function names() {
+export async function names() {
   const [m, c, i, u, k, users] = await Promise.all([MasterItem.find().select('name data').lean(), Country.find().select('name').lean(), Intake.find().select('name').lean(),
     University.find().select('name').lean(), Course.find().select('name').lean(), userNames()]);
   const all = new Map<string, string>();
@@ -48,7 +48,7 @@ type Names = Awaited<ReturnType<typeof names>>;
 
 async function stageName(type: 'app_stage' | 'visa_stage', code?: string) { return (await stageList(type)).find((x) => x.code === code)?.name ?? code ?? ''; }
 async function stageOrder(type: 'app_stage' | 'visa_stage', code?: string) { return (await stageList(type)).find((x) => x.code === code)?.sort ?? 0; }
-async function triggerFor(type: 'app_stage' | 'visa_stage', code: string) { return String(((await stageList(type)).find((x) => x.code === code) as Record<string, unknown> | undefined)?.trigger ?? (type === 'app_stage' ? 'E05' : 'E14')); }
+export async function triggerFor(type: 'app_stage' | 'visa_stage', code: string) { return String(((await stageList(type)).find((x) => x.code === code) as Record<string, unknown> | undefined)?.trigger ?? (type === 'app_stage' ? 'E05' : 'E14')); }
 
 /** loadChild(): the row and its student, after the student access check. */
 async function loadChild<T extends { student_id: Types.ObjectId; is_deleted: boolean }>(req: AuthRequest, model: mongoose.Model<T>, id: string, what: string) {
@@ -259,7 +259,7 @@ function appFields(b: Record<string, any>) { // eslint-disable-line @typescript-
   if (b.show_university_ref_to_student !== undefined) f.show_university_ref_to_student = isTrue(b.show_university_ref_to_student);
   return f;
 }
-async function offerDeadlineTask(s: IStudent, a: IApplication, N: Names, byUserId: string) {
+export async function offerDeadlineTask(s: IStudent, a: IApplication, N: Names, byUserId: string) {
   if (!a.offer_deadline || !s.primary_counsellor_id) return;
   const due = new Date(`${a.offer_deadline}T10:00:00+05:30`); due.setDate(due.getDate() - 3);
   await systemTask(`offer-deadline:${a._id}`, { title: `Offer acceptance deadline in 3 days: ${N.name(a.university_id)} (${fullName(s)})`, type: 'Application submission',
@@ -275,7 +275,7 @@ const STAGE_MSG: Record<string, (c: Record<string, string>) => string> = {
   enrolment_confirmed: () => 'Your admission is confirmed. We will now focus on your visa.',
   withdrawn: () => 'This application has been withdrawn as discussed with you.',
 };
-async function appCtx(a: IApplication | Record<string, any>, s: IStudent, N: Names, extra: Record<string, string> = {}) { // eslint-disable-line @typescript-eslint/no-explicit-any
+export async function appCtx(a: IApplication | Record<string, any>, s: IStudent, N: Names, extra: Record<string, string> = {}) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const pending = await StudentDocument.find({ student_id: s._id, is_deleted: false, status: { $in: ['Pending', 'Rejected'] } }).lean();
   const c: Record<string, string> = { university: N.name(a.university_id), course: a.course_name_text || N.name(a.course_id), intake: N.name(a.intake_id), country: N.name(a.country_id),
     stage: await stageName('app_stage', a.stage), applied_date: a.applied_date || '', interview_datetime: a.interview_at ? fmtDateTime(a.interview_at) : '',
