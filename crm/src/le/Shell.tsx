@@ -7,7 +7,7 @@ import '@/styles/le-fonts.css';
 import '@/styles/le-ui.css';
 import { useAuthStore } from '@/stores/authStore';
 import { Icon } from './Icon';
-import { M, useMeta } from './meta';
+import { M, useMeta, type Me } from './meta';
 import { UiHost } from './ui';
 import { initials } from './format';
 import { Bell, GlobalSearch } from './TopBar';
@@ -30,7 +30,8 @@ const NAV: NavItem[] = [
   { key: 'counsellors', href: '/counsellors', label: 'Counsellors', icon: 'leads', show: () => M.admin() || M.manager() },
   { key: 'promotions', href: '/promotions', label: 'Promotions & wallet', icon: 'gift', show: () => M.admin() },
   { key: 'courses', href: '/courses', label: 'Course search', icon: 'search', show: () => true },
-  { key: 'catalogue', href: '/admin/catalogue', label: 'Course catalogue', icon: 'apps', show: () => M.admin() },
+  { key: 'catalogue', href: '/admin/catalogue', label: 'Add / upload courses', icon: 'reports', show: () => M.admin() },
+  { key: 'console', href: '/console', label: 'Admin console', icon: 'admin', show: () => { const me = useMeta.getState().me as (Me & { signing_authority?: boolean }) | null; return (me?.console ?? []).length > 0 || M.admin() || !!me?.signing_authority; } },
   { key: 'reports', href: '/admin/reports', label: 'Reports', icon: 'reports', show: () => M.admin() || M.manager() },
   { key: 'admin', href: '/admin/users', label: 'Admin Settings', icon: 'admin', show: () => M.admin() },
 ];
@@ -39,7 +40,7 @@ const GROUPS: [string, string[]][] = [
   ['My work', ['dashboard', 'tasks', 'appointments', 'chat', 'requests', 'documents', 'walkin']],
   ['Students', ['leads', 'students', 'counsellors', 'applications', 'courses', 'promotions']],
   ['Universities', ['uniupdates', 'unimsgs', 'catalogue']],
-  ['More', ['reports', 'admin', 'console']],
+  ['More', ['console']],
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -126,6 +127,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null;
           })}
+          {M.admin() || M.manager() ? <><div className="sep" />{NAV.filter((n) => ['reports', 'admin'].includes(n.key) && n.show()).map((n) => <Link key={n.key} href={n.href} className={active === n.key ? 'on' : ''}><Icon name={n.icon} /><span>{n.label}</span></Link>)}</> : null}
           <div className="sep" />
           <div className="small muted" style={{ padding: '4px 12px' }}>{me.role_name}<br />Times shown in IST</div>
         </nav>
