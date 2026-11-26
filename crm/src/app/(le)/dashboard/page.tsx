@@ -11,6 +11,7 @@ import { PriBadge } from '@/le/badges';
 import { showError, toast } from '@/le/ui';
 import { taskForm, type Task } from '@/le/tasks';
 import { TL_ICON } from '@/le/leads';
+import { DashStrip } from '@/le/university';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -57,6 +58,7 @@ export default function Dashboard() {
       </div>
       {!d ? <div className="empty">Loading...</div> : (
         <>
+          <DashStrip />
           <div className="stats">{d.cards.map((c: any) => (
             <Link key={c.label} className={`stat ${c.tone || ''}`} href={href(extra(c.link))}>
               <div className="lbl">{c.label}</div><div className="val">{c.value}</div>

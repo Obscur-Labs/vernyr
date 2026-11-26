@@ -30,6 +30,8 @@ const NAV: NavItem[] = [
   { key: 'walkin', href: '/walkin-qr', label: 'Walk-in QR', icon: 'plus', show: () => true },
   { key: 'counsellors', href: '/counsellors', label: 'Counsellors', icon: 'leads', show: () => M.admin() || M.manager() },
   { key: 'promotions', href: '/promotions', label: 'Promotions & wallet', icon: 'gift', show: () => M.admin() },
+  { key: 'uniupdates', href: '/university-updates', label: 'University updates', icon: 'reports', show: () => M.can('applications') },
+  { key: 'unimsgs', href: '/university-messages', label: 'University messages', icon: 'mail', show: () => M.can('applications') },
   { key: 'courses', href: '/courses', label: 'Course search', icon: 'search', show: () => true },
   { key: 'catalogue', href: '/catalogue', label: 'Add / upload courses', icon: 'reports', show: () => M.admin() },
   { key: 'console', href: '/console', label: 'Admin console', icon: 'admin', show: () => { const me = useMeta.getState().me as (Me & { signing_authority?: boolean }) | null; return (me?.console ?? []).length > 0 || M.admin() || !!me?.signing_authority; } },

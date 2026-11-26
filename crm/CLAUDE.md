@@ -23,7 +23,7 @@ The ported screens share one toolkit, the client's `core.js` rewritten for React
 | `Shell.tsx`, `TopBar.tsx`, `Icon.tsx`, `badges.tsx` | chrome, icons (Lucide, the client's names), status badges |
 | `InfoForm.tsx` | the one student information form, shared with the portal (definition comes from the server) |
 
-Screens: `leads.tsx`, `tasks.tsx`, `notify.tsx`, `portalcrm.tsx` (requests, chat, change requests, file opening), `student/` (the student profile frame and tabs), `work/` (shortlist, applications and visa, documents, fees), `promotions.tsx`, `wallet.tsx`, `admin.tsx`, `catalogue.tsx`, `privacy.tsx`, `console.tsx`, `console2.tsx`.
+Screens: `leads.tsx`, `tasks.tsx`, `notify.tsx`, `portalcrm.tsx` (requests, chat, change requests, file opening), `student/` (the student profile frame and tabs), `work/` (shortlist, applications and visa, documents, fees), `promotions.tsx`, `wallet.tsx`, `admin.tsx`, `catalogue.tsx`, `privacy.tsx`, `console.tsx`, `console2.tsx`, `university.tsx` (Admin > University portal, the University panel of an application, university updates and messages, the dashboard strip).
 
 Rules the screens keep:
 - **Navigation is permission-driven**: `NAV` in `Shell.tsx` gives each entry a `show()` reading `M` (the caller's matrix permissions from `/api/meta`). The client copy decides what to draw; the server decides what to allow.

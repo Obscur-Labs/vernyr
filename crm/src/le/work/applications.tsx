@@ -13,6 +13,7 @@ import { openFile } from '../portalcrm';
 import type { Ctx } from '../student/tabs';
 import { CUR, LEVELS, courses, unis } from './shortlist';
 import { viewDocument } from './documents';
+import { UniBox, UniStudentBox } from '../university';
 
 /** The client's Applications & Visa (legacy/public/js/pages/work.js applications / visa, portalcrm.js appPortalBox). */
 
@@ -397,6 +398,8 @@ export function ApplicationsTab({ s, P, reload: reloadFrame, openNew }: Ctx & { 
           <FlowStrip a={a} />
           {(visa?.cases ?? []).filter((v: Any) => v.application_id === a.id).map((v: Any) => <VisaCard key={v.id} v={v} P={P} reload={reload} embedded />)}
           <AppPortalBox app={a} reload={reload} />
+          <UniBox app={a} studentId={String(s.id)} reload={reload} />
+          <UniStudentBox appId={a.id} />
           <div className="row" style={{ marginTop: 10 }}>
             {P.applications_edit ? <>
               <button className="btn sm primary" onClick={() => stagePopup(a, reload)}>Change stage</button>
