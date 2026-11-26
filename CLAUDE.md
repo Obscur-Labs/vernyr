@@ -9,7 +9,7 @@ Vernyr is La Europa's study-abroad platform (Vernyr is the product, La Europa th
 - **`backend/`**: Express + TypeScript API (port 5000)
 - **`crm/`**: Next.js 16 staff-facing CRM dashboard (port 3000)
 - **`portal/`**: Next.js 16 student self-service portal (port 3001)
-- **`partner/`**: Next.js 16 university partner portal (port 3003). On hold: a placeholder page, with the client's plain-JS MVP kept in `partner/mvp-reference/` as the spec
+- **`partner/`**: Next.js 16 university partner portal (port 3003): the client's `legacy/public/university/` screens in `src/le/` (same toolkit as the CRM), token in `localStorage` under `partner_token`, API under `/api/university` (`routes/uni*.ts`)
 - **`website/`**: Next.js 16 public marketing site (port 3002)
 
 ## Feature reference

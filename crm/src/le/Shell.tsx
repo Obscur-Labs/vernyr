@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Icon } from './Icon';
 import { M, useMeta, type Me } from './meta';
 import { UiHost } from './ui';
-import './install';
+import { isInstalled } from './install';
 import { initials } from './format';
 import { Bell, GlobalSearch } from './TopBar';
 
@@ -35,13 +35,14 @@ const NAV: NavItem[] = [
   { key: 'console', href: '/console', label: 'Admin console', icon: 'admin', show: () => { const me = useMeta.getState().me as (Me & { signing_authority?: boolean }) | null; return (me?.console ?? []).length > 0 || M.admin() || !!me?.signing_authority; } },
   { key: 'reports', href: '/admin/reports', label: 'Reports', icon: 'reports', show: () => M.admin() || M.manager() },
   { key: 'admin', href: '/admin/users', label: 'Admin Settings', icon: 'admin', show: () => M.admin() },
+  { key: 'install', href: '/install', label: 'Install app', icon: 'download', show: () => !isInstalled() },
 ];
 // the counsellor's day first: my work, then students, then universities
 const GROUPS: [string, string[]][] = [
   ['My work', ['dashboard', 'tasks', 'appointments', 'chat', 'requests', 'documents', 'walkin']],
   ['Students', ['leads', 'students', 'counsellors', 'applications', 'courses', 'promotions']],
   ['Universities', ['uniupdates', 'unimsgs', 'catalogue']],
-  ['More', ['console']],
+  ['More', ['console', 'install']],
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {

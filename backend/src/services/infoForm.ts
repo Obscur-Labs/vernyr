@@ -90,8 +90,8 @@ export const FORM: Any[] = [
 export const PRIVATE_FROM_UNI = ['budget_range_label', 'whatsapp', 'address1', 'address2', 'pin', 'parent_phone', 'mother_phone', 'emergency_phone', 'funding_source', 'sponsor_name'];
 const EXTRA_KEYS = FORM.flatMap((s) => s.fields.filter((f: Any) => (f.store || s.store) === 'extra').map((f: Any) => f.k as string));
 
-const has = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== '' && !(Array.isArray(v) && !v.length);
-const shown = (f: Any, d: Any) => !f.show || Object.entries(f.show).every(([k, v]) => (Array.isArray(v) ? v.includes(d[k]) : v === true ? d[k] === 'yes' || d[k] === true : d[k] === v));
+export const has = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== '' && !(Array.isArray(v) && !v.length);
+export const shown = (f: Any, d: Any) => !f.show || Object.entries(f.show).every(([k, v]) => (Array.isArray(v) ? v.includes(d[k]) : v === true ? d[k] === 'yes' || d[k] === true : d[k] === v));
 const probSection = (p: { section: string; key: string }) => (p.section === 'personal' && /^parent_/.test(p.key) ? 'family' : p.section);
 const yn = (v: unknown) => (v === true ? 'yes' : v === false ? 'no' : v ?? null);
 

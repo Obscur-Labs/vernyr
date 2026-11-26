@@ -344,3 +344,48 @@ router.post('/applications/:id/actions/:type', upload.single('file'), h(async (r
 
 export default router;
 void scope;
+
+// ---------- the "Application form": the student's information form, read only, without private contact and finance fields ----------
+async function uniForm(req: UniRequest) {
+  const ua = (await loadUA(req, req.params.id)).toObject() as Any;
+  const a = (await Application.findById(ua.application_id).lean()) as Any;
+  const s = await Student.findById(a.student_id);
+  const { ctxForStudent } = await import('../services/portalCtx');
+  const F = await import('../services/infoForm');
+  const o: Any = await F.out(await ctxForStudent(s!), 'university');
+  for (const sec of Object.values(o.data) as Any[]) for (const k of F.PRIVATE_FROM_UNI) if (sec && k in sec) delete sec[k];
+  const pass = o.data?.passport?.passport;
+  if (pass && !req.uni.share_passport) o.data.passport.passport = String(pass).replace(/^(.{2}).*(.{2})$/, (_m: string, x: string, y: string) => x + 'X'.repeat(Math.max(0, String(pass).length - 4)) + y);
+  const N = await names();
+  return { ua, a, s, o, F, course: a.course_name_text || N(a.course_id), intake: N(a.intake_id) };
+}
+router.get('/applications/:id/application-form', h(async (req, res) => {
+  const { o, ua, course, intake } = await uniForm(req);
+  res.json({ ...o, course, intake, student_uni_id: ua.student_uni_id || null, locked: undefined, email: undefined, phone: undefined });
+}));
+router.get('/applications/:id/application-form.pdf', h(async (req, res) => {
+  const { o, a, s, ua, F, course, intake } = await uniForm(req);
+  const L = await import('../services/uniLetters');
+  const N = await names();
+  const val = (f: Any, v: any) => { if (!F.has(v)) return '-'; if (f.type === 'countries') return (v as unknown[]).map((id) => N(id)).join(', '); if (f.type === 'intake') return N(v) || String(v); if (f.type === 'date') return fmtDate(String(v));
+    if (f.type === 'yesno') return v === 'yes' || v === true ? 'Yes' : 'No'; if (f.type === 'check') return v ? 'Yes' : 'No';
+    if (Array.isArray(f.opts) && Array.isArray(f.opts[0])) return (f.opts.find((x: Any) => x[0] === v) || [null, v])[1]; return String(v); };
+  const blocks: Any[] = [];
+  for (const sec of o.form as Any[]) {
+    const d = o.data[sec.key] || {};
+    if (sec.list) {
+      const rows = (d[sec.list] || []) as Any[]; const cols = (sec.fields as Any[]).filter((f) => rows.some((r) => F.has(r[f.k]))).slice(0, 6);
+      if (!rows.length || !cols.length) { blocks.push({ h: sec.title, p: sec.toggle && d[sec.toggle.k] === 'no' ? 'None' : 'Not given' }); continue; }
+      const w = Math.floor(487 / cols.length);
+      blocks.push({ h: sec.title, table: { cols: cols.map((f) => [String(f.label).replace(/ \(.*\)$/, ''), w]), rows: rows.map((r) => cols.map((f) => val(f, r[f.k]))) } });
+    } else {
+      const rows = (sec.fields as Any[]).filter((f) => F.shown(f, d) && f.type !== 'check').map((f) => [String(f.label).replace(/ \(as in passport\)/, ''), val(f, d[f.k])]);
+      if (rows.length) blocks.push({ h: sec.title, box: rows });
+    }
+  }
+  const set = await L.settingsOf(ua.university_id);
+  const buf = await L.render({ uni: req.uni.toObject(), set, format: set.default_format || 1, badge: 'APPLICATION', title: 'Application Form',
+    refs: [['Date', fmtDate(istDate())], ...(ua.student_uni_id ? [['Student ID', ua.student_uni_id] as [string, string]] : []), ['Programme', course], ['Intake', intake || '-']],
+    to: [], studentName: fullName(s!), blocks, closing: 'Information provided by the applicant and verified documents shared with the application.', noSign: true });
+  res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `inline; filename="application-form-${a.application_code}.pdf"`); res.send(buf);
+}));
