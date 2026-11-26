@@ -8,6 +8,7 @@ import { UniCode, UniConsent, UniLoginAttempt } from '../models/Partner';
 import type { AuthRequest } from '../middleware/auth';
 import { loginLimiter, signupLimiter } from '../middleware/rateLimit';
 import { ipAllowed, uniToken } from '../middleware/university';
+import { invalidateUser } from '../services/access';
 import { HttpError, bad, clean, handle, istDate } from '../services/crm';
 import { issueCode, checkCode, maskEmail, CodeError } from '../services/authCodes';
 import { passwordProblem } from '../services/passwords';
@@ -41,6 +42,7 @@ export async function setPassword(su: IPortalAccount, pw: string) {
   if (su.password) su.pwHistory = [...(su.pwHistory ?? []), su.password].slice(-5);
   su.password = pw; su.passwordChangedAt = new Date();
   await su.save();
+  invalidateUser(String(su._id));
 }
 export const sendCode = async (su: IPortalAccount, purpose: 'login' | 'invite' | 'reset', subject: string) => {
   const otp = await issueCode({ accountId: su._id as never, email: String(su.email), purpose, app: 'partner',

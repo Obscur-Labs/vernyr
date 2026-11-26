@@ -24,6 +24,7 @@ import { scheduledReportsJob, qualityScan } from '../routes/consoleInsights';
 import { scanDuplicates } from '../routes/consolePeople';
 import { approvalItems } from '../routes/console';
 import type { AuthRequest } from '../middleware/auth';
+import { uniDaily, uniFrequent, uniRetention } from './uniJobs';
 
 /** Background jobs (legacy/server/jobs.js + admin5/jobs.js): reminders every minute, digests at 9 AM IST, nightly scans at 2 AM IST, hourly cleanup. */
 
@@ -220,4 +221,6 @@ export function startJobs() {
   every(60e3, 'announcements', async () => { await announcementJob(); await emailAlert(); });
   every(5 * 60e3, 'console daily', consoleDaily);
   every(3600e3, 'cleanup', cleanup);
+  every(60e3, 'university', uniFrequent);
+  every(5 * 60e3, 'university daily', async () => { await uniDaily(); await uniRetention(); });
 }

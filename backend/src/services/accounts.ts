@@ -20,9 +20,10 @@ export interface AccountRef {
   presetKey?: string;
   permissions?: unknown;
   passwordChangedAt?: Date;
+  sessionsEndedAt?: Date;
 }
 
-const SUMMARY_FIELDS = 'name role username email avatar isActive studentId universityName presetKey permissions passwordChangedAt';
+const SUMMARY_FIELDS = 'name role username email avatar isActive studentId universityName presetKey permissions passwordChangedAt sessionsEndedAt';
 
 const toRef = (doc: Record<string, unknown>, kind: AccountKind): AccountRef => ({
   kind,
@@ -38,6 +39,7 @@ const toRef = (doc: Record<string, unknown>, kind: AccountKind): AccountRef => (
   presetKey: doc.presetKey as string | undefined,
   permissions: doc.permissions,
   passwordChangedAt: doc.passwordChangedAt as Date | undefined,
+  sessionsEndedAt: doc.sessionsEndedAt as Date | undefined,
 });
 
 /* ── Lookup ────────────────────────────────────────────────────────────── */

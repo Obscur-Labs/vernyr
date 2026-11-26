@@ -197,6 +197,12 @@ async function main() {
   const dev = await api('/api/dev/users', {}, a.token);
   check('dev console is not mounted without ENABLE_DEV_ROUTES', dev.status === 404, 'status ' + dev.status);
 
+  // ── Signed out by an admin ─────────────────────────────────────────────────
+  await PortalAccount.updateOne({ _id: aliceLogin._id }, { sessionsEndedAt: new Date(Date.now() + 5000) });
+  require(ROOT + '/src/services/access').invalidateUser(String(aliceLogin._id));
+  const ended = await api('/api/auth/me', {}, a.token);
+  check('a token issued before "sign out" is refused', ended.status === 401, 'status ' + ended.status);
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
   await mongoose.connection.dropDatabase();

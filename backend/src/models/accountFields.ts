@@ -29,6 +29,8 @@ export interface AccountBase {
   lockedUntil?: Date;
   /** Tokens issued before this are refused (password reset logs out every session). */
   passwordChangedAt?: Date;
+  /** Tokens issued before this are refused (signed out by an admin, or "sign out other devices"). */
+  sessionsEndedAt?: Date;
   createdAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
 }
@@ -56,6 +58,7 @@ export const accountFields: SchemaDefinition = {
   failedLogins: { type: Number, default: 0 },
   lockedUntil: { type: Date },
   passwordChangedAt: { type: Date },
+  sessionsEndedAt: { type: Date },
 };
 
 /** Hashing, comparison and password-stripping, applied identically to both collections. */

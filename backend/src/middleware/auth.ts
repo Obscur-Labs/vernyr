@@ -37,6 +37,10 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       res.status(401).json({ message: 'Your password was changed. Please sign in again.' });
       return;
     }
+    if (principal.sessionsEndedAt && (decoded.iat ?? 0) * 1000 < new Date(principal.sessionsEndedAt).getTime() - 1000) {
+      res.status(401).json({ message: 'You were signed out. Please sign in again.' });
+      return;
+    }
     if (!principal.isActive) {
       res.status(403).json({ message: 'This account has been deactivated' });
       return;
