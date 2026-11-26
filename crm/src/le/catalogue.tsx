@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DEL, GET, POST, PUT, SEND, ApiError, download } from './api';
 import { M, useMeta } from './meta';
-import { ago, fmtDate, fmtDT, money, qs } from './format';
+import { ago, apiSrc, fmtDate, fmtDT, money, qs } from './format';
 import { FormGrid, Options, formModal, type Field, type Vals } from './form';
 import { Modal, confirmBox, openOverlay, showError, toast } from './ui';
 import { LEVELS } from './work/shortlist';
@@ -209,7 +209,7 @@ function LogoManager({ close }: { close: () => void }) {
       <div className="logo-grid">{!unis ? <div className="empty">Loading...</div> : rows.length ? rows.map((u) => (
         <div key={u.id} className="logo-item">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={u.logo} alt="" />
+          <img src={apiSrc(u.logo)} alt="" />
           <div className="grow" style={{ minWidth: 0 }}><div className="small" style={{ fontWeight: 600 }}>{u.name}</div><div className="small muted">{u.country || ''} · {u.courses} courses</div>
             <div className="row" style={{ gap: 4, marginTop: 4 }}><label className="btn xs">{u.has_logo ? 'Replace' : 'Upload'}<input type="file" accept=".png,.jpg,.jpeg" hidden onChange={(e) => one(u.id, e.target.files?.[0])} /></label>
               {u.has_logo ? <button className="btn xs ghost" onClick={async () => { try { await DEL(`/admin/universities/${u.id}/logo`); load(); } catch (e) { showError(e); } }}>Remove</button> : null}</div></div>

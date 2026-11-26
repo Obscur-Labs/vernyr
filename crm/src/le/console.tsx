@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import Link from 'next/link';
 import { GET, POST, PUT, ApiError, download } from './api';
 import { useMeta } from './meta';
-import { ago, fmtDate, fmtDT, qs } from './format';
+import { ago, apiSrc, fmtDate, fmtDT, qs } from './format';
 import { Options, formModal, type Field, type Vals } from './form';
 import { Modal, confirmBox, openOverlay, showError, toast } from './ui';
 
@@ -348,7 +348,7 @@ export function Universities() {
           {d.rows.map((u: Any) => (
             <tr key={u.id}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <td><div className="row" style={{ gap: 8 }}><img className="cs-logo" style={{ width: 32, height: 32 }} src={u.logo} alt="" /><b>{u.name}</b></div></td>
+              <td><div className="row" style={{ gap: 8 }}><img className="cs-logo" style={{ width: 32, height: 32 }} src={apiSrc(u.logo)} alt="" /><b>{u.name}</b></div></td>
               <td className="small">{u.country || ''} · {u.city || ''}</td><td><Pill s={u.portal_status} /></td><td><Pill s={u.agreement} c={u.agreement === 'Active' ? 'green' : u.agreement === 'Expiring soon' ? 'orange' : 'grey'} /></td>
               <td className="small">{u.partner_manager || '-'}</td><td className="right">{u.active_apps}</td><td className="right">{u.enrolled}</td>{d.finance ? <td className="small">{u.commission_due || '-'}</td> : null}
               <td className="small">{u.has_logo ? 'OK' : <span style={{ color: 'var(--error-ink)' }}>Missing</span>}{can('universities', 'edit') ? <> <button className="btn xs" title={u.logo_source_note || ''} onClick={note(u)}>Source note</button></> : null}</td>

@@ -4,7 +4,7 @@ import { Suspense, use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { GET } from '@/le/api';
-import { fmtDate, money, qs } from '@/le/format';
+import { apiSrc, fmtDate, money, qs } from '@/le/format';
 import { showError } from '@/le/ui';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -30,7 +30,7 @@ function Course({ id }: { id: string }) {
       <div className="card"><div className="bd">
         <div className="cs-hd">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="cs-logo lg" src={c.logo || c.university.logo || ''} alt="" width={72} height={72} />
+          <img className="cs-logo lg" src={apiSrc(c.logo || c.university.logo)} alt="" width={72} height={72} />
           <div className="grow" style={{ minWidth: 0 }}><div className="cs-uni" style={{ fontSize: 15 }}>{c.university.name}</div>
             <div className="small muted">{[c.city, c.country.name].filter(Boolean).join(', ')}{c.university.website ? <> · <a href={c.university.website} target="_blank" rel="noopener noreferrer">University website ↗</a></> : null}</div></div>
           <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{c.code ? <span className="badge blue mono">{c.code}</span> : null}

@@ -1,3 +1,4 @@
+import { apiOrigin } from '@/lib/config';
 // The client's formatting helpers (legacy/public/js/core.js). Every time is shown in IST.
 const TZ = 'Asia/Kolkata';
 
@@ -47,3 +48,5 @@ export const store = {
   get<T>(k: string, d: T): T { try { const v = localStorage.getItem('le:' + k); return v ? (JSON.parse(v) as T) : d; } catch { return d; } },
   set(k: string, v: unknown) { try { localStorage.setItem('le:' + k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
+/** a server path such as /api/logos/:id, made absolute against the API (the CRM is served from another origin) */
+export const apiSrc = (u?: string | null) => (u && u.startsWith('/api/') ? apiOrigin + u : u || '');

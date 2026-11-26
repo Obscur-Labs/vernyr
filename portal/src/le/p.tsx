@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { GET } from './api';
 import { useAuthStore } from '@/stores/authStore';
+import { apiOrigin } from '@/lib/config';
 
 /** Student portal core (legacy/public/portal/js/p.js): the signed-in student, text, eligibility and deadline helpers. */
 
@@ -50,3 +51,5 @@ export async function openLink(url?: string | null, name = 'file') {
   if (url.startsWith('/api/portal')) { const { download } = await import('./api'); const { showError } = await import('./ui'); await download(url.replace(/^\/api\/portal/, ''), name, true).catch(showError); return; }
   window.open(url, '_blank', 'noopener');
 }
+/** a server path such as /api/logos/:id, made absolute against the API (the portal is served from another origin) */
+export const apiSrc = (u?: string | null) => (u && u.startsWith('/api/') ? apiOrigin + u : u || '');

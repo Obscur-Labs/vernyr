@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GET, POST } from '@/le/api';
 import { M } from '@/le/meta';
-import { fmtDate, money, qs } from '@/le/format';
+import { apiSrc, fmtDate, money, qs } from '@/le/format';
 import { Options } from '@/le/form';
 import { Modal, openOverlay, showError, toast } from '@/le/ui';
 
@@ -45,7 +45,7 @@ function Card({ c, st, fo, onAdded }: { c: Any; st: Any; fo: Any; onAdded: () =>
   return (
     <div className="ccard">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <div className="ccard-hd"><img className="ccard-logo" src={c.university.logo || c.logo || ''} alt="" loading="lazy" width={46} height={46} /><div className="ccard-uni">{c.university.name}{c.city ? <small>{c.city}</small> : null}</div><span className="ccard-country">{c.country.name}</span></div>
+      <div className="ccard-hd"><img className="ccard-logo" src={apiSrc(c.university.logo || c.logo)} alt="" loading="lazy" width={46} height={46} /><div className="ccard-uni">{c.university.name}{c.city ? <small>{c.city}</small> : null}</div><span className="ccard-country">{c.country.name}</span></div>
       <h3 className="ccard-title"><Link href={link}>{c.name} ({c.level})</Link></h3>
       <div className="ccard-tags"><Elig e={c.eligibility} />{c.field ? <span className="badge">{c.field}</span> : null}{c.aps_required ? <span className="badge orange">APS</span> : null}{c.scholarship ? <span className="badge green">Scholarship</span> : null}</div>
       <div className="ccard-boxes">
