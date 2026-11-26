@@ -614,8 +614,60 @@ router.put('/privacy/nomination', h(async (req, res) => {
   await portalAudit(req, 'Create', 'Nomination', req.su._id, 'Nominee saved');
   res.json({ ok: true });
 }));
-// sharing an application with a partner university: the university portal is on hold, so there is nothing to consent to yet
-router.get('/share-consents', h(async (_req, res) => res.json({ rows: [], text: null, fields: [] })));
+// sharing an application with a partner university (SP26): the student gives, declines or withdraws consent per university
+async function shareConsentRows(c: Ctx) {
+  const s = c.student as Any; if (!s) return [];
+  const { default: University } = await import('../models/University');
+  const { ConsentRecord } = await import('../models/Portal');
+  const { ShareConsentRequest, UniversityApplication, UniDocShare } = await import('../models/Partner');
+  const active = await University.distinct('_id', { portal_status: 'Active' });
+  const out = [];
+  for (const a of (await Application.find({ student_id: s._id, is_deleted: false, university_id: { $in: active }, stage: { $nin: ['rejected', 'withdrawn', 'offer_declined'] } }).lean()) as Any[]) {
+    const u = (await University.findById(a.university_id).lean()) as Any;
+    const rec = (await ConsentRecord.findOne({ student_user_id: c.su._id, consent_type: 'share_with_university', university_id: a.university_id, $or: [{ application_id: a._id }, { application_id: null }] }).sort({ createdAt: -1 }).lean()) as Any;
+    const reqd = (await ShareConsentRequest.findOne({ student_id: s._id, university_id: a.university_id, status: 'Requested' }).sort({ requested_at: -1 }).lean()) as Any;
+    const ua = (await UniversityApplication.findOne({ application_id: a._id }).select('_id').lean()) as Any;
+    const docs: string[] = [];
+    if (ua) for (const sh of (await UniDocShare.find({ uapp_id: ua._id, status: { $nin: ['Revoked', 'Expired'] } }).lean()) as Any[]) {
+      const d = (await StudentDocument.findById(sh.document_id).select('title document_type_id').lean()) as Any;
+      docs.push(d?.title || ((await MasterItem.findById(d?.document_type_id).select('name').lean()) as Any)?.name || 'Document');
+    }
+    const name = async (m: { findById: (id: unknown) => any }, id: unknown) => (id ? ((await m.findById(id).select('name').lean()) as Any)?.name ?? null : null);
+    const { Intake } = await import('../models/Master'); const { default: Course } = await import('../models/Course');
+    out.push({ application_id: String(a._id), application_code: a.application_code, university_id: String(a.university_id), university: u.display_name || u.name, country: await name(Country, u.country_id),
+      course: a.course_name_text || (await name(Course, a.course_id)), intake: await name(Intake, a.intake_id),
+      status: rec ? (rec.value === 'yes' ? 'Given' : 'Withdrawn') : reqd ? 'Requested' : 'Not requested', at: rec ? rec.createdAt : reqd ? reqd.requested_at : null, submitted: !!ua, documents: docs,
+      contact_shared: !!u.share_contact, passport_full: !!u.share_passport });
+  }
+  return out;
+}
+router.get('/share-consents', h(async (req, res) => {
+  res.json({ rows: await shareConsentRows(req.c), text: await CONSENT.publicDoc('share_consent'),
+    fields: ['Name as in passport, gender, date of birth, nationality', 'Passport number (masked unless the university needs it for offer / visa letters) and expiry', 'City and state', 'Academic records and backlogs', 'English test results', 'Work experience', 'Only the documents your counsellor selects'] });
+}));
+router.post('/share-consents/:applicationId/:action', h(async (req, res) => {
+  const act = req.params.action; if (!['give', 'decline', 'withdraw'].includes(act)) throw notFound();
+  const row = (await shareConsentRows(req.c)).find((x) => x.application_id === req.params.applicationId); if (!row) throw notFound();
+  const b = req.body ?? {};
+  const minor = !!(((req.su.flags as Any)?.guardian) ?? (req.c.lead as Any)?.signup?.guardian);
+  if (act === 'give' && !b.confirm) throw bad('Please tick that you agree');
+  if (act === 'give' && minor && !b.guardian_confirm) throw bad('Your parent / guardian must also agree (you are under 18).');
+  await CONSENT.record(req, { suId: req.su._id, type: 'share_with_university', value: act === 'give', method: act === 'give' ? 'portal_popup_sp26' : act === 'decline' ? 'portal_declined' : 'portal_withdrawn',
+    extra: { university: row.university, country: row.country, application: row.application_code, guardian_confirmed: minor ? !!b.guardian_confirm : undefined }, universityId: row.university_id, applicationId: row.application_id });
+  const { ShareConsentRequest, UniversityApplication, UniDocShare } = await import('../models/Partner');
+  const s = req.c.student as Any;
+  await ShareConsentRequest.updateMany({ student_id: s._id, university_id: row.university_id, status: 'Requested' }, { status: act === 'give' ? 'Given' : 'Declined', answered_at: new Date(), method: 'portal' });
+  const verb = act === 'give' ? 'gave' : act === 'decline' ? 'declined' : 'withdrew';
+  if (s.primary_counsellor_id) await notify(s.primary_counsellor_id, 'university', `${fullName(s)} ${verb} consent to share the application with ${row.university}`, `/students/${s._id}/applications`);
+  if (act === 'withdraw') { // every document share of that university for this application is revoked (14.3)
+    const ua = (await UniversityApplication.findOne({ application_id: row.application_id }).select('_id').lean()) as Any;
+    if (ua) await UniDocShare.updateMany({ uapp_id: ua._id, status: { $nin: ['Revoked', 'Expired'] } }, { status: 'Revoked', revoked_reason: 'Student withdrew consent', revoked_at: new Date() });
+    await notifyAdmins('university', `${fullName(s)} withdrew sharing consent for ${row.university}: document access revoked, decide whether to withdraw the application`, `/students/${s._id}/applications`);
+    await studentTimeline(s._id, null, 'profile', `Student withdrew sharing consent for ${row.university}; university document access revoked`);
+  } else await studentTimeline(s._id, null, 'profile', `Student ${act === 'give' ? 'gave' : 'declined'} consent to share the application with ${row.university}`);
+  await portalAudit(req, 'Create', 'ConsentRecord', req.su._id, `share_with_university ${act} ${row.university}`);
+  res.json({ ok: true });
+}));
 
 // ---------- referrals ----------
 router.get('/referrals', h(async (req, res) => {

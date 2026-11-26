@@ -18,7 +18,7 @@ export const MasterItem = mongoose.model<IMasterItem>('MasterItem', MasterItemSc
 
 export interface ICountry extends Document {
   name: string; code?: string; currency: string; aps_required: boolean; dependant_visa: string; dependant_notes?: string;
-  channels: string[]; active: boolean; sort: number;
+  channels: string[]; active: boolean; sort: number; transfers_allowed: boolean;
 }
 const CountrySchema = new Schema<ICountry>({
   name: { type: String, required: true, unique: true, trim: true },
@@ -28,6 +28,8 @@ const CountrySchema = new Schema<ICountry>({
   dependant_visa: { type: String, default: 'Depends' },
   dependant_notes: String,
   channels: { type: [String], default: [] },
+  // DPDP Act: personal data may be sent to universities in this country (partner portal)
+  transfers_allowed: { type: Boolean, default: true },
   active: { type: Boolean, default: true },
   sort: { type: Number, default: 0 },
 }, { timestamps: true });

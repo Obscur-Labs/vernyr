@@ -126,7 +126,7 @@ Paths the API serves itself (`/api/logos/:id`, PDFs, `.ics`) need care: the apps
 - `scalar(req.query.x)` (`utils/query.ts`) and `oid()` before any query value lands in a filter.
 
 ```bash
-npm run test:security      # 40 checks; needs a local mongod, uses its own scratch db
+npm run test:security      # 42 checks; needs a local mongod, uses its own scratch db
 ```
 
 `backend/scripts/security-smoke.js` is the regression suite. Every check in it stands for a hole that was open in this codebase, so a failure is a return of one, not a style disagreement. Re-run it after any auth, permission or scoping change.

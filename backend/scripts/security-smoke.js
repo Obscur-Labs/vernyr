@@ -194,6 +194,10 @@ async function main() {
   check('a staff token is refused by the university portal', uStaff.status === 403, 'status ' + uStaff.status);
   const uFile = await api(`/api/university/file/s/${bobDoc._id}?u=${bobDoc._id}&exp=${Date.now() + 60000}&d=inline&sig=forged`);
   check('a forged university file link is refused', uFile.status === 403, 'status ' + uFile.status);
+  const uQueue = await api('/api/university-updates', {}, a.token);
+  check('a student token cannot read the university updates queue', refused(uQueue.status), 'status ' + uQueue.status);
+  const uAcc = await api('/api/admin/uni-accounts', {}, c.token);
+  check('a counsellor cannot open university accounts', uAcc.status === 403, 'status ' + uAcc.status);
   const dev = await api('/api/dev/users', {}, a.token);
   check('dev console is not mounted without ENABLE_DEV_ROUTES', dev.status === 404, 'status ' + dev.status);
 
