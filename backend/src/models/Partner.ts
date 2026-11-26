@@ -63,6 +63,20 @@ export const OfferLetter = model('OfferLetter', { uapp_id: uapp, application_id:
 export const ShareConsentRequest = model('ShareConsentRequest', { student_id: { ...ref('Student'), required: true, index: true }, university_id: uni, application_id: ref('Application'), status: { type: String, default: 'Requested' },
   requested_by: ref('User'), requested_at: Date, answered_at: Date, method: String, document_id: oidOf, reason: String }, false);
 
+/** a university's letterhead, signatory and bank details for the letters it generates (one row per university) */
+export const UniLetterSettings = model('UniLetterSettings', { university_id: { ...ref('University'), required: true, unique: true }, legal_name: String, address: String, phone: String, email: String, website: String, registration: String,
+  signatory_name: String, signatory_designation: String, accent: String, default_format: { type: Number, default: 1 }, contact_name: String, contact_designation: String, contact_email: String, contact_phone: String,
+  bank_name: String, bank_account_name: String, bank_account_no: String, bank_iban: String, bank_swift: String, bank_address: String, bank_note: String,
+  currency: { type: String, default: 'EUR' }, tuition_default: Number, deposit_default: Number, application_fee: Number, other_fees: { type: [{ _id: false, label: String, amount: Number }], default: [] },
+  offer_validity_days: { type: Number, default: 21 }, offer_terms: String, loa_note: String, footer_text: String,
+  logo: { url: String, public_id: String }, signature: { url: String, public_id: String }, stamp: { url: String, public_id: String } }, false);
+
+/** what a university sends straight to the student (Nov 2026), with a copy for La Europa */
+export const UniStudentItem = model('UniStudentItem', { uapp_id: uapp, application_id: ref('Application'), student_id: { ...ref('Student'), required: true, index: true }, university_id: uni,
+  kind: { type: String, required: true }, title: String, body: String, document_id: ref('StudentDocument'), version_id: oidOf, amount: Number, currency: String, due_date: String, ref_no: String, needs_acceptance: Boolean,
+  status: { type: String, default: 'Sent' }, viewed_at: Date, accepted_at: Date, accepted_name: String, accepted_ip: String, accepted_ua: String, sender_type: { type: String, required: true },
+  sender_account_id: ref('PortalAccount') }, false);
+
 // ---------- commission ----------
 export const CommissionRule = model('CommissionRule', { rule_code: String, university_id: uni, agreement_id: ref('PartnerAgreement'), name: { type: String, required: true }, scope: { type: String, default: 'all' }, scope_ids: [String],
   intakes: [String], valid_from: String, valid_to: String, basis: { type: String, required: true }, rate: Number, fixed_amount: Number, fixed_currency: String, due_event: { type: String, default: 'enrolled' }, due_days: Number,

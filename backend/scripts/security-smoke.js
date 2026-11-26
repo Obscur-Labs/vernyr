@@ -187,6 +187,13 @@ async function main() {
   check('an unknown invite token is not valid', inv && inv.valid === false);
   const ver = await json(await api('/api/legal/verify?id=SD-SMOKE-1'));
   check('the public document check shows initials, not the name', ver && ver.valid === true && !JSON.stringify(ver).includes('Alice'), JSON.stringify(ver || {}).slice(0, 80));
+  // ── University partner portal ──────────────────────────────────────────────
+  const uStudent = await api('/api/university/me', {}, a.token);
+  check('a student token is refused by the university portal', uStudent.status === 403, 'status ' + uStudent.status);
+  const uStaff = await api('/api/university/applications', {}, c.token);
+  check('a staff token is refused by the university portal', uStaff.status === 403, 'status ' + uStaff.status);
+  const uFile = await api(`/api/university/file/s/${bobDoc._id}?u=${bobDoc._id}&exp=${Date.now() + 60000}&d=inline&sig=forged`);
+  check('a forged university file link is refused', uFile.status === 403, 'status ' + uFile.status);
   const dev = await api('/api/dev/users', {}, a.token);
   check('dev console is not mounted without ENABLE_DEV_ROUTES', dev.status === 404, 'status ' + dev.status);
 

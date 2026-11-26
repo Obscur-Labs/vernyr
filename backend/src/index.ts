@@ -26,6 +26,12 @@ import rewardRoutes from "./routes/rewards";
 import invoiceRoutes from "./routes/invoices";
 import privacyRoutes from "./routes/privacy";
 import uniAuthRoutes from "./routes/uniAuth";
+import uniRoutes from "./routes/uni";
+import uniAppRoutes from "./routes/uniApps";
+import uniDocRoutes, { files as uniFileRoutes } from "./routes/uniDocs";
+import * as uniDirect from "./routes/uniDirect";
+import { router as uniLetterRoutes } from "./services/uniLetters";
+import { uniAuth } from "./middleware/university";
 import catalogueRoutes, { logoRoute } from "./routes/catalogue";
 import consoleRoutes from "./routes/console";
 import consoleMoneyRoutes from "./routes/consoleMoney";
@@ -106,8 +112,11 @@ app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/university/auth", uniAuthRoutes);
+app.use("/api/university", uniFileRoutes);
+app.use("/api/university", uniAuth, uniRoutes, uniAppRoutes, uniDocRoutes, uniDirect.uni, uniLetterRoutes);
+app.use("/api/university", (_req, res) => { res.status(404).json({ error: "Not found", message: "Not found" }); });
 app.use("/api/portal/auth", portalInviteRoutes);
-app.use("/api/portal", portalAuth, portalRoutes, portalAccountRoutes, portalModuleRoutes);
+app.use("/api/portal", portalAuth, portalRoutes, portalAccountRoutes, portalModuleRoutes, uniDirect.portal);
 
 // Unauthenticated developer console — never mounted in production, and the
 // router itself additionally rejects anything that is not loopback.
@@ -131,6 +140,7 @@ app.use("/api", workRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", counsellorRoutes);
 app.use("/api", portalStaffRoutes);
+app.use("/api", uniDirect.staff);
 app.use("/api", appointmentRoutes);
 app.use("/api", rewardRoutes);
 app.use("/api", invoiceRoutes);
