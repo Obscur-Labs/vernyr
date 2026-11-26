@@ -25,6 +25,7 @@ import appointmentRoutes from "./routes/appointments";
 import rewardRoutes from "./routes/rewards";
 import invoiceRoutes from "./routes/invoices";
 import privacyRoutes from "./routes/privacy";
+import uniAuthRoutes from "./routes/uniAuth";
 import catalogueRoutes, { logoRoute } from "./routes/catalogue";
 import consoleRoutes from "./routes/console";
 import consoleMoneyRoutes from "./routes/consoleMoney";
@@ -104,6 +105,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/access", accessRoutes);
+app.use("/api/university/auth", uniAuthRoutes);
 app.use("/api/portal/auth", portalInviteRoutes);
 app.use("/api/portal", portalAuth, portalRoutes, portalAccountRoutes, portalModuleRoutes);
 

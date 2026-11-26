@@ -17,7 +17,8 @@ export const REQUIRED = ['student_consent'];
 export const INCLUDED = ['constitution'];
 // La Europa's own texts, kept as markdown in backend/legal/; the file name carries the version
 const MD_DOCS: Record<string, string> = { student_consent: 'student-consent-declaration-v1.0.md', constitution: 'student-constitution-v3.0.md', web_privacy: 'privacy-policy-v1.0.md',
-  web_refund: 'refund-cancellation-policy-v1.0.md', web_cookies: 'cookie-storage-notice-v1.0.md' };
+  web_refund: 'refund-cancellation-policy-v1.0.md', web_cookies: 'cookie-storage-notice-v1.0.md',
+  uni_terms: 'uni-terms-v1.0.md', uni_dpa: 'uni-dpa-v1.0.md', share_consent: 'share-consent-v1.0.md' };
 const LEGAL_DIR = path.join(__dirname, '..', '..', 'legal');
 export const DUE_DAYS: Record<string, number> = { access: 30, portability: 30, correction: 30, erasure: 30, restriction: 30, objection: 30, withdraw_consent: 7, nomination: 30, grievance: 30,
   opt_out_sale: 15, limit_sensitive: 15, other: 30 };
