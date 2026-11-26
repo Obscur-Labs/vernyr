@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
@@ -18,6 +18,8 @@ function Login() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [otp, setOtp] = useState<{ id: string; masked: string } | null>(null);
+  const [standalone, setStandalone] = useState(true);
+  useEffect(() => { setStandalone(window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true); }, []);
 
   const done = (d: SignedIn) => { setAuth(d.user, d.token, d.studentId); router.push('/dashboard'); };
 
@@ -51,6 +53,7 @@ function Login() {
         </div>
         <button className="btn primary block" type="submit" style={{ marginTop: 10 }} disabled={busy}>{busy ? 'Logging in...' : 'Login'}</button>
         <p style={{ marginTop: 16, textAlign: 'center' }}>New to La Europa? <Link href="/register">Sign up</Link></p>
+        {standalone ? null : <Link className="get-app-link" href="/get-app">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/icon-maskable-192.png" alt="" width={28} height={28} /><span>Get the Vernyr app on your phone</span><span aria-hidden="true">›</span></Link>}
       </form>
     </AuthShell>
   );

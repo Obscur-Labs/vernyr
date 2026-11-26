@@ -45,7 +45,7 @@ export function Modal({ title, size = '', close, children, foot }: {
   );
 }
 
-export function confirmBox(message: React.ReactNode, o: { title?: string; ok?: string; cancel?: string; danger?: boolean; reason?: boolean; reasonLabel?: string } = {}) {
+export function confirmBox(message: React.ReactNode, o: { title?: string; ok?: string; cancel?: string; danger?: boolean; reason?: boolean; reasonLabel?: string; optional?: boolean } = {}) {
   return new Promise<boolean | string>((resolve) => {
     let done = false;
     const finish = (v: boolean | string) => { if (!done) { done = true; resolve(v); } };
@@ -56,7 +56,7 @@ function ConfirmBody({ message, o, close, finish }: { message: React.ReactNode; 
   const [reason, setReason] = useState('');
   const [err, setErr] = useState(false);
   const yes = () => {
-    if (o.reason) { if (!reason.trim()) { setErr(true); return; } finish(reason.trim()); }
+    if (o.reason) { if (!reason.trim()) { if (o.optional) { finish(true); return; } setErr(true); return; } finish(reason.trim()); }
     else finish(true);
     close();
   };
@@ -68,7 +68,7 @@ function ConfirmBody({ message, o, close, finish }: { message: React.ReactNode; 
       <p style={{ marginTop: 0 }}>{message}</p>
       {o.reason ? (
         <div className={`f c6${err ? ' err' : ''}`}>
-          <label>{o.reasonLabel ?? 'Reason'}<span className="req">*</span></label>
+          <label>{o.reasonLabel ?? 'Reason'}{o.optional ? null : <span className="req">*</span>}</label>
           <textarea rows={3} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} />
           <div className="msg">{err ? 'Required' : ''}</div>
         </div>

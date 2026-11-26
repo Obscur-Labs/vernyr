@@ -8,7 +8,7 @@ export class ApiError extends Error {
 }
 let onConsent: (() => void) | null = null;
 export const setConsentHandler = (fn: () => void) => { onConsent = fn; };
-const P = (u: string) => (/^\/(auth|legal)\b/.test(u) ? u : '/portal' + u);
+const P = (u: string) => (/^\/(auth|legal|portal)\b/.test(u) ? u : '/portal' + u);
 const fail = (err: unknown) => {
   const r = (err as { response?: { status: number; data: Record<string, unknown> } }).response;
   const e = new ApiError(r?.status ?? 0, (r?.data && typeof r.data === 'object' ? r.data : null) ?? { error: 'Network error. Please check your connection.' });

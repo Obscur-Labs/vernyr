@@ -30,8 +30,8 @@ export function ApplicationsList() {
   const offers = (a: Any) => ['conditional_offer', 'unconditional_offer', 'offer_accepted'].includes(a.stage);
   const apps = d.applications.filter((a: Any) => (f === 'closed' ? closed(a) : f === 'offers' ? offers(a) : !closed(a)));
   const cancel = async (id: string) => {
-    const r = await confirmBox(t('Cancel this request?'), { reason: true, reasonLabel: t('Reason (optional)'), ok: t('Yes, cancel'), cancel: t('No') });
-    if (r) { try { await POST(`/application-requests/${id}/cancel`, { reason: r }); toast(t('Request cancelled'), 'ok'); load(); } catch (e) { showError(e); } }
+    const r = await confirmBox(t('Cancel this request?'), { reason: true, optional: true, reasonLabel: t('Reason (optional)'), ok: t('Yes, cancel'), cancel: t('No') });
+    if (r) { try { await POST(`/application-requests/${id}/cancel`, { reason: typeof r === 'string' ? r : '' }); toast(t('Request cancelled'), 'ok'); load(); } catch (e) { showError(e); } }
   };
   return (
     <>
@@ -138,7 +138,7 @@ export function ApplicationDetail({ id }: { id: string }) {
   const ask = () => openChatWith('application', a.id, `${a.code}: ${a.course}`);
   const cases = (visa?.cases ?? []).filter((v: Any) => v.application_id === a.id);
   const decline = async () => {
-    const r = await confirmBox(`${t('Decline the offer from')} ${a.university}? ${t('The application will close as “Offer declined by student” and your counsellor will be told.')}`, { reason: true, reasonLabel: t('Reason (optional)'), ok: t('Decline offer'), cancel: t('Back'), danger: true });
+    const r = await confirmBox(`${t('Decline the offer from')} ${a.university}? ${t('The application will close as “Offer declined by student” and your counsellor will be told.')}`, { reason: true, optional: true, reasonLabel: t('Reason (optional)'), ok: t('Decline offer'), cancel: t('Back'), danger: true });
     if (r) { try { await POST(`/applications/${a.id}/decline-offer`, { confirm: true, reason: typeof r === 'string' ? r : '' }); toast(t('The offer was declined.'), 'ok'); load(); } catch (e) { showError(e); } }
   };
   const undo = async () => { if (await confirmBox(t('Undo your offer acceptance?'))) { try { await POST(`/applications/${a.id}/undo-accept`); load(); } catch (e) { showError(e); } } };

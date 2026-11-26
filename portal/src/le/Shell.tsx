@@ -12,6 +12,7 @@ import { ago, initials } from './format';
 import { Gate } from './Gate';
 import { local, logout, t, usePMe, type Any } from './p';
 import './install';
+import { AppNudge } from './getapp';
 
 /** The client's student portal shell (legacy/public/portal/js/main.js shell, bell, userMenu, timers, consent gate). */
 
@@ -143,6 +144,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {installAsk ? <div className="idle-banner"><span>{t('Add La Europa to your home screen for quick access.')}</span>
         <button className="btn accent sm" onClick={async () => { const { promptInstall } = await import('./install'); promptInstall(); setInstallAsk(false); }}>{t('Install')}</button>
         <button className="btn sm ghost" style={{ color: 'var(--white)' }} aria-label="Close" onClick={() => setInstallAsk(false)}>✕</button></div> : null}
+      {needGate ? null : <AppNudge />}
       <UiHost />
     </div>
   );
